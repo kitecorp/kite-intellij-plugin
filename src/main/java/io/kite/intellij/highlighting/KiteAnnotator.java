@@ -87,6 +87,13 @@ public class KiteAnnotator implements Annotator {
                 isType = true;
             }
         }
+        // Schema property type: line starts with whitespace, identifier is followed by another identifier
+        else if (beforeElement.matches("^\\s*$") || beforeElement.matches(".*[\\{\\n]\\s*$")) {
+            // It's a type if followed by another identifier (the property name)
+            if (afterElement.matches("^\\s+[a-zA-Z_][a-zA-Z0-9_]*.*")) {
+                isType = true;
+            }
+        }
 
         if (isType) {
             holder.newSilentAnnotation(HighlightSeverity.INFORMATION)

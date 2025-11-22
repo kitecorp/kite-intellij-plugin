@@ -85,9 +85,13 @@ public class KiteSyntaxHighlighter extends SyntaxHighlighterBase {
                 tokenType == KiteTokenTypes.VAR || tokenType == KiteTokenTypes.TYPE ||
                 tokenType == KiteTokenTypes.INIT || tokenType == KiteTokenTypes.THIS ||
                 tokenType == KiteTokenTypes.OBJECT || tokenType == KiteTokenTypes.ANY ||
-                tokenType == KiteTokenTypes.TRUE || tokenType == KiteTokenTypes.FALSE ||
                 tokenType == KiteTokenTypes.NULL) {
             return KEYWORD_KEYS;
+        }
+
+        // Boolean literals - same color as numbers
+        if (tokenType == KiteTokenTypes.TRUE || tokenType == KiteTokenTypes.FALSE) {
+            return NUMBER_KEYS;
         }
 
         // String
