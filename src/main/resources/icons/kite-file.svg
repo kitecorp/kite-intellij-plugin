@@ -9,9 +9,9 @@
         stroke-linejoin="round"
         stroke-linecap="round"/>
 
-  <!-- Right half (medium blue) -->
+  <!-- Right half (lighter blue) -->
   <path d="M 8 8 L 13.5 7 L 8 14 Z"
-        fill="#3498DB"
+        fill="#5DADE2"
         stroke="#2874A6"
         stroke-width="0.5"
         stroke-linejoin="round"
