@@ -24,7 +24,7 @@ public class KiteAnnotator implements Annotator {
     // Type color - nice blue
     public static final TextAttributesKey TYPE_NAME =
             createTextAttributesKey("KITE_TYPE_NAME",
-                    new TextAttributes(JBColor.namedColor("Kite.typeName", new Color(0x4EC9B0)),
+                    new TextAttributes(JBColor.namedColor("Kite.typeName", new Color(0x3b82f6)),
                             null, null, null, Font.PLAIN));
 
     @Override
@@ -36,16 +36,12 @@ public class KiteAnnotator implements Annotator {
             return;
         }
 
-        // Find the previous meaningful (non-whitespace) element
-        PsiElement prev = findPreviousNonWhitespace(element);
-        if (prev == null) {
-            return;
-        }
-
-        IElementType prevType = prev.getNode().getElementType();
+        // Get the line of text containing this element
+        String line = getLineText(element);
+        String beforeElement = getTextBeforeInLine(element, line);
 
         // Check if this identifier is a decorator name (comes after @)
-        if (prevType == KiteTokenTypes.AT) {
+        if (beforeElement.matches(".*@\\s*$")) {
             holder.newSilentAnnotation(HighlightSeverity.INFORMATION)
                     .range(element)
                     .textAttributes(KiteSyntaxHighlighter.DECORATOR)
@@ -54,12 +50,9 @@ public class KiteAnnotator implements Annotator {
         }
 
         // Check if this identifier is a type (comes after type-expecting keywords)
-        if (prevType == KiteTokenTypes.INPUT ||
-            prevType == KiteTokenTypes.OUTPUT ||
-            prevType == KiteTokenTypes.VAR ||
-            prevType == KiteTokenTypes.COMPONENT ||
-            prevType == KiteTokenTypes.RESOURCE ||
-            prevType == KiteTokenTypes.COLON) {
+        // Match patterns like: "input ", "output ", "var ", "component ", "resource ", ": "
+        if (beforeElement.matches(".*(^|\\s)(input|output|var|component|resource)\\s+$") ||
+            beforeElement.matches(".*:\\s*$")) {
             holder.newSilentAnnotation(HighlightSeverity.INFORMATION)
                     .range(element)
                     .textAttributes(TYPE_NAME)
@@ -67,24 +60,35 @@ public class KiteAnnotator implements Annotator {
         }
     }
 
-    private PsiElement findPreviousNonWhitespace(PsiElement element) {
-        PsiElement current = element.getPrevSibling();
+    private String getLineText(PsiElement element) {
+        int offset = element.getTextRange().getStartOffset();
+        String fileText = element.getContainingFile().getText();
 
-        while (current != null) {
-            IElementType type = current.getNode().getElementType();
-
-            // Skip whitespace, newlines, and comments
-            if (type != KiteTokenTypes.WHITESPACE &&
-                type != KiteTokenTypes.NL &&
-                type != KiteTokenTypes.NEWLINE &&
-                type != KiteTokenTypes.LINE_COMMENT &&
-                type != KiteTokenTypes.BLOCK_COMMENT) {
-                return current;
-            }
-
-            current = current.getPrevSibling();
+        // Find start of line
+        int lineStart = offset;
+        while (lineStart > 0 && fileText.charAt(lineStart - 1) != '\n') {
+            lineStart--;
         }
 
-        return null;
+        // Find end of line
+        int lineEnd = offset;
+        while (lineEnd < fileText.length() && fileText.charAt(lineEnd) != '\n') {
+            lineEnd++;
+        }
+
+        return fileText.substring(lineStart, lineEnd);
+    }
+
+    private String getTextBeforeInLine(PsiElement element, String line) {
+        int offset = element.getTextRange().getStartOffset();
+        String fileText = element.getContainingFile().getText();
+
+        // Find start of line
+        int lineStart = offset;
+        while (lineStart > 0 && fileText.charAt(lineStart - 1) != '\n') {
+            lineStart--;
+        }
+
+        return fileText.substring(lineStart, offset);
     }
 }
