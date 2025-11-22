@@ -41,3 +41,28 @@ Custom circular icons with centered letters for each Kite language construct typ
 2. `KiteStructureViewElement.java` - Integration with Structure View
    - `getIconForElement()` - Maps element types to icons
    - `getPresentation()` - Wraps presentations to inject custom icons
+
+## Comment/Uncomment Actions
+
+### Overview
+Support for toggling line and block comments using standard IDE keyboard shortcuts (Cmd+/ or Ctrl+/).
+
+### Implementation
+- **File**: `src/main/java/io/kite/intellij/KiteCommenter.java`
+- **Registration**: Registered in `plugin.xml` as `lang.commenter` extension
+
+### Comment Syntax
+- **Line comments**: `//` - Comments from `//` to end of line
+- **Block comments**: `/* */` - Multi-line comments
+
+### Features
+- Toggle line comment with Cmd+/ (Mac) or Ctrl+/ (Windows/Linux)
+- Toggle block comment with Cmd+Shift+/ (Mac) or Ctrl+Shift+/ (Windows/Linux)
+- Works on single lines or multiple selected lines
+- Automatically handles indentation
+
+### Implementation Details
+Implements the `com.intellij.lang.Commenter` interface with:
+- `getLineCommentPrefix()` - Returns "//"
+- `getBlockCommentPrefix()` - Returns "/*"
+- `getBlockCommentSuffix()` - Returns "*/"
