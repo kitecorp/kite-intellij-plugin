@@ -72,6 +72,21 @@ public class KiteAnnotator implements Annotator {
                 isType = true;
             }
         }
+        // After opening paren or comma (function parameters), check if followed by identifier
+        else if (beforeElement.matches(".*[\\(,]\\s*$")) {
+            // It's a type if followed by another identifier (not , or ))
+            if (afterElement.matches("^\\s+[a-zA-Z_][a-zA-Z0-9_]*.*") &&
+                !afterElement.matches("^\\s*[,\\)].*")) {
+                isType = true;
+            }
+        }
+        // After closing paren (return type), check if before opening brace
+        else if (beforeElement.matches(".*\\)\\s*$")) {
+            // It's a return type if followed by { or another identifier (for dotted types)
+            if (afterElement.matches("^\\s*[\\{].*") || afterElement.matches("^\\s*\\..*")) {
+                isType = true;
+            }
+        }
 
         if (isType) {
             holder.newSilentAnnotation(HighlightSeverity.INFORMATION)

@@ -16,7 +16,7 @@ resource S3.Bucket photos {
   region = "us-east-1"
 }
 
-fun calculateCost(number instances) number {
+fun calculateCost(number instances, string name) number {
   var baseCost = 0.10
   return instances * baseCost
 }
