@@ -14,12 +14,12 @@ public class KiteStructureViewIcons {
     private static final int ICON_SIZE = 16;
     private static final int BORDER_WIDTH = 1;
 
-    public static final Icon RESOURCE = createIcon('R', new Color(176, 60, 255));
+    public static final Icon RESOURCE = createIcon('R', new Color(177, 80, 243));
     public static final Icon COMPONENT = createIcon('C', new Color(33, 150, 243));
     public static final Icon SCHEMA = createIcon('S', new Color(94, 176, 39));
     public static final Icon FUNCTION = createIcon('F', new Color(255, 152, 0));
     public static final Icon TYPE = createIcon('T', new Color(54, 120, 244));
-    public static final Icon VARIABLE = createIcon('V', new Color(129, 55, 255));
+    public static final Icon VARIABLE = createIcon('V', new Color(155, 101, 246));
     public static final Icon INPUT = createIcon('I', new Color(255, 193, 7));
     public static final Icon OUTPUT = createIcon('O', new Color(255, 193, 7));
     public static final Icon IMPORT = createIcon('M', new Color(119, 78, 44));
