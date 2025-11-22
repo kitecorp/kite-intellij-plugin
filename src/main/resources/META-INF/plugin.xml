@@ -44,5 +44,16 @@
                   fieldName="INSTANCE"
                   language="Kite"
                   extensions="kite"/>
+
+        <!-- Parser definition -->
+        <lang.parserDefinition language="Kite"
+                               implementationClass="io.kite.intellij.parser.KiteParserDefinition"/>
+
+        <!-- Syntax highlighter -->
+        <lang.syntaxHighlighterFactory language="Kite"
+                                       implementationClass="io.kite.intellij.highlighting.KiteSyntaxHighlighterFactory"/>
+
+        <!-- Color settings page -->
+        <colorSettingsPage implementation="io.kite.intellij.highlighting.KiteColorSettingsPage"/>
     </extensions>
 </idea-plugin>

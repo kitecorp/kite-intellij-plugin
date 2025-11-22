@@ -1,13 +1,19 @@
 plugins {
     id 'java'
     id 'org.jetbrains.intellij' version '1.17.4'
+    id 'antlr'
 }
 
 group = 'io.kite'
-version = '0.1.0-SNAPSHOT'
+version = '0.1.0'
 
 repositories {
     mavenCentral()
+}
+
+dependencies {
+    antlr 'org.antlr:antlr4:4.13.1'
+    implementation 'org.antlr:antlr4-runtime:4.13.1'
 }
 
 // Configure Gradle IntelliJ Plugin
@@ -19,14 +25,38 @@ intellij {
 }
 
 // Configure Java
+// Use Java 21 toolchain but compile to Java 17 bytecode for IDE compatibility
 java {
-    sourceCompatibility = JavaVersion.VERSION_21
-    targetCompatibility = JavaVersion.VERSION_21
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
+
+// Configure ANTLR
+generateGrammarSource {
+    maxHeapSize = "64m"
+    arguments += ['-package', 'io.kite.intellij.parser', '-visitor', '-no-listener']
+    outputDirectory = file("${project.buildDir}/generated-src/antlr/main/io/kite/intellij/parser")
+}
+
+// Make sure ANTLR runs before compileJava
+tasks.named('compileJava') {
+    dependsOn generateGrammarSource
+}
+
+// Add generated sources to source sets
+sourceSets {
+    main {
+        java {
+            srcDir "${project.buildDir}/generated-src/antlr/main"
+        }
+    }
 }
 
 // Configure tasks
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'
+    options.release = 17  // Compile to Java 17 bytecode for IDE compatibility
 }
 
 tasks.named('patchPluginXml') {

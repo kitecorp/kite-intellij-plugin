@@ -1,0 +1,24 @@
+// Component example with inputs and outputs
+component WebServer api {
+  input number port = 8080
+  input string size = "t2.micro"
+
+  resource VM.Instance server {
+    size = size
+    tags = {
+      Name: "web-server",
+      Environment: "production"
+    }
+  }
+
+  resource SecurityGroup firewall {
+    ingress = [
+      {port: port, protocol: "tcp"}
+    ]
+  }
+
+  output string endpoint = server.publicIp
+  output string instanceId = server.id
+}
+
+var api = WebServer(port: 3000, size: "t2.small")

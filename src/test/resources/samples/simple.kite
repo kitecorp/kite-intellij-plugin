@@ -1,0 +1,22 @@
+// Simple Kite example
+import * from "common.kite"
+
+type Environment = "dev" | "staging" | "prod"
+
+schema DatabaseConfig {
+  string host
+  number port = 5432
+  boolean ssl = true
+}
+
+@provisionOn(["aws"])
+@tags({Environment: "production", Team: "platform"})
+resource S3.Bucket photos {
+  name = "my-photos-bucket"
+  region = "us-east-1"
+}
+
+fun calculateCost(number instances) number {
+  var baseCost = 0.10
+  return instances * baseCost
+}
