@@ -3,14 +3,12 @@ package io.kite.intellij.highlighting;
 import com.intellij.lang.annotation.AnnotationHolder;
 import com.intellij.lang.annotation.Annotator;
 import com.intellij.lang.annotation.HighlightSeverity;
-import com.intellij.openapi.editor.DefaultLanguageHighlighterColors;
 import com.intellij.openapi.editor.colors.TextAttributesKey;
 import com.intellij.openapi.editor.markup.TextAttributes;
 import com.intellij.psi.PsiElement;
 import com.intellij.psi.tree.IElementType;
 import com.intellij.ui.JBColor;
 import io.kite.intellij.psi.KiteTokenTypes;
-import org.antlr.v4.runtime.tree.ParseTree;
 import org.jetbrains.annotations.NotNull;
 
 import java.awt.*;
@@ -38,12 +36,16 @@ public class KiteAnnotator implements Annotator {
             return;
         }
 
-        // Get text before this element to determine context
-        String textBefore = getTextBefore(element, 30);
+        // Find the previous meaningful (non-whitespace) element
+        PsiElement prev = findPreviousNonWhitespace(element);
+        if (prev == null) {
+            return;
+        }
+
+        IElementType prevType = prev.getNode().getElementType();
 
         // Check if this identifier is a decorator name (comes after @)
-        // Match @ with optional whitespace before the identifier
-        if (textBefore.trim().endsWith("@") || textBefore.matches(".*@\\s+$")) {
+        if (prevType == KiteTokenTypes.AT) {
             holder.newSilentAnnotation(HighlightSeverity.INFORMATION)
                     .range(element)
                     .textAttributes(KiteSyntaxHighlighter.DECORATOR)
@@ -52,8 +54,12 @@ public class KiteAnnotator implements Annotator {
         }
 
         // Check if this identifier is a type (comes after type-expecting keywords)
-        // Match: input/output/var/component/resource followed by whitespace
-        if (textBefore.matches(".*(input|output|var|component|resource|:)\\s+$")) {
+        if (prevType == KiteTokenTypes.INPUT ||
+            prevType == KiteTokenTypes.OUTPUT ||
+            prevType == KiteTokenTypes.VAR ||
+            prevType == KiteTokenTypes.COMPONENT ||
+            prevType == KiteTokenTypes.RESOURCE ||
+            prevType == KiteTokenTypes.COLON) {
             holder.newSilentAnnotation(HighlightSeverity.INFORMATION)
                     .range(element)
                     .textAttributes(TYPE_NAME)
@@ -61,9 +67,24 @@ public class KiteAnnotator implements Annotator {
         }
     }
 
-    private String getTextBefore(PsiElement element, int maxLength) {
-        int startOffset = Math.max(0, element.getTextRange().getStartOffset() - maxLength);
-        int endOffset = element.getTextRange().getStartOffset();
-        return element.getContainingFile().getText().substring(startOffset, endOffset);
+    private PsiElement findPreviousNonWhitespace(PsiElement element) {
+        PsiElement current = element.getPrevSibling();
+
+        while (current != null) {
+            IElementType type = current.getNode().getElementType();
+
+            // Skip whitespace, newlines, and comments
+            if (type != KiteTokenTypes.WHITESPACE &&
+                type != KiteTokenTypes.NL &&
+                type != KiteTokenTypes.NEWLINE &&
+                type != KiteTokenTypes.LINE_COMMENT &&
+                type != KiteTokenTypes.BLOCK_COMMENT) {
+                return current;
+            }
+
+            current = current.getPrevSibling();
+        }
+
+        return null;
     }
 }
