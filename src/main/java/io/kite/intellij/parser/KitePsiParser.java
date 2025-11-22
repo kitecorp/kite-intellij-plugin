@@ -62,26 +62,28 @@ public class KitePsiParser implements PsiParser {
     private void parseDeclaration(PsiBuilder builder, IElementType elementType) {
         PsiBuilder.Marker marker = builder.mark();
 
-        // Consume tokens until we find the end of this declaration
-        // For simplicity, we'll consume until we find a block end or statement separator
-        int braceDepth = 0;
-        boolean foundBlock = false;
+        // Check if this declaration can have nested content (component, schema, resource)
+        boolean canHaveNestedDeclarations = elementType == KiteElementTypes.COMPONENT_DECLARATION ||
+                                           elementType == KiteElementTypes.SCHEMA_DECLARATION ||
+                                           elementType == KiteElementTypes.RESOURCE_DECLARATION;
 
+        // Consume tokens until we find a block
         while (!builder.eof()) {
             IElementType tokenType = builder.getTokenType();
 
             if (tokenType == KiteTokenTypes.LBRACE) {
-                braceDepth++;
-                foundBlock = true;
+                // Found opening brace
                 builder.advanceLexer();
-            } else if (tokenType == KiteTokenTypes.RBRACE) {
-                braceDepth--;
-                builder.advanceLexer();
-                if (braceDepth == 0 && foundBlock) {
-                    // End of declaration block
-                    break;
+
+                if (canHaveNestedDeclarations) {
+                    // Parse nested declarations
+                    parseBlockContent(builder);
+                } else {
+                    // Just consume until closing brace for functions, etc.
+                    consumeUntilClosingBrace(builder);
                 }
-            } else if (braceDepth == 0 && (tokenType == KiteTokenTypes.NEWLINE || tokenType == KiteTokenTypes.SEMICOLON)) {
+                break;
+            } else if (tokenType == KiteTokenTypes.NEWLINE || tokenType == KiteTokenTypes.SEMICOLON) {
                 // End of single-line declaration (like type or import)
                 builder.advanceLexer();
                 break;
@@ -91,6 +93,57 @@ public class KitePsiParser implements PsiParser {
         }
 
         marker.done(elementType);
+    }
+
+    private void parseBlockContent(PsiBuilder builder) {
+        while (!builder.eof()) {
+            // Skip whitespace and comments
+            while (!builder.eof() && isSkippableToken(builder.getTokenType())) {
+                builder.advanceLexer();
+            }
+
+            if (builder.eof()) break;
+
+            IElementType tokenType = builder.getTokenType();
+
+            // Check for closing brace
+            if (tokenType == KiteTokenTypes.RBRACE) {
+                builder.advanceLexer();
+                break;
+            }
+
+            // Check for nested declaration keywords
+            if (tokenType == KiteTokenTypes.RESOURCE) {
+                parseDeclaration(builder, KiteElementTypes.RESOURCE_DECLARATION);
+            } else if (tokenType == KiteTokenTypes.INPUT) {
+                parseDeclaration(builder, KiteElementTypes.VARIABLE_DECLARATION);  // Treat input as variable
+            } else if (tokenType == KiteTokenTypes.OUTPUT) {
+                parseDeclaration(builder, KiteElementTypes.VARIABLE_DECLARATION);  // Treat output as variable
+            } else if (tokenType == KiteTokenTypes.VAR) {
+                parseDeclaration(builder, KiteElementTypes.VARIABLE_DECLARATION);
+            } else if (tokenType == KiteTokenTypes.FUN) {
+                parseDeclaration(builder, KiteElementTypes.FUNCTION_DECLARATION);
+            } else {
+                // Unknown token, just advance
+                builder.advanceLexer();
+            }
+        }
+    }
+
+    private void consumeUntilClosingBrace(PsiBuilder builder) {
+        int braceDepth = 1;  // We already consumed the opening brace
+
+        while (!builder.eof() && braceDepth > 0) {
+            IElementType tokenType = builder.getTokenType();
+
+            if (tokenType == KiteTokenTypes.LBRACE) {
+                braceDepth++;
+            } else if (tokenType == KiteTokenTypes.RBRACE) {
+                braceDepth--;
+            }
+
+            builder.advanceLexer();
+        }
     }
 
     private boolean isSkippableToken(IElementType tokenType) {
