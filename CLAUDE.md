@@ -1,376 +1,43 @@
-# CLAUDE.md
-
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
-
-## Project Overview
-
-This is an IntelliJ IDEA plugin for **Kite**, an Infrastructure as Code (IaC) programming language designed as an alternative to Terraform.
-
-**Kite Language Overview:**
-- Developed by EchoStream SRL (Romania)
-- Uses ANTLR4 for parsing (grammar: `Kite.g4`)
-- Multi-cloud provisioning (AWS, Azure, GCP)
-- File extension: `.kite`
-- Two-phase execution model (evaluation → execution, similar to Terraform's plan → apply)
-
-## Kite Language Reference
-
-### Key Language Constructs
-
-The plugin needs to support these primary language features:
-
-**Resource Declarations** - Infrastructure resource definitions
-```kite
-@provisionOn(["aws"])
-resource S3.Bucket photos {
-  name = "my-photos-bucket"
-  region = "us-east-1"
-}
-```
-
-**Component Declarations** - Collections of resources with inputs/outputs
-```kite
-component WebServer api {
-  input number port = 8080
-  resource VM.Instance server {
-    size = "t2.micro"
-  }
-  output string endpoint = server.publicIp
-}
-```
-
-**Schema Declarations** - Type definitions for structured data
-```kite
-schema DatabaseConfig {
-  string host
-  number port = 5432
-  boolean ssl = true
-}
-```
-
-**Type Declarations** - Union types and type aliases
-```kite
-type Environment = "dev" | "staging" | "prod"
-type Status = "active" | "inactive" | "pending"
-```
-
-**Function Declarations** - First-class functions with type signatures
-```kite
-fun add(number x, number y) number {
-  return x + y
-}
-
-// Function types: (param1Type, param2Type) -> returnType
-type MathOp = (number, number) -> number
-```
-
-**Decorators** - 15 built-in decorators for validation and metadata
-```kite
-@existing        // Reference existing cloud resources
-@sensitive       // Mark sensitive data
-@dependsOn([resources])
-@tags({key: value})
-@provisionOn(["aws", "azure"])
-@minValue(n), @maxValue(n)
-@minLength(n), @maxLength(n)
-@validate(regex: "pattern")
-@allowed([values])
-@unique
-@nonEmpty
-@description("text")
-@count(n)
-```
-
-**Import Statements** - File-based code reuse
-```kite
-import * from "stdlib.kite"
-```
-
-**Control Flow** - Blocks required (no braceless if/while)
-```kite
-// Valid - both with/without parens
-if (condition) { doSomething() }
-if condition { doSomething() }
-
-while (condition) { body }
-while condition { body }
-
-for i in 0..10 { console.log(i) }
-```
-
-**Array Comprehensions** - Three distinct forms
-```kite
-// Form 1: Compact
-[for i in 0..10: i * 2]
-
-// Form 2: Block (resource generation)
-[for env in environments]
-resource Bucket photos {
-  name = "photos-${env}"
-}
-
-// Form 3: Standalone loop
-for i in 0..10 { console.log(i) }
-```
-
-### Language Syntax Rules
-
-**Statement Separators**: Newlines (`\n`) OR semicolons (`;`) are interchangeable everywhere
-```kite
-var x = 1; var y = 2    // Semicolons
-var x = 1
-var y = 2               // Newlines
-```
-
-**Object Literals**: Use colons for properties, commas required between properties, trailing commas allowed
-```kite
-var config = {
-  env: "production",
-  port: 8080,
-  type: "web",      // Keywords allowed as property names
-  features: {
-    auth: true,
-  },  // Trailing comma OK
-}
-```
-
-**Keywords as Property Names**: Reserved words can be object keys (e.g., `type`, `for`, `if`)
-
-**Unary Operators**: Prefix and postfix increment/decrement
-```kite
-++x  // Prefix
-x++  // Postfix
---x, x--
-```
-
-### Type System
-
-- Strong typing with type inference
-- Union types: `type Status = "active" | "inactive"`
-- Array types: `[number]`, `[string][]` (multi-dimensional)
-- Object types: `object`, `{}`, `object({})`
-- Function types: `(number, string) -> boolean`
-- Type keywords: `object`, `any`, `number`, `string`, `boolean`, `null`
-
-**Union Type Normalization**: Union types deduplicate by type kind, not literal values
-- `type Numbers = 1 | 2 | 3` → normalizes to `number`
-- `type Mixed = 1 | "hello" | true` → `boolean | number | string` (alphabetically sorted)
-
-### Grammar Location
-
-The ANTLR4 grammar is located in the Kite language project:
-- **Grammar file**: `../kite/lang/src/main/antlr/Kite.g4`
-- **Generated parser**: `../kite/lang/build/generated-src/antlr/main/io/kite/syntax/ast/generated/`
-
-The plugin should reference this grammar for syntax highlighting, code completion, and PSI structure.
-
-## Build System
-
-This project uses Gradle with the IntelliJ Platform Gradle Plugin. Common commands:
-
-```bash
-# Build the plugin
-./gradlew build
-
-# Run the plugin in a sandboxed IDE instance
-./gradlew runIde
-
-# Run tests
-./gradlew test
-
-# Verify plugin compatibility
-./gradlew verifyPlugin
-
-# Build plugin distribution
-./gradlew buildPlugin
-```
-
-The built plugin ZIP will be in `build/distributions/`.
-
-## Plugin Development
-
-### Plugin Descriptor
-
-The plugin configuration is defined in `src/main/resources/META-INF/plugin.xml`. This file declares:
-- Plugin metadata (name, version, description)
-- Extension points and extensions
-- Actions and action groups
-- Services and components
-- Dependencies on other plugins
-
-### Project Structure
-
-Typical IntelliJ plugin structure:
-- `src/main/java/` or `src/main/kotlin/` - Plugin source code
-- `src/main/resources/` - Resources including plugin.xml, icons, etc.
-- `src/test/` - Test files
-- `build.gradle.kts` or `build.gradle` - Build configuration
-
-### Key Plugin Components for Language Support
-
-**Language Definition**: Define the Kite language and file type
-- Implement `Language` for `.kite` files
-- Create `FileType` for file recognition
-- Register file type in plugin.xml
-
-**Lexer/Parser**: Syntax highlighting and code structure
-- Use Grammar-Kit or integrate ANTLR4 grammar
-- Implement `ParserDefinition`
-- Create `KiteTokenTypes` and `KiteElementTypes`
-
-**PSI (Program Structure Interface)**: Code structure and navigation
-- Create PSI elements for resources, components, schemas, types, functions
-- Implement `PsiElement` hierarchy matching Kite AST
-- Support reference resolution (e.g., resource dependencies)
-
-**Syntax Highlighter**: Color coding
-- Implement `SyntaxHighlighter` for keywords, strings, decorators, comments
-- Define color scheme in `KiteColorSettingsPage`
-
-**Code Completion**: Autocomplete suggestions
-- Implement `CompletionContributor` for keywords, decorators, built-in types
-- Context-aware completion (e.g., decorator names, resource types)
-
-**Code Folding**: Collapsible code blocks
-- Implement `FoldingBuilder` for resource/component/schema bodies, functions, imports
-
-**Formatter**: Code formatting
-- Implement `FormattingModelBuilder` for consistent indentation and spacing
-- Handle flexible statement separators (newlines vs semicolons)
-
-**Annotator**: Error highlighting and warnings
-- Implement `Annotator` for semantic errors (type mismatches, invalid decorators)
-- Highlight unresolved references
-
-**Structure View**: File structure outline
-- Implement `StructureViewModel` showing resources, components, schemas, functions
-
-**Documentation Provider**: Quick documentation (Ctrl+Q)
-- Implement `DocumentationProvider` for decorators, built-in functions, types
-
-### IntelliJ Platform SDK
-
-This plugin uses the IntelliJ Platform SDK. Key concepts:
-
-- **PSI (Program Structure Interface)**: The layer that parses code and creates a syntax tree
-- **VirtualFile**: Represents files in the IDE's virtual file system
-- **Document**: Text representation of a file
-- **Editor**: The component for viewing and editing documents
-- **Project/Module**: Organizational structures
-
-When working with PSI or documents, always use read/write actions and invoke on the correct thread (EDT for UI, read action for reading PSI, write action for modifying PSI).
-
-### Testing
-
-Run specific test classes:
-```bash
-./gradlew test --tests "com.kite.intellij.SpecificTestClass"
-```
-
-IntelliJ plugin tests should extend:
-- `BasePlatformTestCase` for PSI/language tests
-- `LightPlatformCodeInsightFixtureTestCase` for code insight features
-
-### Debugging
-
-The `runIde` task launches a separate IDE instance with the plugin installed. You can attach a debugger to this instance for debugging plugin code.
-
-## Related Kite Language Project
-
-The Kite language implementation is in a sibling directory:
-- **Path**: `/Users/mimedia/IdeaProjects/kite`
-- **Detailed documentation**: `../kite/lang/CLAUDE.md`
-- **Build commands**: See kite project for testing language features
-
-## Platform Version Compatibility
-
-Check `build.gradle` or `build.gradle.kts` for the target IntelliJ platform version and compatibility range. The plugin may need to support multiple IDE versions.
-
-## Current Implementation Status
-
-### Completed Features
-
-**Syntax Highlighting** (`KiteSyntaxHighlighter.java`, `KiteAnnotator.java`)
-- Keywords highlighted in purple (#AB5FDB)
-- Strings highlighted in green (#6A9955)
-- Comments highlighted in gray (#808080)
-- Numbers and boolean literals (`true`/`false`) use default number color
-- Decorators (`@` symbol and decorator names) highlighted in orange (#D97706)
-
-**Semantic Type Highlighting** (`KiteAnnotator.java`)
-- Type identifiers highlighted in blue (#498BF6)
-- Context-aware type detection using line-based text pattern matching:
-  - Types after `input`, `output`, `var`, `component`, `resource` keywords
-  - Dotted type chains (e.g., `VM.Instance`, `vm.a.b.c.d.e` - all parts highlighted)
-  - Function parameter types: `fun calculateCost(number instances)`
-  - Function return types: `fun calculateCost(...) number {}`
-  - Schema property types: `schema DatabaseConfig { string host ... }`
-  - Types after colons (e.g., `var x: number`)
-- Variable names properly distinguished from types (e.g., in `var number baseCost`, only `number` is blue)
-
-**File Type Registration** (`KiteFileType.java`, `plugin.xml`)
-- `.kite` file extension recognized
-- Custom file icon
-- Language association configured
-
-**Parser Integration** (`KiteParserDefinition.java`, `KitePsiParser.java`)
-- ANTLR4 grammar integration from `../kite/lang/src/main/antlr/Kite.g4`
-- PSI tree generation via `KitePsiElement`
-- Token types defined in `KiteTokenTypes.java`
-
-**Color Settings** (`KiteColorSettingsPage.java`)
-- Customizable color scheme for all token types
-- Preview text showing language features
-
-**Structure View** (`KiteStructureViewModel.java`, `KiteStructureViewElement.java`, `KiteStructureViewBuilderFactory.java`)
-- Registered in `plugin.xml`
-- Shows file outline in Structure tool window
-- **Status**: Not working - requires parser enhancement
-- **Known Issues**: Parser creates generic `KitePsiElement` for all nodes instead of typed elements (RESOURCE_DECLARATION, FUNCTION_DECLARATION, etc.). Element types are defined in `KiteElementTypes.java` but not used by `KiteParserDefinition.createElement()`
-
-### Implementation Notes
-
-**Type Highlighting Approach**
-The semantic type highlighter (`KiteAnnotator.java`) uses regex-based text matching to identify types in context:
-- Extracts text before and after each identifier
-- Uses pattern matching to determine if identifier is a type based on surrounding keywords
-- Handles complex cases like dotted types, function signatures, and decorated declarations
-
-**Structure View Challenges**
-The Structure view implementation revealed that the parser needs enhancement:
-- `KiteParserDefinition.createElement()` returns generic `KitePsiElement` for all nodes (see line 108)
-- Element types (RESOURCE_DECLARATION, FUNCTION_DECLARATION, etc.) are defined in `KiteElementTypes.java` but never used
-- Parser needs to map ANTLR grammar rules to specific PSI element types
-- Once parser creates typed elements, Structure View can filter by element type instead of text content
-
-### Next Steps
-
-**Parser Enhancement** (Required for Structure View)
-- Update `KiteParserDefinition.createElement()` to return typed PSI elements based on ANTLR rule names
-- Map grammar rules like `resourceDeclaration`, `functionDeclaration` to corresponding element types
-- This enables Structure View and other features that depend on typed PSI elements
-
-**Structure View Refinement** (After Parser Enhancement)
-- Add proper icons for different element types
-- Implement better presentation text (e.g., function signatures)
-- Support nested elements (e.g., resources inside components)
-
-**Code Completion**
-- Implement `CompletionContributor` for keywords
-- Add decorator name completion
-- Add built-in type completion (string, number, boolean, etc.)
-
-**Reference Resolution**
-- Implement PSI reference providers for resource dependencies
-- Enable "Go to Definition" for resource references
-- Support rename refactoring
-
-**Error Detection**
-- Add semantic validation via `Annotator`
-- Highlight unresolved references
-- Validate decorator usage
-
-**Code Formatting**
-- Implement `FormattingModelBuilder`
-- Handle flexible statement separators (newlines vs semicolons)
-- Proper indentation for nested blocks
+# Kite IntelliJ Plugin - Development Notes
+
+## Structure View Icons
+
+### Overview
+Custom circular icons with centered letters for each Kite language construct type in the Structure View.
+
+### Implementation
+- **File**: `src/main/java/io/kite/intellij/structure/KiteStructureViewIcons.java`
+- **Integration**: `src/main/java/io/kite/intellij/structure/KiteStructureViewElement.java`
+
+### Icon Design
+- 16x16 pixel circular icons
+- 1-pixel border in construct-specific color
+- Monospaced font (10pt, bold) for uniform letter appearance
+- Precise centering using `Rectangle2D` bounds for cross-platform consistency
+
+### Icon Types
+| Construct | Letter | Color (RGB) |
+|-----------|--------|-------------|
+| Resource | R | Purple (177, 80, 243) |
+| Component | C | Blue (33, 150, 243) |
+| Schema | S | Green (94, 176, 39) |
+| Function | F | Orange (255, 152, 0) |
+| Type | T | Blue (54, 120, 244) |
+| Variable | V | Purple (155, 101, 246) |
+| Input | I | Yellow (255, 193, 7) |
+| Output | O | Yellow (255, 193, 7) |
+| Import | M | Brown (119, 78, 44) |
+
+### Technical Details
+- Uses Java2D `Graphics2D` for rendering
+- Anti-aliasing enabled for smooth text and shapes
+- Float-based calculations for precise positioning across different screen densities
+- Text positioning formula: `textY = y + (ICON_SIZE - textHeight) / 2.0f - (float) bounds.getY()`
+  - Uses actual text bounds from `FontMetrics.getStringBounds()` for pixel-perfect centering
+  - Works consistently across all screen resolutions and DPI settings
+
+### Key Files Modified
+1. `KiteStructureViewIcons.java` - Icon generation and rendering
+2. `KiteStructureViewElement.java` - Integration with Structure View
+   - `getIconForElement()` - Maps element types to icons
+   - `getPresentation()` - Wraps presentations to inject custom icons
