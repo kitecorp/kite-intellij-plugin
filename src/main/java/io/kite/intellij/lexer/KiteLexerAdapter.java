@@ -173,6 +173,11 @@ public class KiteLexerAdapter extends LexerBase {
             case KiteLexer.ARROW -> KiteTokenTypes.ARROW;
             case KiteLexer.RANGE -> KiteTokenTypes.RANGE;
             case KiteLexer.COLON -> KiteTokenTypes.COLON;
+            case KiteLexer.SEMICOLON -> KiteTokenTypes.SEMICOLON;
+            case KiteLexer.LBRACE -> KiteTokenTypes.LBRACE;
+            case KiteLexer.RBRACE -> KiteTokenTypes.RBRACE;
+            case KiteLexer.LPAREN -> KiteTokenTypes.LPAREN;
+            case KiteLexer.RPAREN -> KiteTokenTypes.RPAREN;
 
             // Comments
             case KiteLexer.LINE_COMMENT -> KiteTokenTypes.LINE_COMMENT;

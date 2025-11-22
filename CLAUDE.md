@@ -325,8 +325,8 @@ Check `build.gradle` or `build.gradle.kts` for the target IntelliJ platform vers
 **Structure View** (`KiteStructureViewModel.java`, `KiteStructureViewElement.java`, `KiteStructureViewBuilderFactory.java`)
 - Registered in `plugin.xml`
 - Shows file outline in Structure tool window
-- **Status**: Partially working - PSI tree exploration in progress
-- **Known Issues**: Filtering logic needs refinement to properly identify declaration elements
+- **Status**: Not working - requires parser enhancement
+- **Known Issues**: Parser creates generic `KitePsiElement` for all nodes instead of typed elements (RESOURCE_DECLARATION, FUNCTION_DECLARATION, etc.). Element types are defined in `KiteElementTypes.java` but not used by `KiteParserDefinition.createElement()`
 
 ### Implementation Notes
 
@@ -337,19 +337,23 @@ The semantic type highlighter (`KiteAnnotator.java`) uses regex-based text match
 - Handles complex cases like dotted types, function signatures, and decorated declarations
 
 **Structure View Challenges**
-The Structure view implementation encountered challenges with PSI tree structure:
-- ANTLR-generated PSI elements don't directly map to IntelliJ's NavigatablePsiElement
-- Current approach: iterate through file children and filter by text content
-- Filtering needs to balance showing too much (including comments) vs too little (empty view)
-- Simple `contains()` checks for keywords work but may need more sophisticated filtering
+The Structure view implementation revealed that the parser needs enhancement:
+- `KiteParserDefinition.createElement()` returns generic `KitePsiElement` for all nodes (see line 108)
+- Element types (RESOURCE_DECLARATION, FUNCTION_DECLARATION, etc.) are defined in `KiteElementTypes.java` but never used
+- Parser needs to map ANTLR grammar rules to specific PSI element types
+- Once parser creates typed elements, Structure View can filter by element type instead of text content
 
 ### Next Steps
 
-**Structure View Refinement**
-- Fine-tune filtering to show only declaration elements (schemas, components, resources, functions, etc.)
-- Exclude comments and other non-structural elements
+**Parser Enhancement** (Required for Structure View)
+- Update `KiteParserDefinition.createElement()` to return typed PSI elements based on ANTLR rule names
+- Map grammar rules like `resourceDeclaration`, `functionDeclaration` to corresponding element types
+- This enables Structure View and other features that depend on typed PSI elements
+
+**Structure View Refinement** (After Parser Enhancement)
 - Add proper icons for different element types
-- Implement navigation to clicked elements
+- Implement better presentation text (e.g., function signatures)
+- Support nested elements (e.g., resources inside components)
 
 **Code Completion**
 - Implement `CompletionContributor` for keywords

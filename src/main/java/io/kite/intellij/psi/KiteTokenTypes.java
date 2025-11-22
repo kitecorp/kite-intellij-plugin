@@ -64,6 +64,11 @@ public class KiteTokenTypes {
 
     // Delimiters
     public static final IElementType COLON = new KiteTokenType("COLON");
+    public static final IElementType SEMICOLON = new KiteTokenType("SEMICOLON");
+    public static final IElementType LBRACE = new KiteTokenType("LBRACE");
+    public static final IElementType RBRACE = new KiteTokenType("RBRACE");
+    public static final IElementType LPAREN = new KiteTokenType("LPAREN");
+    public static final IElementType RPAREN = new KiteTokenType("RPAREN");
 
     // Comments
     public static final IElementType LINE_COMMENT = new KiteTokenType("LINE_COMMENT");
