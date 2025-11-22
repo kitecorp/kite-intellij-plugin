@@ -4,7 +4,165 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a Kite IntelliJ IDEA plugin. Kite provides AI-powered code completions and documentation for developers.
+This is an IntelliJ IDEA plugin for **Kite**, an Infrastructure as Code (IaC) programming language designed as an alternative to Terraform.
+
+**Kite Language Overview:**
+- Developed by EchoStream SRL (Romania)
+- Uses ANTLR4 for parsing (grammar: `Kite.g4`)
+- Multi-cloud provisioning (AWS, Azure, GCP)
+- File extension: `.kite`
+- Two-phase execution model (evaluation → execution, similar to Terraform's plan → apply)
+
+## Kite Language Reference
+
+### Key Language Constructs
+
+The plugin needs to support these primary language features:
+
+**Resource Declarations** - Infrastructure resource definitions
+```kite
+@provisionOn(["aws"])
+resource S3.Bucket photos {
+  name = "my-photos-bucket"
+  region = "us-east-1"
+}
+```
+
+**Component Declarations** - Collections of resources with inputs/outputs
+```kite
+component WebServer api {
+  input number port = 8080
+  resource VM.Instance server {
+    size = "t2.micro"
+  }
+  output string endpoint = server.publicIp
+}
+```
+
+**Schema Declarations** - Type definitions for structured data
+```kite
+schema DatabaseConfig {
+  string host
+  number port = 5432
+  boolean ssl = true
+}
+```
+
+**Type Declarations** - Union types and type aliases
+```kite
+type Environment = "dev" | "staging" | "prod"
+type Status = "active" | "inactive" | "pending"
+```
+
+**Function Declarations** - First-class functions with type signatures
+```kite
+fun add(number x, number y) number {
+  return x + y
+}
+
+// Function types: (param1Type, param2Type) -> returnType
+type MathOp = (number, number) -> number
+```
+
+**Decorators** - 15 built-in decorators for validation and metadata
+```kite
+@existing        // Reference existing cloud resources
+@sensitive       // Mark sensitive data
+@dependsOn([resources])
+@tags({key: value})
+@provisionOn(["aws", "azure"])
+@minValue(n), @maxValue(n)
+@minLength(n), @maxLength(n)
+@validate(regex: "pattern")
+@allowed([values])
+@unique
+@nonEmpty
+@description("text")
+@count(n)
+```
+
+**Import Statements** - File-based code reuse
+```kite
+import * from "stdlib.kite"
+```
+
+**Control Flow** - Blocks required (no braceless if/while)
+```kite
+// Valid - both with/without parens
+if (condition) { doSomething() }
+if condition { doSomething() }
+
+while (condition) { body }
+while condition { body }
+
+for i in 0..10 { console.log(i) }
+```
+
+**Array Comprehensions** - Three distinct forms
+```kite
+// Form 1: Compact
+[for i in 0..10: i * 2]
+
+// Form 2: Block (resource generation)
+[for env in environments]
+resource Bucket photos {
+  name = "photos-${env}"
+}
+
+// Form 3: Standalone loop
+for i in 0..10 { console.log(i) }
+```
+
+### Language Syntax Rules
+
+**Statement Separators**: Newlines (`\n`) OR semicolons (`;`) are interchangeable everywhere
+```kite
+var x = 1; var y = 2    // Semicolons
+var x = 1
+var y = 2               // Newlines
+```
+
+**Object Literals**: Use colons for properties, commas required between properties, trailing commas allowed
+```kite
+var config = {
+  env: "production",
+  port: 8080,
+  type: "web",      // Keywords allowed as property names
+  features: {
+    auth: true,
+  },  // Trailing comma OK
+}
+```
+
+**Keywords as Property Names**: Reserved words can be object keys (e.g., `type`, `for`, `if`)
+
+**Unary Operators**: Prefix and postfix increment/decrement
+```kite
+++x  // Prefix
+x++  // Postfix
+--x, x--
+```
+
+### Type System
+
+- Strong typing with type inference
+- Union types: `type Status = "active" | "inactive"`
+- Array types: `[number]`, `[string][]` (multi-dimensional)
+- Object types: `object`, `{}`, `object({})`
+- Function types: `(number, string) -> boolean`
+- Type keywords: `object`, `any`, `number`, `string`, `boolean`, `null`
+
+**Union Type Normalization**: Union types deduplicate by type kind, not literal values
+- `type Numbers = 1 | 2 | 3` → normalizes to `number`
+- `type Mixed = 1 | "hello" | true` → `boolean | number | string` (alphabetically sorted)
+
+### Grammar Location
+
+The ANTLR4 grammar is located in the Kite language project:
+- **Grammar file**: `../kite/lang/src/main/antlr/Kite.g4`
+- **Generated parser**: `../kite/lang/build/generated-src/antlr/main/io/kite/syntax/ast/generated/`
+
+The plugin should reference this grammar for syntax highlighting, code completion, and PSI structure.
 
 ## Build System
 
@@ -48,30 +206,49 @@ Typical IntelliJ plugin structure:
 - `src/test/` - Test files
 - `build.gradle.kts` or `build.gradle` - Build configuration
 
-### Key Components
+### Key Plugin Components for Language Support
 
-IntelliJ plugins typically use these patterns:
+**Language Definition**: Define the Kite language and file type
+- Implement `Language` for `.kite` files
+- Create `FileType` for file recognition
+- Register file type in plugin.xml
 
-**Actions**: User-triggered operations that extend `AnAction`. Register in plugin.xml under `<actions>`.
+**Lexer/Parser**: Syntax highlighting and code structure
+- Use Grammar-Kit or integrate ANTLR4 grammar
+- Implement `ParserDefinition`
+- Create `KiteTokenTypes` and `KiteElementTypes`
 
-**Extensions**: Extend IDE functionality by implementing extension points. Register in plugin.xml under `<extensions>`.
+**PSI (Program Structure Interface)**: Code structure and navigation
+- Create PSI elements for resources, components, schemas, types, functions
+- Implement `PsiElement` hierarchy matching Kite AST
+- Support reference resolution (e.g., resource dependencies)
 
-**Services**: Singleton components managed by the platform. Can be application-level, project-level, or module-level.
+**Syntax Highlighter**: Color coding
+- Implement `SyntaxHighlighter` for keywords, strings, decorators, comments
+- Define color scheme in `KiteColorSettingsPage`
 
-**Listeners**: React to IDE events (file changes, project opening, etc.).
+**Code Completion**: Autocomplete suggestions
+- Implement `CompletionContributor` for keywords, decorators, built-in types
+- Context-aware completion (e.g., decorator names, resource types)
 
-### Testing
+**Code Folding**: Collapsible code blocks
+- Implement `FoldingBuilder` for resource/component/schema bodies, functions, imports
 
-Run specific test classes:
-```bash
-./gradlew test --tests "com.kite.intellij.SpecificTestClass"
-```
+**Formatter**: Code formatting
+- Implement `FormattingModelBuilder` for consistent indentation and spacing
+- Handle flexible statement separators (newlines vs semicolons)
 
-### Debugging
+**Annotator**: Error highlighting and warnings
+- Implement `Annotator` for semantic errors (type mismatches, invalid decorators)
+- Highlight unresolved references
 
-The `runIde` task launches a separate IDE instance with the plugin installed. You can attach a debugger to this instance for debugging plugin code.
+**Structure View**: File structure outline
+- Implement `StructureViewModel` showing resources, components, schemas, functions
 
-## IntelliJ Platform SDK
+**Documentation Provider**: Quick documentation (Ctrl+Q)
+- Implement `DocumentationProvider` for decorators, built-in functions, types
+
+### IntelliJ Platform SDK
 
 This plugin uses the IntelliJ Platform SDK. Key concepts:
 
@@ -82,6 +259,28 @@ This plugin uses the IntelliJ Platform SDK. Key concepts:
 - **Project/Module**: Organizational structures
 
 When working with PSI or documents, always use read/write actions and invoke on the correct thread (EDT for UI, read action for reading PSI, write action for modifying PSI).
+
+### Testing
+
+Run specific test classes:
+```bash
+./gradlew test --tests "com.kite.intellij.SpecificTestClass"
+```
+
+IntelliJ plugin tests should extend:
+- `BasePlatformTestCase` for PSI/language tests
+- `LightPlatformCodeInsightFixtureTestCase` for code insight features
+
+### Debugging
+
+The `runIde` task launches a separate IDE instance with the plugin installed. You can attach a debugger to this instance for debugging plugin code.
+
+## Related Kite Language Project
+
+The Kite language implementation is in a sibling directory:
+- **Path**: `/Users/mimedia/IdeaProjects/kite`
+- **Detailed documentation**: `../kite/lang/CLAUDE.md`
+- **Build commands**: See kite project for testing language features
 
 ## Platform Version Compatibility
 
