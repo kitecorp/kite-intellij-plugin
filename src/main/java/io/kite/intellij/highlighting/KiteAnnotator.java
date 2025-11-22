@@ -24,7 +24,7 @@ public class KiteAnnotator implements Annotator {
     // Type color - nice blue
     public static final TextAttributesKey TYPE_NAME =
             createTextAttributesKey("KITE_TYPE_NAME",
-                    new TextAttributes(JBColor.namedColor("Kite.typeName", new Color(0x3b82f6)),
+                    new TextAttributes(JBColor.namedColor("Kite.typeName", new Color(0x498BF6)),
                             null, null, null, Font.PLAIN));
 
     @Override
@@ -39,6 +39,7 @@ public class KiteAnnotator implements Annotator {
         // Get the line of text containing this element
         String line = getLineText(element);
         String beforeElement = getTextBeforeInLine(element, line);
+        String afterElement = getTextAfterInLine(element, line);
 
         // Check if this identifier is a decorator name (comes after @)
         if (beforeElement.matches(".*@\\s*$")) {
@@ -49,10 +50,30 @@ public class KiteAnnotator implements Annotator {
             return;
         }
 
-        // Check if this identifier is a type (comes after type-expecting keywords)
-        // Match patterns like: "input ", "output ", "var ", "component ", "resource ", ": "
-        if (beforeElement.matches(".*(^|\\s)(input|output|var|component|resource)\\s+$") ||
-            beforeElement.matches(".*:\\s*$")) {
+        // Check if this identifier is a type
+        boolean isType = false;
+
+        // After input/output/component/resource, the first identifier is always a type
+        if (beforeElement.matches(".*(^|\\s)(input|output|component|resource)\\s+$")) {
+            isType = true;
+        }
+        // After colon, it's a type
+        else if (beforeElement.matches(".*:\\s*$")) {
+            isType = true;
+        }
+        // After dot, it's part of a type chain (e.g., VM.Instance)
+        else if (beforeElement.matches(".*\\.\\s*$")) {
+            isType = true;
+        }
+        // After var, it's only a type if followed by another identifier (not = or +=)
+        else if (beforeElement.matches(".*(^|\\s)var\\s+$")) {
+            // Check if followed by another identifier (not = or +=)
+            if (afterElement.matches("^\\s+[a-zA-Z_][a-zA-Z0-9_]*.*")) {
+                isType = true;
+            }
+        }
+
+        if (isType) {
             holder.newSilentAnnotation(HighlightSeverity.INFORMATION)
                     .range(element)
                     .textAttributes(TYPE_NAME)
@@ -90,5 +111,18 @@ public class KiteAnnotator implements Annotator {
         }
 
         return fileText.substring(lineStart, offset);
+    }
+
+    private String getTextAfterInLine(PsiElement element, String line) {
+        int offset = element.getTextRange().getEndOffset();
+        String fileText = element.getContainingFile().getText();
+
+        // Find end of line
+        int lineEnd = offset;
+        while (lineEnd < fileText.length() && fileText.charAt(lineEnd) != '\n') {
+            lineEnd++;
+        }
+
+        return fileText.substring(offset, lineEnd);
     }
 }
