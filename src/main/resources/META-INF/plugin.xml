@@ -26,7 +26,6 @@
       <li><b>Syntax Highlighting</b> - Full lexical and semantic highlighting for .kite files</li>
       <li><b>Structure View</b> - Hierarchical outline with color-coded icons for resources, components, schemas, functions, types, variables, inputs, outputs, and imports</li>
       <li><b>Code Navigation</b> - Jump to declarations and navigate file structure</li>
-      <li><b>Smart Parsing</b> - ANTLR-based parser with support for nested declarations</li>
       <li><b>Custom Color Scheme</b> - Configurable syntax colors for keywords, literals, comments, and more</li>
     </ul>
   ]]></description>
