@@ -1,6 +1,5 @@
 package io.kite.intellij.structure;
 
-import com.intellij.ui.JBColor;
 import com.intellij.util.ui.JBUI;
 
 import javax.swing.*;
@@ -15,15 +14,15 @@ public class KiteStructureViewIcons {
     private static final int ICON_SIZE = 16;
     private static final int BORDER_WIDTH = 1;
 
-    public static final Icon RESOURCE = createIcon('R', new Color(76, 175, 80));
+    public static final Icon RESOURCE = createIcon('R', new Color(176, 60, 255));
     public static final Icon COMPONENT = createIcon('C', new Color(33, 150, 243));
-    public static final Icon SCHEMA = createIcon('S', new Color(156, 39, 176));
+    public static final Icon SCHEMA = createIcon('S', new Color(94, 176, 39));
     public static final Icon FUNCTION = createIcon('F', new Color(255, 152, 0));
-    public static final Icon TYPE = createIcon('T', new Color(244, 67, 54));
-    public static final Icon VARIABLE = createIcon('V', new Color(96, 125, 139));
-    public static final Icon INPUT = createIcon('I', new Color(0, 188, 212));
+    public static final Icon TYPE = createIcon('T', new Color(54, 120, 244));
+    public static final Icon VARIABLE = createIcon('V', new Color(129, 55, 255));
+    public static final Icon INPUT = createIcon('I', new Color(255, 193, 7));
     public static final Icon OUTPUT = createIcon('O', new Color(255, 193, 7));
-    public static final Icon IMPORT = createIcon('M', new Color(121, 85, 72));
+    public static final Icon IMPORT = createIcon('M', new Color(119, 78, 44));
 
     private static Icon createIcon(char letter, Color color) {
         return new Icon() {
@@ -37,24 +36,29 @@ public class KiteStructureViewIcons {
                     // Draw circle border
                     g2d.setColor(color);
                     Ellipse2D circle = new Ellipse2D.Float(
-                        x + BORDER_WIDTH,
-                        y + BORDER_WIDTH,
-                        ICON_SIZE - 2 * BORDER_WIDTH,
-                        ICON_SIZE - 2 * BORDER_WIDTH
+                            x + BORDER_WIDTH,
+                            y + BORDER_WIDTH,
+                            ICON_SIZE - 2 * BORDER_WIDTH,
+                            ICON_SIZE - 2 * BORDER_WIDTH
                     );
                     g2d.setStroke(new BasicStroke(BORDER_WIDTH));
                     g2d.draw(circle);
 
-                    // Draw letter
-                    Font font = JBUI.Fonts.label(10).deriveFont(Font.BOLD);
+                    // Draw letter - use monospaced font for better uniformity
+                    Font font = new Font(Font.MONOSPACED, Font.BOLD, 10);
                     g2d.setFont(font);
                     FontMetrics fm = g2d.getFontMetrics();
                     String text = String.valueOf(letter);
-                    int textWidth = fm.stringWidth(text);
-                    int textHeight = fm.getAscent();
 
-                    int textX = x + (ICON_SIZE - textWidth) / 2;
-                    int textY = y + (ICON_SIZE - textHeight) / 2 + textHeight;
+                    // Get precise text bounds
+                    java.awt.geom.Rectangle2D bounds = fm.getStringBounds(text, g2d);
+                    float textWidth = (float) bounds.getWidth();
+                    float textHeight = (float) bounds.getHeight();
+
+                    // Center horizontally
+                    float textX = x + (ICON_SIZE - textWidth) / 2.0f;
+                    // Center vertically using actual bounds
+                    float textY = y + (ICON_SIZE - textHeight) / 2.0f - (float) bounds.getY();
 
                     g2d.setColor(color);
                     g2d.drawString(text, textX, textY);
