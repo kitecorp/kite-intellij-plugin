@@ -13,7 +13,7 @@ component WebServer api {
 
   resource SecurityGroup firewall {
     ingress = [
-      {port: port, protocol: "tcp"}
+      { port: port, protocol: "tcp" }
     ]
   }
 

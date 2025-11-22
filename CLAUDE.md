@@ -66,3 +66,31 @@ Implements the `com.intellij.lang.Commenter` interface with:
 - `getLineCommentPrefix()` - Returns "//"
 - `getBlockCommentPrefix()` - Returns "/*"
 - `getBlockCommentSuffix()` - Returns "*/"
+
+## Code Folding
+
+### Overview
+Code folding support allows collapsing and expanding code sections for better readability and navigation.
+
+### Implementation
+- **File**: `src/main/java/io/kite/intellij/KiteFoldingBuilder.java`
+- **Registration**: Registered in `plugin.xml` as `lang.foldingBuilder` extension
+
+### Foldable Elements
+- **Resource declarations** - Collapse resource blocks
+- **Component declarations** - Collapse component blocks
+- **Schema declarations** - Collapse schema blocks
+- **Function declarations** - Collapse function blocks
+- **Block comments** - Collapse multi-line comments (`/* */`)
+
+### Features
+- Click the folding markers in the editor gutter to collapse/expand
+- Only regions spanning multiple lines are foldable
+- Collapsed regions show placeholder text (e.g., `{...}` for blocks, `/*...*/` for comments)
+- Nothing is collapsed by default
+
+### Implementation Details
+Extends `com.intellij.lang.folding.FoldingBuilderEx` and implements:
+- `buildFoldRegions()` - Identifies foldable regions by traversing the PSI tree
+- `getPlaceholderText()` - Returns placeholder text for collapsed regions
+- `isCollapsedByDefault()` - Returns `false` to keep all regions expanded initially
