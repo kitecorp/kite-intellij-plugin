@@ -59,5 +59,9 @@
         <!-- Annotator for semantic highlighting -->
         <annotator language="Kite"
                    implementationClass="io.kite.intellij.highlighting.KiteAnnotator"/>
+
+        <!-- Structure view -->
+        <lang.psiStructureViewFactory language="Kite"
+                                       implementationClass="io.kite.intellij.structure.KiteStructureViewBuilderFactory"/>
     </extensions>
 </idea-plugin>

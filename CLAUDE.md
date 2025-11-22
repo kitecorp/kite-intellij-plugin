@@ -285,3 +285,88 @@ The Kite language implementation is in a sibling directory:
 ## Platform Version Compatibility
 
 Check `build.gradle` or `build.gradle.kts` for the target IntelliJ platform version and compatibility range. The plugin may need to support multiple IDE versions.
+
+## Current Implementation Status
+
+### Completed Features
+
+**Syntax Highlighting** (`KiteSyntaxHighlighter.java`, `KiteAnnotator.java`)
+- Keywords highlighted in purple (#AB5FDB)
+- Strings highlighted in green (#6A9955)
+- Comments highlighted in gray (#808080)
+- Numbers and boolean literals (`true`/`false`) use default number color
+- Decorators (`@` symbol and decorator names) highlighted in orange (#D97706)
+
+**Semantic Type Highlighting** (`KiteAnnotator.java`)
+- Type identifiers highlighted in blue (#498BF6)
+- Context-aware type detection using line-based text pattern matching:
+  - Types after `input`, `output`, `var`, `component`, `resource` keywords
+  - Dotted type chains (e.g., `VM.Instance`, `vm.a.b.c.d.e` - all parts highlighted)
+  - Function parameter types: `fun calculateCost(number instances)`
+  - Function return types: `fun calculateCost(...) number {}`
+  - Schema property types: `schema DatabaseConfig { string host ... }`
+  - Types after colons (e.g., `var x: number`)
+- Variable names properly distinguished from types (e.g., in `var number baseCost`, only `number` is blue)
+
+**File Type Registration** (`KiteFileType.java`, `plugin.xml`)
+- `.kite` file extension recognized
+- Custom file icon
+- Language association configured
+
+**Parser Integration** (`KiteParserDefinition.java`, `KitePsiParser.java`)
+- ANTLR4 grammar integration from `../kite/lang/src/main/antlr/Kite.g4`
+- PSI tree generation via `KitePsiElement`
+- Token types defined in `KiteTokenTypes.java`
+
+**Color Settings** (`KiteColorSettingsPage.java`)
+- Customizable color scheme for all token types
+- Preview text showing language features
+
+**Structure View** (`KiteStructureViewModel.java`, `KiteStructureViewElement.java`, `KiteStructureViewBuilderFactory.java`)
+- Registered in `plugin.xml`
+- Shows file outline in Structure tool window
+- **Status**: Partially working - PSI tree exploration in progress
+- **Known Issues**: Filtering logic needs refinement to properly identify declaration elements
+
+### Implementation Notes
+
+**Type Highlighting Approach**
+The semantic type highlighter (`KiteAnnotator.java`) uses regex-based text matching to identify types in context:
+- Extracts text before and after each identifier
+- Uses pattern matching to determine if identifier is a type based on surrounding keywords
+- Handles complex cases like dotted types, function signatures, and decorated declarations
+
+**Structure View Challenges**
+The Structure view implementation encountered challenges with PSI tree structure:
+- ANTLR-generated PSI elements don't directly map to IntelliJ's NavigatablePsiElement
+- Current approach: iterate through file children and filter by text content
+- Filtering needs to balance showing too much (including comments) vs too little (empty view)
+- Simple `contains()` checks for keywords work but may need more sophisticated filtering
+
+### Next Steps
+
+**Structure View Refinement**
+- Fine-tune filtering to show only declaration elements (schemas, components, resources, functions, etc.)
+- Exclude comments and other non-structural elements
+- Add proper icons for different element types
+- Implement navigation to clicked elements
+
+**Code Completion**
+- Implement `CompletionContributor` for keywords
+- Add decorator name completion
+- Add built-in type completion (string, number, boolean, etc.)
+
+**Reference Resolution**
+- Implement PSI reference providers for resource dependencies
+- Enable "Go to Definition" for resource references
+- Support rename refactoring
+
+**Error Detection**
+- Add semantic validation via `Annotator`
+- Highlight unresolved references
+- Validate decorator usage
+
+**Code Formatting**
+- Implement `FormattingModelBuilder`
+- Handle flexible statement separators (newlines vs semicolons)
+- Proper indentation for nested blocks
