@@ -116,9 +116,9 @@ public class KitePsiParser implements PsiParser {
             if (tokenType == KiteTokenTypes.RESOURCE) {
                 parseDeclaration(builder, KiteElementTypes.RESOURCE_DECLARATION);
             } else if (tokenType == KiteTokenTypes.INPUT) {
-                parseDeclaration(builder, KiteElementTypes.VARIABLE_DECLARATION);  // Treat input as variable
+                parseDeclaration(builder, KiteElementTypes.INPUT_DECLARATION);
             } else if (tokenType == KiteTokenTypes.OUTPUT) {
-                parseDeclaration(builder, KiteElementTypes.VARIABLE_DECLARATION);  // Treat output as variable
+                parseDeclaration(builder, KiteElementTypes.OUTPUT_DECLARATION);
             } else if (tokenType == KiteTokenTypes.VAR) {
                 parseDeclaration(builder, KiteElementTypes.VARIABLE_DECLARATION);
             } else if (tokenType == KiteTokenTypes.FUN) {

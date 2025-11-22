@@ -22,5 +22,7 @@ public class KiteElementTypes {
     public static final IElementType FUNCTION_DECLARATION = new KiteElementType("FUNCTION_DECLARATION");
     public static final IElementType TYPE_DECLARATION = new KiteElementType("TYPE_DECLARATION");
     public static final IElementType VARIABLE_DECLARATION = new KiteElementType("VARIABLE_DECLARATION");
+    public static final IElementType INPUT_DECLARATION = new KiteElementType("INPUT_DECLARATION");
+    public static final IElementType OUTPUT_DECLARATION = new KiteElementType("OUTPUT_DECLARATION");
     public static final IElementType IMPORT_STATEMENT = new KiteElementType("IMPORT_STATEMENT");
 }
