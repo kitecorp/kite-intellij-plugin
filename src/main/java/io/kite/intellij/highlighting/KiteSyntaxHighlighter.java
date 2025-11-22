@@ -49,7 +49,7 @@ public class KiteSyntaxHighlighter extends SyntaxHighlighterBase {
 
     public static final TextAttributesKey DECORATOR =
             createTextAttributesKey("KITE_DECORATOR",
-                    new TextAttributes(JBColor.namedColor("Kite.decorator", new Color(0xCC7832)),
+                    new TextAttributes(JBColor.namedColor("Kite.decorator", new Color(0xD97706)),
                             null, null, null, Font.PLAIN));
 
     public static final TextAttributesKey OPERATOR =
