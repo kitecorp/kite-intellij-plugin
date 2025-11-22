@@ -62,12 +62,16 @@ public class KiteTokenTypes {
     public static final IElementType ARROW = new KiteTokenType("ARROW");
     public static final IElementType RANGE = new KiteTokenType("RANGE");
 
+    // Delimiters
+    public static final IElementType COLON = new KiteTokenType("COLON");
+
     // Comments
     public static final IElementType LINE_COMMENT = new KiteTokenType("LINE_COMMENT");
     public static final IElementType BLOCK_COMMENT = new KiteTokenType("BLOCK_COMMENT");
 
     // Whitespace
     public static final IElementType WHITESPACE = new KiteTokenType("WHITESPACE");
+    public static final IElementType NL = new KiteTokenType("NL");
     public static final IElementType NEWLINE = new KiteTokenType("NEWLINE");
 
     // Bad character

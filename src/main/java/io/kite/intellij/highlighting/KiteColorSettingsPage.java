@@ -25,6 +25,7 @@ public class KiteColorSettingsPage implements ColorSettingsPage {
             new AttributesDescriptor("Line Comment", KiteSyntaxHighlighter.LINE_COMMENT),
             new AttributesDescriptor("Block Comment", KiteSyntaxHighlighter.BLOCK_COMMENT),
             new AttributesDescriptor("Identifier", KiteSyntaxHighlighter.IDENTIFIER),
+            new AttributesDescriptor("Type Name", KiteAnnotator.TYPE_NAME),
             new AttributesDescriptor("Decorator", KiteSyntaxHighlighter.DECORATOR),
             new AttributesDescriptor("Operator", KiteSyntaxHighlighter.OPERATOR),
     };

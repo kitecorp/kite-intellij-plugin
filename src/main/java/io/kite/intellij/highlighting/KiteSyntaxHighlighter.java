@@ -3,11 +3,15 @@ package io.kite.intellij.highlighting;
 import com.intellij.lexer.Lexer;
 import com.intellij.openapi.editor.DefaultLanguageHighlighterColors;
 import com.intellij.openapi.editor.colors.TextAttributesKey;
+import com.intellij.openapi.editor.markup.TextAttributes;
 import com.intellij.openapi.fileTypes.SyntaxHighlighterBase;
 import com.intellij.psi.tree.IElementType;
+import com.intellij.ui.JBColor;
 import io.kite.intellij.lexer.KiteLexerAdapter;
 import io.kite.intellij.psi.KiteTokenTypes;
 import org.jetbrains.annotations.NotNull;
+
+import java.awt.*;
 
 import static com.intellij.openapi.editor.colors.TextAttributesKey.createTextAttributesKey;
 
@@ -18,25 +22,35 @@ public class KiteSyntaxHighlighter extends SyntaxHighlighterBase {
 
     // Define text attribute keys for different token types
     public static final TextAttributesKey KEYWORD =
-            createTextAttributesKey("KITE_KEYWORD", DefaultLanguageHighlighterColors.KEYWORD);
+            createTextAttributesKey("KITE_KEYWORD",
+                    new TextAttributes(JBColor.namedColor("Kite.keyword", new Color(0xAB5FDB)),
+                            null, null, null, Font.PLAIN));
 
     public static final TextAttributesKey STRING =
-            createTextAttributesKey("KITE_STRING", DefaultLanguageHighlighterColors.STRING);
+            createTextAttributesKey("KITE_STRING",
+                    new TextAttributes(JBColor.namedColor("Kite.string", new Color(0x6A9955)),
+                            null, null, null, Font.PLAIN));
 
     public static final TextAttributesKey NUMBER =
             createTextAttributesKey("KITE_NUMBER", DefaultLanguageHighlighterColors.NUMBER);
 
     public static final TextAttributesKey LINE_COMMENT =
-            createTextAttributesKey("KITE_LINE_COMMENT", DefaultLanguageHighlighterColors.LINE_COMMENT);
+            createTextAttributesKey("KITE_LINE_COMMENT",
+                    new TextAttributes(JBColor.namedColor("Kite.lineComment", new Color(0x808080)),
+                            null, null, null, Font.PLAIN));
 
     public static final TextAttributesKey BLOCK_COMMENT =
-            createTextAttributesKey("KITE_BLOCK_COMMENT", DefaultLanguageHighlighterColors.BLOCK_COMMENT);
+            createTextAttributesKey("KITE_BLOCK_COMMENT",
+                    new TextAttributes(JBColor.namedColor("Kite.blockComment", new Color(0x808080)),
+                            null, null, null, Font.PLAIN));
 
     public static final TextAttributesKey IDENTIFIER =
             createTextAttributesKey("KITE_IDENTIFIER", DefaultLanguageHighlighterColors.IDENTIFIER);
 
     public static final TextAttributesKey DECORATOR =
-            createTextAttributesKey("KITE_DECORATOR", DefaultLanguageHighlighterColors.METADATA);
+            createTextAttributesKey("KITE_DECORATOR",
+                    new TextAttributes(JBColor.namedColor("Kite.decorator", new Color(0xCC7832)),
+                            null, null, null, Font.PLAIN));
 
     public static final TextAttributesKey OPERATOR =
             createTextAttributesKey("KITE_OPERATOR", DefaultLanguageHighlighterColors.OPERATION_SIGN);

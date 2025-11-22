@@ -21,4 +21,4 @@ component WebServer api {
   output string instanceId = server.id
 }
 
-var api = WebServer(port: 3000, size: "t2.small")
+var WebServer x

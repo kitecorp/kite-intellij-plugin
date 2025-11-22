@@ -525,9 +525,9 @@ NL
     ;
 
 LINE_COMMENT
-    : '//' ~[\r\n]* -> skip
+    : '//' ~[\r\n]*
     ;
 
 BLOCK_COMMENT
-    : '/*' .*? '*/' -> skip
+    : '/*' .*? '*/'
     ;

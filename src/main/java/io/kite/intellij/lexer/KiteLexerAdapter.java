@@ -172,6 +172,7 @@ public class KiteLexerAdapter extends LexerBase {
             case KiteLexer.DOT -> KiteTokenTypes.DOT;
             case KiteLexer.ARROW -> KiteTokenTypes.ARROW;
             case KiteLexer.RANGE -> KiteTokenTypes.RANGE;
+            case KiteLexer.COLON -> KiteTokenTypes.COLON;
 
             // Comments
             case KiteLexer.LINE_COMMENT -> KiteTokenTypes.LINE_COMMENT;
@@ -179,7 +180,7 @@ public class KiteLexerAdapter extends LexerBase {
 
             // Whitespace
             case KiteLexer.WS -> KiteTokenTypes.WHITESPACE;
-            case KiteLexer.NL -> KiteTokenTypes.NEWLINE;
+            case KiteLexer.NL -> KiteTokenTypes.NL;
 
             default -> KiteTokenTypes.BAD_CHARACTER;
         };

@@ -55,5 +55,9 @@
 
         <!-- Color settings page -->
         <colorSettingsPage implementation="io.kite.intellij.highlighting.KiteColorSettingsPage"/>
+
+        <!-- Annotator for semantic highlighting -->
+        <annotator language="Kite"
+                   implementationClass="io.kite.intellij.highlighting.KiteAnnotator"/>
     </extensions>
 </idea-plugin>
