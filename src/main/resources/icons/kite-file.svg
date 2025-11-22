@@ -3,15 +3,15 @@
 
   <!-- Top half (lighter blue) -->
   <path d="M 8 2 L 13.5 7 L 8 8 Z"
-        fill="#5DADE2"
+        fill="#7DADE2"
         stroke="#2874A6"
         stroke-width="0.5"
         stroke-linejoin="round"
         stroke-linecap="round"/>
 
-  <!-- Right half (lighter blue) -->
+  <!-- Right half (medium blue) -->
   <path d="M 8 8 L 13.5 7 L 8 14 Z"
-        fill="#5DADE2"
+        fill="#3498DB"
         stroke="#2874A6"
         stroke-width="0.5"
         stroke-linejoin="round"
