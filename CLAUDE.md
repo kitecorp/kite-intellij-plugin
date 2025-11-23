@@ -149,7 +149,15 @@ Automatic code formatting with the 'Reformat Code' action (Cmd+Alt+L on Mac, Ctr
     CostCenter  : "engineering"
   })
   ```
-- This makes object structures more readable, especially in decorators and configuration blocks
+- **Decorator arguments**: Colons in named decorator arguments are vertically aligned
+  ```kite
+  @validate(
+    regex : "^[a-z0-9-]+$",
+    flag  : 'i'
+  )
+  ```
+- **How it works**: The formatter finds the longest property name and adds padding before shorter names so all colons align vertically
+- This makes object structures and decorator arguments more readable and easier to scan
 
 ### Key Files
 1. `KiteFormattingModelBuilder.java` - Main formatter entry point, defines spacing rules via `SpacingBuilder`
