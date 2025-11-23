@@ -1,5 +1,5 @@
 var number port = 8080
-var string siz  = "t2.micro"
+var string siz = "t2.micro"
 
 resource Storage backup {
 name        = bucketName
