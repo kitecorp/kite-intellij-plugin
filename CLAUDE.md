@@ -215,9 +215,56 @@ Automatic code formatting with the 'Reformat Code' action (Cmd+Alt+L on Mac, Ctr
 1. `KiteFormattingModelBuilder.java` - Main formatter entry point, defines spacing rules via `SpacingBuilder`
 2. `KiteBlock.java` - Represents hierarchical formatting blocks, manages indentation and child block creation
 
+### Implementation Details: Indentation
+
+#### Critical Discovery: Newline Token Handling
+The formatter must **skip creating blocks for newline tokens** (`NL` and `NEWLINE`). IntelliJ's formatter handles newlines internally to apply indentation. If you create blocks for newline tokens, indentation will not work.
+
+**Implementation:**
+```java
+private boolean shouldSkipToken(IElementType type) {
+    return type == TokenType.WHITE_SPACE ||
+           type == KiteTokenTypes.NL ||
+           type == KiteTokenTypes.NEWLINE;
+}
+```
+
+#### Brace Tracking for Block Indentation
+Only content **between `{` and `}`** should be indented. Track brace state while building child blocks:
+
+1. Initialize `boolean insideBraces = false`
+2. Create blocks for each child token
+3. **After** creating the block, update state:
+   - If token is `LBRACE`: set `insideBraces = true`
+   - If token is `RBRACE`: set `insideBraces = false`
+4. Pass `insideBraces` to `getChildIndent(childType, insideBraces)`
+
+**Why update AFTER?** The brace itself shouldn't be indented, but everything following it should be.
+
+#### Code Style Settings Provider
+Required for IntelliJ to know the indent size. Create `KiteLanguageCodeStyleSettingsProvider` and register in `plugin.xml`:
+
+```java
+@Override
+public void customizeDefaults(@NotNull CommonCodeStyleSettings commonSettings,
+                              @NotNull CommonCodeStyleSettings.IndentOptions indentOptions) {
+    indentOptions.INDENT_SIZE = 4;
+    indentOptions.CONTINUATION_INDENT_SIZE = 8;
+    indentOptions.TAB_SIZE = 4;
+    indentOptions.USE_TAB_CHARACTER = false;
+}
+```
+
+#### What Didn't Work (Save Time Debugging)
+- ❌ Using `Indent.getNormalIndent()` without code style provider (no indent size)
+- ❌ Creating blocks for newline tokens (prevents indentation entirely)
+- ❌ Tracking braces BEFORE creating blocks (indents the wrong elements)
+- ❌ Using different `Language.INSTANCE` for SpacingBuilder vs FormattingModel
+- ✅ **Solution**: Skip newlines + track braces AFTER + use `Indent.getSpaceIndent(4)`
+
 ### Features
 - Format entire file with Cmd+Alt+L (Mac) or Ctrl+Alt+L (Windows/Linux)
 - Format selected text only by selecting code first, then using the reformat shortcut
 - Consistent spacing around keywords, operators, and delimiters
-- Proper indentation for nested structures
+- Proper indentation for nested structures (4 spaces)
 - Preserves semantic meaning while improving readability

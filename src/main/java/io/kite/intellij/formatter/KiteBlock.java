@@ -58,8 +58,7 @@ public class KiteBlock extends AbstractBlock {
             return buildAlignedChildren(KiteTokenTypes.ASSIGN);
         }
 
-        // Schema declarations - skip special alignment for now, just use default
-        // TODO: Add schema property alignment later
+        // Schema declarations use default buildChildren with brace tracking
 
         // FILE level: handle both decorator colons and declaration equals
         if (nodeType == KiteParserDefinition.FILE) {
@@ -74,13 +73,9 @@ public class KiteBlock extends AbstractBlock {
         while (child != null) {
             IElementType childType = child.getElementType();
 
-            // Skip whitespace and newlines
-            if (childType != TokenType.WHITE_SPACE &&
-                childType != KiteTokenTypes.NL &&
-                childType != KiteTokenTypes.NEWLINE &&
-                child.getTextLength() > 0) {
+            if (!shouldSkipToken(childType) && child.getTextLength() > 0) {
 
-                Indent childIndent = getChildIndentWithBraceTracking(childType, insideBraces);
+                Indent childIndent = getChildIndent(childType, insideBraces);
 
                 blocks.add(new KiteBlock(
                     child,
@@ -111,6 +106,16 @@ public class KiteBlock extends AbstractBlock {
     private boolean isMultiLine(ASTNode node) {
         String text = node.getText();
         return text.contains("\n");
+    }
+
+    /**
+     * Checks if we should skip creating a block for this token type.
+     * We skip whitespace and newlines as the formatter handles them internally.
+     */
+    private boolean shouldSkipToken(IElementType type) {
+        return type == TokenType.WHITE_SPACE ||
+               type == KiteTokenTypes.NL ||
+               type == KiteTokenTypes.NEWLINE;
     }
 
     /**
@@ -191,10 +196,7 @@ public class KiteBlock extends AbstractBlock {
         while (child != null) {
             IElementType childType = child.getElementType();
 
-            if (childType != TokenType.WHITE_SPACE &&
-                childType != KiteTokenTypes.NL &&
-                childType != KiteTokenTypes.NEWLINE &&
-                child.getTextLength() > 0) {
+            if (!shouldSkipToken(childType) && child.getTextLength() > 0) {
                 // For declaration elements, inline their children instead of creating a block for the element
                 if (childType == KiteElementTypes.INPUT_DECLARATION ||
                     childType == KiteElementTypes.OUTPUT_DECLARATION ||
@@ -203,7 +205,7 @@ public class KiteBlock extends AbstractBlock {
                     // Build blocks for the declaration's children
                     buildDeclarationBlocks(child, alignToken, groups, blocks, insideBraces);
                 } else {
-                    Indent childIndent = getChildIndentWithBraceTracking(childType, insideBraces);
+                    Indent childIndent = getChildIndent(childType, insideBraces);
 
                     // Track identifiers that precede the align token
                     if (childType == KiteTokenTypes.IDENTIFIER) {
@@ -253,100 +255,6 @@ public class KiteBlock extends AbstractBlock {
     }
 
     /**
-     * Builds blocks for schema property content by flattening nested structure.
-     * This handles the case where schema properties are nested in intermediate nodes.
-     */
-    private void buildSchemaPropertyBlocks(ASTNode propertyNode, IElementType alignToken,
-                                          List<AlignmentGroup> groups, List<Block> blocks) {
-        // Create a tracker for this property
-        SchemaPropertyTracker tracker = new SchemaPropertyTracker();
-
-        // Flatten and process all tokens in this property
-        flattenAndBuildSchemaTokens(propertyNode, alignToken, groups, blocks, tracker);
-    }
-
-    /**
-     * Helper class to track state while building schema property blocks.
-     */
-    private static class SchemaPropertyTracker {
-        ASTNode typeIdentifier = null;
-        ASTNode propertyIdentifier = null;
-    }
-
-    /**
-     * Recursively flattens schema property tokens and builds blocks with alignment.
-     */
-    private void flattenAndBuildSchemaTokens(ASTNode node, IElementType alignToken,
-                                            List<AlignmentGroup> groups, List<Block> blocks,
-                                            SchemaPropertyTracker tracker) {
-        ASTNode child = node.getFirstChildNode();
-
-        while (child != null) {
-            IElementType childType = child.getElementType();
-
-            if (childType == TokenType.WHITE_SPACE && child.getTextLength() > 0) {
-                child = child.getTreeNext();
-                continue;
-            }
-
-            // If child has children, recurse
-            if (child.getFirstChildNode() != null) {
-                flattenAndBuildSchemaTokens(child, alignToken, groups, blocks, tracker);
-            } else if (child.getTextLength() > 0) {
-                // Leaf node - process it
-                Indent childIndent = getChildIndent(childType);
-
-                // Handle identifiers - track pairs (type + property name)
-                if (childType == KiteTokenTypes.IDENTIFIER) {
-                    if (tracker.typeIdentifier != null) {
-                        // This is the property name (second identifier in a pair)
-                        tracker.propertyIdentifier = child;
-                    } else {
-                        // This is the type (first identifier)
-                        tracker.typeIdentifier = child;
-                    }
-                }
-
-                // Calculate padding for ASSIGN tokens
-                Integer padding = null;
-                if (childType == alignToken &&
-                    tracker.typeIdentifier != null && tracker.propertyIdentifier != null) {
-                    // Find which group this property identifier belongs to
-                    AlignmentGroup group = findGroupForIdentifier(groups, tracker.propertyIdentifier);
-                    if (group != null) {
-                        // Calculate combined length: type + space + property name
-                        int combinedLength = tracker.typeIdentifier.getTextLength() + 1 +
-                                            tracker.propertyIdentifier.getTextLength();
-                        int extraSpace = 1; // For ASSIGN, always at least 1 space
-                        padding = group.maxKeyLength - combinedLength + extraSpace;
-                    }
-                    tracker.typeIdentifier = null;
-                    tracker.propertyIdentifier = null;
-                }
-
-                // Reset identifiers at end of property
-                if (childType == KiteTokenTypes.NL || childType == KiteTokenTypes.NEWLINE ||
-                    childType == KiteTokenTypes.SEMICOLON) {
-                    tracker.typeIdentifier = null;
-                    tracker.propertyIdentifier = null;
-                }
-
-                // Create block for this token
-                blocks.add(new KiteBlock(
-                    child,
-                    null,
-                    null,
-                    childIndent,
-                    spacingBuilder,
-                    padding
-                ));
-            }
-
-            child = child.getTreeNext();
-        }
-    }
-
-    /**
      * Recursively flattens all tokens in a tree into a list.
      */
     private void flattenTokens(ASTNode node, List<ASTNode> tokens) {
@@ -380,10 +288,7 @@ public class KiteBlock extends AbstractBlock {
         while (child != null) {
             IElementType childType = child.getElementType();
 
-            if (childType != TokenType.WHITE_SPACE &&
-                childType != KiteTokenTypes.NL &&
-                childType != KiteTokenTypes.NEWLINE &&
-                child.getTextLength() > 0) {
+            if (!shouldSkipToken(childType) && child.getTextLength() > 0) {
                 // For declaration elements (var/input/output), inline their children
                 if (childType == KiteElementTypes.VARIABLE_DECLARATION ||
                     childType == KiteElementTypes.INPUT_DECLARATION ||
@@ -393,7 +298,7 @@ public class KiteBlock extends AbstractBlock {
                     buildDeclarationBlocks(child, KiteTokenTypes.ASSIGN, assignGroups, blocks, false);
                 } else {
                     // FILE-level elements are never inside braces
-                    Indent childIndent = getChildIndentWithBraceTracking(childType, false);
+                    Indent childIndent = getChildIndent(childType, false);
 
                     // Track identifiers that precede align tokens
                     if (childType == KiteTokenTypes.IDENTIFIER) {
@@ -456,11 +361,8 @@ public class KiteBlock extends AbstractBlock {
         while (child != null) {
             IElementType childType = child.getElementType();
 
-            if (childType != TokenType.WHITE_SPACE &&
-                childType != KiteTokenTypes.NL &&
-                childType != KiteTokenTypes.NEWLINE &&
-                child.getTextLength() > 0) {
-                Indent childIndent = getChildIndentWithBraceTracking(childType, insideBraces);
+            if (!shouldSkipToken(childType) && child.getTextLength() > 0) {
+                Indent childIndent = getChildIndent(childType, insideBraces);
 
                 // Track identifiers that precede the align token
                 if (childType == KiteTokenTypes.IDENTIFIER) {
@@ -921,34 +823,14 @@ public class KiteBlock extends AbstractBlock {
     }
 
     /**
-     * Determines the indent for a child element based on its type.
+     * Determines the indent for a child element.
+     * Only content between { and } is indented.
+     *
+     * @param childType     The type of the child element
+     * @param insideBraces  Whether we're currently inside braces
+     * @return The appropriate indent for this child
      */
-    private Indent getChildIndent(IElementType childType) {
-        IElementType parentType = myNode.getElementType();
-
-        // Content inside braces should be indented
-        if (isBlockElement(parentType)) {
-            // Braces get no indent (align with parent)
-            if (childType == KiteTokenTypes.LBRACE || childType == KiteTokenTypes.RBRACE) {
-                return Indent.getNoneIndent();
-            }
-            // Brackets and their content get normal indent
-            return Indent.getNormalIndent();
-        }
-
-        // Content inside parentheses in function declarations and calls
-        if (parentType == KiteTokenTypes.LPAREN || parentType == KiteTokenTypes.RPAREN) {
-            return Indent.getContinuationWithoutFirstIndent();
-        }
-
-        return Indent.getNoneIndent();
-    }
-
-    /**
-     * Determines the indent for a child element, taking into account whether we're inside braces.
-     * Only content between { and } should be indented.
-     */
-    private Indent getChildIndentWithBraceTracking(IElementType childType, boolean insideBraces) {
+    private Indent getChildIndent(IElementType childType, boolean insideBraces) {
         IElementType parentType = myNode.getElementType();
 
         // Content inside braces should be indented
