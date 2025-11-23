@@ -9,19 +9,23 @@ When implementing new features or fixing bugs, follow these principles to avoid 
    - Example: VAR declaration alignment was solved by applying the same pattern used for INPUT/OUTPUT declarations (just 3 lines in `buildFileChildren()`)
    - Don't create recursive schema flattening when simple declaration inlining already works
 
-2. **Listen to user hints immediately** - When the user suggests a specific approach, try it first before exploring alternatives
+2. **Ask questions whenever you feel like it** - When unsure about requirements, approach, or implementation details, ask before coding
+   - Clarify ambiguity upfront rather than making assumptions
+   - Better to ask and get it right than to overthink and guess wrong
+
+3. **Listen to user hints immediately** - When the user suggests a specific approach, try it first before exploring alternatives
    - User hints are often based on knowing what already works
    - Direct suggestions like "use the same algorithm that you do for input/output" should be tried first
 
-3. **Debug actual problems, not assumed problems** - Focus on what's actually broken
+4. **Debug actual problems, not assumed problems** - Focus on what's actually broken
    - If code isn't working, don't assume plugin loading issues - check the actual code logic first
    - Use `gradle runIde` to test changes and verify the actual behavior
 
-4. **Prefer simple solutions** - The simplest solution is often correct
+5. **Prefer simple solutions** - The simplest solution is often correct
    - If a fix requires more than a few lines, reconsider the approach
    - Complexity should match the problem - don't over-engineer
 
-5. **When stuck, step back** - If struggling for more than a few attempts:
+6. **When stuck, step back** - If struggling for more than a few attempts:
    - Look at similar working code
    - Ask: "What's the simplest change that could work?"
    - Consider that you might be solving the wrong problem
