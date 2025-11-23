@@ -620,9 +620,10 @@ public class KiteBlock extends AbstractBlock {
     private Indent getChildIndent(IElementType childType) {
         IElementType parentType = myNode.getElementType();
 
-        // Content inside braces should be indented
+        // Content inside braces/brackets should be indented
         if (isBlockElement(parentType)) {
-            if (childType == KiteTokenTypes.LBRACE || childType == KiteTokenTypes.RBRACE) {
+            if (childType == KiteTokenTypes.LBRACE || childType == KiteTokenTypes.RBRACE ||
+                childType == KiteTokenTypes.LBRACK || childType == KiteTokenTypes.RBRACK) {
                 return Indent.getNoneIndent();
             }
             return Indent.getNormalIndent();
