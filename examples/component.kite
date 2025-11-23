@@ -33,3 +33,9 @@ var WebServer x
 // formatting
 input number port = 8080
 input string siz = "t2.micro"
+
+output number port = 8080
+output string siz = "t2.micro"
+
+var number port = 8080
+var string siz = "t2.micro"
