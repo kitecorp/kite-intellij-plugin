@@ -56,6 +56,9 @@ public class KitePsiParser implements PsiParser {
                 parseDeclaration(builder, KiteElementTypes.FOR_STATEMENT);
             } else if (tokenType == KiteTokenTypes.WHILE) {
                 parseDeclaration(builder, KiteElementTypes.WHILE_STATEMENT);
+            } else if (tokenType == KiteTokenTypes.LBRACE) {
+                // Parse object literal (e.g., in decorator arguments)
+                parseObjectLiteral(builder);
             } else {
                 // Unknown token, just advance
                 builder.advanceLexer();
@@ -107,8 +110,6 @@ public class KitePsiParser implements PsiParser {
     }
 
     private void parseBlockContent(PsiBuilder builder) {
-        int braceDepth = 0;  // Track nested braces for object/array literals
-
         while (!builder.eof()) {
             // Skip whitespace and comments
             while (!builder.eof() && isSkippableToken(builder.getTokenType())) {
@@ -119,21 +120,13 @@ public class KitePsiParser implements PsiParser {
 
             IElementType tokenType = builder.getTokenType();
 
-            // Check for closing brace - but only exit if we're at depth 0
+            // Check for closing brace of the block itself
             if (tokenType == KiteTokenTypes.RBRACE) {
-                if (braceDepth == 0) {
-                    // This is the closing brace of the block itself
-                    builder.advanceLexer();
-                    break;
-                } else {
-                    // This closes a nested object/array literal
-                    braceDepth--;
-                    builder.advanceLexer();
-                }
-            } else if (tokenType == KiteTokenTypes.LBRACE) {
-                // Opening brace of a nested object/array literal
-                braceDepth++;
                 builder.advanceLexer();
+                break;
+            } else if (tokenType == KiteTokenTypes.LBRACE) {
+                // Parse object literal
+                parseObjectLiteral(builder);
             } else if (tokenType == KiteTokenTypes.RESOURCE) {
                 parseDeclaration(builder, KiteElementTypes.RESOURCE_DECLARATION);
             } else if (tokenType == KiteTokenTypes.INPUT) {
@@ -177,5 +170,31 @@ public class KitePsiParser implements PsiParser {
                tokenType == KiteTokenTypes.LINE_COMMENT ||
                tokenType == KiteTokenTypes.BLOCK_COMMENT ||
                tokenType == KiteTokenTypes.AT;  // Decorator prefix
+    }
+
+    /**
+     * Parses an object literal { ... }
+     */
+    private void parseObjectLiteral(PsiBuilder builder) {
+        PsiBuilder.Marker marker = builder.mark();
+
+        // Consume opening brace
+        builder.advanceLexer();
+
+        // Consume until closing brace with depth tracking
+        int braceDepth = 1;
+        while (!builder.eof() && braceDepth > 0) {
+            IElementType tokenType = builder.getTokenType();
+
+            if (tokenType == KiteTokenTypes.LBRACE) {
+                braceDepth++;
+            } else if (tokenType == KiteTokenTypes.RBRACE) {
+                braceDepth--;
+            }
+
+            builder.advanceLexer();
+        }
+
+        marker.done(KiteElementTypes.OBJECT_LITERAL);
     }
 }

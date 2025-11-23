@@ -51,7 +51,8 @@ public class KiteFoldingBuilder extends FoldingBuilderEx {
             elementType == KiteElementTypes.SCHEMA_DECLARATION ||
             elementType == KiteElementTypes.FUNCTION_DECLARATION ||
             elementType == KiteElementTypes.FOR_STATEMENT ||
-            elementType == KiteElementTypes.WHILE_STATEMENT) {
+            elementType == KiteElementTypes.WHILE_STATEMENT ||
+            elementType == KiteElementTypes.OBJECT_LITERAL) {
 
             // Find the block range (from { to })
             TextRange range = findBlockRange(node);
