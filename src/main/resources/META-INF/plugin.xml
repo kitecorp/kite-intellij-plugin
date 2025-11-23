@@ -27,7 +27,7 @@
       <li><b>Structure View</b> - Hierarchical outline with color-coded icons for resources, components, schemas, functions, types, variables, inputs, outputs, and imports</li>
       <li><b>Code Navigation</b> - Jump to declarations and navigate file structure</li>
       <li><b>Code Folding</b> - Collapse and expand declarations (components, resources, schemas, functions), control flow statements (for, while), object literals, and comments</li>
-      <li><b>Code Formatting</b> - Automatic code formatting with 'Reformat Code' action (Cmd+Alt+L / Ctrl+Alt+L)</li>
+      <li><b>Code Formatting</b> - Automatic code formatting with 'Reformat Code' action (Cmd+Alt+L / Ctrl+Alt+L) including vertical alignment of object properties</li>
       <li><b>Comment/Uncomment</b> - Toggle line and block comments with keyboard shortcuts</li>
       <li><b>Custom Color Scheme</b> - Configurable syntax colors for keywords, literals, comments, and more</li>
     </ul>

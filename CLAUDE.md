@@ -140,6 +140,17 @@ Automatic code formatting with the 'Reformat Code' action (Cmd+Alt+L on Mac, Ctr
 - **Braces** (`{` and `}`) remain at the parent indentation level
 - **Continuation indentation** for wrapped function parameters
 
+#### Alignment
+- **Object literals**: Colons in object property assignments are vertically aligned
+  ```kite
+  @tags({
+    Environment : "production",
+    ManagedBy   : "kite",
+    CostCenter  : "engineering"
+  })
+  ```
+- This makes object structures more readable, especially in decorators and configuration blocks
+
 ### Key Files
 1. `KiteFormattingModelBuilder.java` - Main formatter entry point, defines spacing rules via `SpacingBuilder`
 2. `KiteBlock.java` - Represents hierarchical formatting blocks, manages indentation and child block creation
