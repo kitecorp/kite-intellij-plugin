@@ -77,5 +77,8 @@
         <!-- Code formatter -->
         <lang.formatter language="Kite"
                         implementationClass="io.kite.intellij.formatter.KiteFormattingModelBuilder"/>
+
+        <!-- Code style settings -->
+        <langCodeStyleSettingsProvider implementation="io.kite.intellij.KiteLanguageCodeStyleSettingsProvider"/>
     </extensions>
 </idea-plugin>

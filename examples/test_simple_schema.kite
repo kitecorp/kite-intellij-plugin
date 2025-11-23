@@ -1,4 +1,4 @@
 schema Test {
-    string x
+    string    x
     number xyz = 1
 }
