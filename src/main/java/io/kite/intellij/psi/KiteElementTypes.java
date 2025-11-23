@@ -25,4 +25,6 @@ public class KiteElementTypes {
     public static final IElementType INPUT_DECLARATION = new KiteElementType("INPUT_DECLARATION");
     public static final IElementType OUTPUT_DECLARATION = new KiteElementType("OUTPUT_DECLARATION");
     public static final IElementType IMPORT_STATEMENT = new KiteElementType("IMPORT_STATEMENT");
+    public static final IElementType FOR_STATEMENT = new KiteElementType("FOR_STATEMENT");
+    public static final IElementType WHILE_STATEMENT = new KiteElementType("WHILE_STATEMENT");
 }

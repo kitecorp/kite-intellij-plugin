@@ -52,6 +52,10 @@ public class KitePsiParser implements PsiParser {
                 parseDeclaration(builder, KiteElementTypes.VARIABLE_DECLARATION);
             } else if (tokenType == KiteTokenTypes.IMPORT) {
                 parseDeclaration(builder, KiteElementTypes.IMPORT_STATEMENT);
+            } else if (tokenType == KiteTokenTypes.FOR) {
+                parseDeclaration(builder, KiteElementTypes.FOR_STATEMENT);
+            } else if (tokenType == KiteTokenTypes.WHILE) {
+                parseDeclaration(builder, KiteElementTypes.WHILE_STATEMENT);
             } else {
                 // Unknown token, just advance
                 builder.advanceLexer();
@@ -140,6 +144,10 @@ public class KitePsiParser implements PsiParser {
                 parseDeclaration(builder, KiteElementTypes.VARIABLE_DECLARATION);
             } else if (tokenType == KiteTokenTypes.FUN) {
                 parseDeclaration(builder, KiteElementTypes.FUNCTION_DECLARATION);
+            } else if (tokenType == KiteTokenTypes.FOR) {
+                parseDeclaration(builder, KiteElementTypes.FOR_STATEMENT);
+            } else if (tokenType == KiteTokenTypes.WHILE) {
+                parseDeclaration(builder, KiteElementTypes.WHILE_STATEMENT);
             } else {
                 // Unknown token, just advance
                 builder.advanceLexer();
