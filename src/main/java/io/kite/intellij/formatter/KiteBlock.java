@@ -255,7 +255,8 @@ public class KiteBlock extends AbstractBlock {
      * Helper class to track state while building schema blocks.
      */
     private static class SchemaTracker {
-        ASTNode prevIdentifier = null;
+        ASTNode typeIdentifier = null;
+        ASTNode propertyIdentifier = null;
         boolean inSchemaBody = false;
     }
 
@@ -283,32 +284,37 @@ public class KiteBlock extends AbstractBlock {
 
             // Handle identifiers - track pairs (type + property name)
             if (tracker.inSchemaBody && childType == KiteTokenTypes.IDENTIFIER) {
-                if (tracker.prevIdentifier != null) {
+                if (tracker.typeIdentifier != null) {
                     // This is the property name (second identifier in a pair)
-                    tracker.prevIdentifier = child;
+                    tracker.propertyIdentifier = child;
                 } else {
                     // This is the type (first identifier)
-                    tracker.prevIdentifier = child;
+                    tracker.typeIdentifier = child;
                 }
             }
 
             // Calculate padding for ASSIGN tokens
             Integer padding = null;
-            if (tracker.inSchemaBody && childType == alignToken && tracker.prevIdentifier != null) {
-                // Find which group this identifier belongs to
-                AlignmentGroup group = findGroupForIdentifier(groups, tracker.prevIdentifier);
+            if (tracker.inSchemaBody && childType == alignToken &&
+                tracker.typeIdentifier != null && tracker.propertyIdentifier != null) {
+                // Find which group this property identifier belongs to
+                AlignmentGroup group = findGroupForIdentifier(groups, tracker.propertyIdentifier);
                 if (group != null) {
-                    int keyLength = tracker.prevIdentifier.getTextLength();
+                    // Calculate combined length: type + space + property name
+                    int combinedLength = tracker.typeIdentifier.getTextLength() + 1 +
+                                        tracker.propertyIdentifier.getTextLength();
                     int extraSpace = 1; // For ASSIGN, always at least 1 space
-                    padding = group.maxKeyLength - keyLength + extraSpace;
+                    padding = group.maxKeyLength - combinedLength + extraSpace;
                 }
-                tracker.prevIdentifier = null;
+                tracker.typeIdentifier = null;
+                tracker.propertyIdentifier = null;
             }
 
-            // Reset prevIdentifier at end of property
+            // Reset identifiers at end of property
             if (childType == KiteTokenTypes.NL || childType == KiteTokenTypes.NEWLINE ||
                 childType == KiteTokenTypes.SEMICOLON) {
-                tracker.prevIdentifier = null;
+                tracker.typeIdentifier = null;
+                tracker.propertyIdentifier = null;
             }
 
             // Create block for this child
@@ -603,13 +609,14 @@ public class KiteBlock extends AbstractBlock {
     /**
      * Recursively collects schema property identifiers from a node and its descendants.
      * Uses flattening to ensure correct pairing across nested structures.
+     * Tracks both type and property name to calculate correct alignment.
      */
     private void collectSchemaPropertyIdentifiers(ASTNode node, AlignmentGroup group) {
         // Flatten all tokens first
         List<ASTNode> allTokens = new ArrayList<>();
         flattenTokens(node, allTokens);
 
-        ASTNode prevIdentifier = null;
+        ASTNode typeIdentifier = null;
         boolean inSchemaBody = false;
 
         for (ASTNode token : allTokens) {
@@ -626,31 +633,33 @@ public class KiteBlock extends AbstractBlock {
             } else if (tokenType == KiteTokenTypes.RBRACE) {
                 break;
             } else if (inSchemaBody && tokenType == KiteTokenTypes.IDENTIFIER) {
-                if (prevIdentifier != null) {
+                if (typeIdentifier != null) {
                     // This is the second identifier in a pair - it's the property name
-                    // Add it to the group whether or not it's followed by ASSIGN
+                    // Add it to the group along with the type length
                     group.identifiers.add(token);
 
                     // Check if this identifier is followed by ASSIGN
                     boolean hasAssign = hasAssignAfter(allTokens, token);
 
-                    // For identifiers without ASSIGN, add 1 to their effective length
-                    // This ensures properties with = align properly with properties without =
-                    int effectiveLength = token.getTextLength() + (hasAssign ? 0 : 1);
+                    // Calculate combined length: type + space + property name
+                    int combinedLength = typeIdentifier.getTextLength() + 1 + token.getTextLength();
+
+                    // For properties without ASSIGN, add 1 to ensure proper alignment
+                    int effectiveLength = combinedLength + (hasAssign ? 0 : 1);
                     group.maxKeyLength = Math.max(group.maxKeyLength, effectiveLength);
 
-                    prevIdentifier = null; // Reset for next pair
+                    typeIdentifier = null; // Reset for next pair
                 } else {
                     // This is the first identifier - the type
-                    prevIdentifier = token;
+                    typeIdentifier = token;
                 }
             }
-            // Reset prevIdentifier at end of property
+            // Reset typeIdentifier at end of property
             else if (tokenType == KiteTokenTypes.ASSIGN ||
                      tokenType == KiteTokenTypes.NL ||
                      tokenType == KiteTokenTypes.NEWLINE ||
                      tokenType == KiteTokenTypes.SEMICOLON) {
-                prevIdentifier = null;
+                typeIdentifier = null;
             }
         }
     }
