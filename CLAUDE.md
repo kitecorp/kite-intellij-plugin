@@ -97,3 +97,56 @@ Extends `com.intellij.lang.folding.FoldingBuilderEx` and implements:
 - `buildFoldRegions()` - Identifies foldable regions by traversing the PSI tree
 - `getPlaceholderText()` - Returns placeholder text for collapsed regions
 - `isCollapsedByDefault()` - Returns `false` to keep all regions expanded initially
+
+## Code Formatting
+
+### Overview
+Automatic code formatting with the 'Reformat Code' action (Cmd+Alt+L on Mac, Ctrl+Alt+L on Windows/Linux).
+
+### Implementation
+- **Main File**: `src/main/java/io/kite/intellij/formatter/KiteFormattingModelBuilder.java`
+- **Block Structure**: `src/main/java/io/kite/intellij/formatter/KiteBlock.java`
+- **Registration**: Registered in `plugin.xml` as `lang.formatter` extension
+
+### Formatting Rules
+
+#### Spacing
+- **Space before opening brace**: `resource Type name {` (1 space before `{`)
+- **Space after keywords**: All keywords (resource, component, schema, fun, var, if, etc.) followed by 1 space
+- **Assignment operators**: Space around `=`, `+=`, `-=`, `*=`, `/=`
+- **Arithmetic operators**: Space around `+`, `-`, `*`, `/`, `%`
+- **Relational operators**: Space around `<`, `>`, `<=`, `>=`, `==`, `!=`
+- **Logical operators**: Space around `&&`, `||`; no space before `!`
+- **Other operators**:
+  - Arrow (`->`) has 1 space on each side
+  - Range (`..`) has no spaces
+  - Union (`|`) has 1 space on each side
+- **Brackets**: No spaces inside `[]` brackets
+- **Parentheses**: No spaces inside `()` parentheses
+- **Comma**: Space after `,`, no space before
+- **Colon**: Space after `:`, no space before (for property assignments)
+- **Semicolon**: Space after `;`
+- **No space after `@`**: Decorators use `@decorator` (no space between `@` and name)
+- **No space around dots**: Member access uses `object.property` (no spaces)
+
+#### Indentation
+- **Block elements** indent their content with normal indentation (4 spaces by default)
+- **Indented elements**:
+  - Content inside resource/component/schema declarations
+  - Content inside function bodies
+  - Content inside for/while loop bodies
+  - Content inside object literals
+  - Content inside array literals
+- **Braces** (`{` and `}`) remain at the parent indentation level
+- **Continuation indentation** for wrapped function parameters
+
+### Key Files
+1. `KiteFormattingModelBuilder.java` - Main formatter entry point, defines spacing rules via `SpacingBuilder`
+2. `KiteBlock.java` - Represents hierarchical formatting blocks, manages indentation and child block creation
+
+### Features
+- Format entire file with Cmd+Alt+L (Mac) or Ctrl+Alt+L (Windows/Linux)
+- Format selected text only by selecting code first, then using the reformat shortcut
+- Consistent spacing around keywords, operators, and delimiters
+- Proper indentation for nested structures
+- Preserves semantic meaning while improving readability

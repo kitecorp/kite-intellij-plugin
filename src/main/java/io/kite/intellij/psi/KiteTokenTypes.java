@@ -56,19 +56,52 @@ public class KiteTokenTypes {
     public static final IElementType STRING = new KiteTokenType("STRING");
     public static final IElementType IDENTIFIER = new KiteTokenType("IDENTIFIER");
 
-    // Operators
+    // Operators - Arithmetic
+    public static final IElementType PLUS = new KiteTokenType("PLUS");
+    public static final IElementType MINUS = new KiteTokenType("MINUS");
+    public static final IElementType MULTIPLY = new KiteTokenType("MULTIPLY");
+    public static final IElementType DIVIDE = new KiteTokenType("DIVIDE");
+    public static final IElementType MODULO = new KiteTokenType("MODULO");
+    public static final IElementType INCREMENT = new KiteTokenType("INCREMENT");
+    public static final IElementType DECREMENT = new KiteTokenType("DECREMENT");
+
+    // Operators - Relational
+    public static final IElementType LT = new KiteTokenType("LT");
+    public static final IElementType GT = new KiteTokenType("GT");
+    public static final IElementType LE = new KiteTokenType("LE");
+    public static final IElementType GE = new KiteTokenType("GE");
+    public static final IElementType EQ = new KiteTokenType("EQ");
+    public static final IElementType NE = new KiteTokenType("NE");
+
+    // Operators - Logical
+    public static final IElementType AND = new KiteTokenType("AND");
+    public static final IElementType OR = new KiteTokenType("OR");
+    public static final IElementType NOT = new KiteTokenType("NOT");
+
+    // Operators - Assignment
+    public static final IElementType ASSIGN = new KiteTokenType("ASSIGN");
+    public static final IElementType PLUS_ASSIGN = new KiteTokenType("PLUS_ASSIGN");
+    public static final IElementType MINUS_ASSIGN = new KiteTokenType("MINUS_ASSIGN");
+    public static final IElementType MUL_ASSIGN = new KiteTokenType("MUL_ASSIGN");
+    public static final IElementType DIV_ASSIGN = new KiteTokenType("DIV_ASSIGN");
+
+    // Other operators
     public static final IElementType AT = new KiteTokenType("AT");
     public static final IElementType DOT = new KiteTokenType("DOT");
     public static final IElementType ARROW = new KiteTokenType("ARROW");
     public static final IElementType RANGE = new KiteTokenType("RANGE");
+    public static final IElementType UNION = new KiteTokenType("UNION");
 
     // Delimiters
-    public static final IElementType COLON = new KiteTokenType("COLON");
-    public static final IElementType SEMICOLON = new KiteTokenType("SEMICOLON");
-    public static final IElementType LBRACE = new KiteTokenType("LBRACE");
-    public static final IElementType RBRACE = new KiteTokenType("RBRACE");
     public static final IElementType LPAREN = new KiteTokenType("LPAREN");
     public static final IElementType RPAREN = new KiteTokenType("RPAREN");
+    public static final IElementType LBRACE = new KiteTokenType("LBRACE");
+    public static final IElementType RBRACE = new KiteTokenType("RBRACE");
+    public static final IElementType LBRACK = new KiteTokenType("LBRACK");
+    public static final IElementType RBRACK = new KiteTokenType("RBRACK");
+    public static final IElementType COMMA = new KiteTokenType("COMMA");
+    public static final IElementType COLON = new KiteTokenType("COLON");
+    public static final IElementType SEMICOLON = new KiteTokenType("SEMICOLON");
 
     // Comments
     public static final IElementType LINE_COMMENT = new KiteTokenType("LINE_COMMENT");

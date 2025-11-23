@@ -167,48 +167,52 @@ public class KiteLexerAdapter extends LexerBase {
             case KiteLexer.STRING -> KiteTokenTypes.STRING;
             case KiteLexer.IDENTIFIER -> KiteTokenTypes.IDENTIFIER;
 
-            // Special
+            // Operators - Arithmetic
+            case KiteLexer.PLUS -> KiteTokenTypes.PLUS;
+            case KiteLexer.MINUS -> KiteTokenTypes.MINUS;
+            case KiteLexer.MULTIPLY -> KiteTokenTypes.MULTIPLY;
+            case KiteLexer.DIVIDE -> KiteTokenTypes.DIVIDE;
+            case KiteLexer.MODULO -> KiteTokenTypes.MODULO;
+            case KiteLexer.INCREMENT -> KiteTokenTypes.INCREMENT;
+            case KiteLexer.DECREMENT -> KiteTokenTypes.DECREMENT;
+
+            // Operators - Relational
+            case KiteLexer.LT -> KiteTokenTypes.LT;
+            case KiteLexer.GT -> KiteTokenTypes.GT;
+            case KiteLexer.LE -> KiteTokenTypes.LE;
+            case KiteLexer.GE -> KiteTokenTypes.GE;
+            case KiteLexer.EQ -> KiteTokenTypes.EQ;
+            case KiteLexer.NE -> KiteTokenTypes.NE;
+
+            // Operators - Logical
+            case KiteLexer.AND -> KiteTokenTypes.AND;
+            case KiteLexer.OR -> KiteTokenTypes.OR;
+            case KiteLexer.NOT -> KiteTokenTypes.NOT;
+
+            // Operators - Assignment
+            case KiteLexer.ASSIGN -> KiteTokenTypes.ASSIGN;
+            case KiteLexer.PLUS_ASSIGN -> KiteTokenTypes.PLUS_ASSIGN;
+            case KiteLexer.MINUS_ASSIGN -> KiteTokenTypes.MINUS_ASSIGN;
+            case KiteLexer.MUL_ASSIGN -> KiteTokenTypes.MUL_ASSIGN;
+            case KiteLexer.DIV_ASSIGN -> KiteTokenTypes.DIV_ASSIGN;
+
+            // Other operators
             case KiteLexer.AT -> KiteTokenTypes.AT;
             case KiteLexer.DOT -> KiteTokenTypes.DOT;
             case KiteLexer.ARROW -> KiteTokenTypes.ARROW;
             case KiteLexer.RANGE -> KiteTokenTypes.RANGE;
-            case KiteLexer.COLON -> KiteTokenTypes.COLON;
-            case KiteLexer.SEMICOLON -> KiteTokenTypes.SEMICOLON;
-            case KiteLexer.LBRACE -> KiteTokenTypes.LBRACE;
-            case KiteLexer.RBRACE -> KiteTokenTypes.RBRACE;
-            case KiteLexer.LPAREN -> KiteTokenTypes.LPAREN;
-            case KiteLexer.RPAREN -> KiteTokenTypes.RPAREN;
-
-            // Assignment operators (missing mappings that cause BAD_CHARACTER)
-            case KiteLexer.ASSIGN -> KiteTokenTypes.WHITESPACE;  // Temporary: treat as whitespace
-            case KiteLexer.PLUS_ASSIGN -> KiteTokenTypes.WHITESPACE;
-            case KiteLexer.MINUS_ASSIGN -> KiteTokenTypes.WHITESPACE;
-            case KiteLexer.MUL_ASSIGN -> KiteTokenTypes.WHITESPACE;
-            case KiteLexer.DIV_ASSIGN -> KiteTokenTypes.WHITESPACE;
-
-            // Other operators that might be missing
-            case KiteLexer.PLUS -> KiteTokenTypes.WHITESPACE;
-            case KiteLexer.MINUS -> KiteTokenTypes.WHITESPACE;
-            case KiteLexer.MULTIPLY -> KiteTokenTypes.WHITESPACE;
-            case KiteLexer.DIVIDE -> KiteTokenTypes.WHITESPACE;
-            case KiteLexer.MODULO -> KiteTokenTypes.WHITESPACE;
-            case KiteLexer.INCREMENT -> KiteTokenTypes.WHITESPACE;
-            case KiteLexer.DECREMENT -> KiteTokenTypes.WHITESPACE;
-            case KiteLexer.LT -> KiteTokenTypes.WHITESPACE;
-            case KiteLexer.GT -> KiteTokenTypes.WHITESPACE;
-            case KiteLexer.LE -> KiteTokenTypes.WHITESPACE;
-            case KiteLexer.GE -> KiteTokenTypes.WHITESPACE;
-            case KiteLexer.EQ -> KiteTokenTypes.WHITESPACE;
-            case KiteLexer.NE -> KiteTokenTypes.WHITESPACE;
-            case KiteLexer.AND -> KiteTokenTypes.WHITESPACE;
-            case KiteLexer.OR -> KiteTokenTypes.WHITESPACE;
-            case KiteLexer.NOT -> KiteTokenTypes.WHITESPACE;
-            case KiteLexer.UNION -> KiteTokenTypes.WHITESPACE;
+            case KiteLexer.UNION -> KiteTokenTypes.UNION;
 
             // Delimiters
-            case KiteLexer.LBRACK -> KiteTokenTypes.WHITESPACE;
-            case KiteLexer.RBRACK -> KiteTokenTypes.WHITESPACE;
-            case KiteLexer.COMMA -> KiteTokenTypes.WHITESPACE;
+            case KiteLexer.LPAREN -> KiteTokenTypes.LPAREN;
+            case KiteLexer.RPAREN -> KiteTokenTypes.RPAREN;
+            case KiteLexer.LBRACE -> KiteTokenTypes.LBRACE;
+            case KiteLexer.RBRACE -> KiteTokenTypes.RBRACE;
+            case KiteLexer.LBRACK -> KiteTokenTypes.LBRACK;
+            case KiteLexer.RBRACK -> KiteTokenTypes.RBRACK;
+            case KiteLexer.COMMA -> KiteTokenTypes.COMMA;
+            case KiteLexer.COLON -> KiteTokenTypes.COLON;
+            case KiteLexer.SEMICOLON -> KiteTokenTypes.SEMICOLON;
 
             // Comments
             case KiteLexer.LINE_COMMENT -> KiteTokenTypes.LINE_COMMENT;
