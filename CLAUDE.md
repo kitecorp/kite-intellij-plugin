@@ -156,15 +156,25 @@ Automatic code formatting with the 'Reformat Code' action (Cmd+Alt+L on Mac, Ctr
     flag  : 'i'
   )
   ```
-- **Resource/Component/Schema blocks**: Assignment operators (`=`) are vertically aligned
+- **Resource/Component/Schema blocks**: Assignment operators (`=`) are vertically aligned within groups
   ```kite
-  resource Storage backup {
-    name        = bucketName
-    replication = true
+  component WebServer api {
+    input number port = 8080
+    input string size = "t2.micro"
+
+    var x  = 1
+    var yp = 2
+
+    output string endpoint = server.publicIp
   }
   ```
-- **How it works**: The formatter finds the longest property name and adds padding before shorter names so all colons or equals signs align vertically
-- This makes all structured code more readable and easier to scan
+- **Grouping logic**: Consecutive lines of the same type align together
+  - Consecutive `input` declarations align with each other
+  - Consecutive `output` declarations align with each other
+  - Consecutive `var` declarations align with each other
+  - Groups are separated by blank lines or different statement types
+- **How it works**: The formatter identifies groups of similar consecutive declarations, finds the longest property name in each group, and adds padding so alignment happens within each group independently
+- This makes all structured code more readable and easier to scan while respecting logical separation
 
 ### Key Files
 1. `KiteFormattingModelBuilder.java` - Main formatter entry point, defines spacing rules via `SpacingBuilder`
