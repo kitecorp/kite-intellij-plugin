@@ -78,9 +78,12 @@ Code folding support allows collapsing and expanding code sections for better re
 
 ### Foldable Elements
 - **Resource declarations** - Collapse resource blocks
-- **Component declarations** - Collapse component blocks
+- **Component declarations** - Collapse component blocks with nested content
 - **Schema declarations** - Collapse schema blocks
 - **Function declarations** - Collapse function blocks
+- **For statements** - Collapse for loop blocks
+- **While statements** - Collapse while loop blocks
+- **Object literals** - Collapse object literals `{key: value, ...}` in any context (property values, decorator arguments, etc.)
 - **Block comments** - Collapse multi-line comments (`/* */`)
 
 ### Features
