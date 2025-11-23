@@ -52,16 +52,16 @@ public class KiteBlock extends AbstractBlock {
             return buildAlignedChildren(KiteTokenTypes.COLON);
         }
 
-        // Align equals in resource/component/schema blocks and top-level file
+        // Align equals in resource/component/schema blocks
         if (nodeType == KiteElementTypes.RESOURCE_DECLARATION ||
             nodeType == KiteElementTypes.COMPONENT_DECLARATION ||
-            nodeType == KiteElementTypes.SCHEMA_DECLARATION ||
-            nodeType == KiteParserDefinition.FILE) {
+            nodeType == KiteElementTypes.SCHEMA_DECLARATION) {
             return buildAlignedChildren(KiteTokenTypes.ASSIGN);
         }
 
         // Check if this node contains parenthesized named arguments (like in decorators)
-        if (containsParenthesizedNamedArgs()) {
+        // Apply alignment only for FILE level (top-level decorators)
+        if (nodeType == KiteParserDefinition.FILE && containsParenthesizedNamedArgs()) {
             return buildAlignedChildren(KiteTokenTypes.COLON);
         }
 
@@ -378,22 +378,52 @@ public class KiteBlock extends AbstractBlock {
     }
 
     /**
-     * Creates a single alignment group containing all identifiers (for object literals).
+     * Creates alignment groups for identifiers, respecting parentheses boundaries.
+     * For object literals: one group for all properties.
+     * For decorator args (FILE level): separate group for each () pair.
      */
     private List<AlignmentGroup> identifySimpleGroup(IElementType alignToken) {
         List<AlignmentGroup> groups = new ArrayList<>();
-        AlignmentGroup group = new AlignmentGroup();
-        groups.add(group);
+        AlignmentGroup group = null;
+        int parenDepth = 0;
+        boolean inParens = false;
 
         ASTNode child = myNode.getFirstChildNode();
         while (child != null) {
-            if (child.getElementType() == KiteTokenTypes.IDENTIFIER) {
-                ASTNode nextToken = findNextToken(child, alignToken);
-                if (nextToken != null) {
-                    group.identifiers.add(child);
-                    group.maxKeyLength = Math.max(group.maxKeyLength, child.getTextLength());
+            IElementType childType = child.getElementType();
+
+            // Track parentheses depth
+            if (childType == KiteTokenTypes.LPAREN) {
+                parenDepth++;
+                if (parenDepth == 1) {
+                    // Start new group for this parentheses scope
+                    group = new AlignmentGroup();
+                    groups.add(group);
+                    inParens = true;
+                }
+            } else if (childType == KiteTokenTypes.RPAREN) {
+                parenDepth--;
+                if (parenDepth == 0) {
+                    inParens = false;
                 }
             }
+            // Add identifiers to current group
+            else if (childType == KiteTokenTypes.IDENTIFIER) {
+                ASTNode nextToken = findNextToken(child, alignToken);
+                if (nextToken != null) {
+                    // For object literals (no parens tracking), create group if needed
+                    if (!inParens && group == null) {
+                        group = new AlignmentGroup();
+                        groups.add(group);
+                    }
+                    // Only add if we have a group (either in parens or object literal)
+                    if (group != null) {
+                        group.identifiers.add(child);
+                        group.maxKeyLength = Math.max(group.maxKeyLength, child.getTextLength());
+                    }
+                }
+            }
+
             child = child.getTreeNext();
         }
 
