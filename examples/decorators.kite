@@ -2,7 +2,7 @@
 @existing
 @sensitive
 resource Database prod {
-  name= "production-db"
+  name = "production-db"
 }
 
 @minValue(1)
@@ -36,8 +36,8 @@ input string bucketName
   CostCenter : "engineering"
 })
 resource Storage backup {
-  name       = bucketName
-  replication= true
+  name        = bucketName
+  replication = true
 }
 
 @allowed(["small", "medium", "large"])

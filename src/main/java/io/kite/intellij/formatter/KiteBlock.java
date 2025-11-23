@@ -59,10 +59,9 @@ public class KiteBlock extends AbstractBlock {
             return buildAlignedChildren(KiteTokenTypes.ASSIGN);
         }
 
-        // Check if this node contains parenthesized named arguments (like in decorators)
-        // Apply alignment only for FILE level (top-level decorators)
-        if (nodeType == KiteParserDefinition.FILE && containsParenthesizedNamedArgs()) {
-            return buildAlignedChildren(KiteTokenTypes.COLON);
+        // FILE level: handle both decorator colons and declaration equals
+        if (nodeType == KiteParserDefinition.FILE) {
+            return buildFileChildren();
         }
 
         // Default block building for other elements
@@ -205,7 +204,9 @@ public class KiteBlock extends AbstractBlock {
                         AlignmentGroup group = findGroupForIdentifier(groups, previousIdentifier);
                         if (group != null) {
                             int keyLength = previousIdentifier.getTextLength();
-                            padding = group.maxKeyLength - keyLength;
+                            // For ASSIGN, always have at least 1 space; for COLON, longest key has 0 spaces
+                            int extraSpace = (alignToken == KiteTokenTypes.ASSIGN) ? 1 : 0;
+                            padding = group.maxKeyLength - keyLength + extraSpace;
                         }
                         previousIdentifier = null;
                     }
@@ -219,6 +220,71 @@ public class KiteBlock extends AbstractBlock {
                         padding
                     ));
                 }
+            }
+
+            child = child.getTreeNext();
+        }
+
+        return blocks;
+    }
+
+    /**
+     * Builds children for FILE node, handling both decorator colons and declaration equals.
+     */
+    private List<Block> buildFileChildren() {
+        List<Block> blocks = new ArrayList<>();
+
+        // Identify alignment groups for both COLON and ASSIGN
+        List<AlignmentGroup> colonGroups = containsParenthesizedNamedArgs() ?
+            identifyAlignmentGroups(KiteTokenTypes.COLON) : new ArrayList<>();
+        List<AlignmentGroup> assignGroups = identifyAlignmentGroups(KiteTokenTypes.ASSIGN);
+
+        ASTNode child = myNode.getFirstChildNode();
+        ASTNode previousIdentifier = null;
+
+        while (child != null) {
+            IElementType childType = child.getElementType();
+
+            if (childType != TokenType.WHITE_SPACE && child.getTextLength() > 0) {
+                Indent childIndent = getChildIndent(childType);
+
+                // Track identifiers that precede align tokens
+                if (childType == KiteTokenTypes.IDENTIFIER) {
+                    ASTNode nextColon = findNextToken(child, KiteTokenTypes.COLON);
+                    ASTNode nextAssign = findNextToken(child, KiteTokenTypes.ASSIGN);
+                    if (nextColon != null || nextAssign != null) {
+                        previousIdentifier = child;
+                    }
+                }
+
+                // Calculate padding for COLON or ASSIGN tokens
+                Integer padding = null;
+                if (previousIdentifier != null) {
+                    if (childType == KiteTokenTypes.COLON) {
+                        AlignmentGroup group = findGroupForIdentifier(colonGroups, previousIdentifier);
+                        if (group != null) {
+                            int keyLength = previousIdentifier.getTextLength();
+                            padding = group.maxKeyLength - keyLength; // No extra space for colons
+                        }
+                        previousIdentifier = null;
+                    } else if (childType == KiteTokenTypes.ASSIGN) {
+                        AlignmentGroup group = findGroupForIdentifier(assignGroups, previousIdentifier);
+                        if (group != null) {
+                            int keyLength = previousIdentifier.getTextLength();
+                            padding = group.maxKeyLength - keyLength + 1; // +1 for equals
+                        }
+                        previousIdentifier = null;
+                    }
+                }
+
+                blocks.add(new KiteBlock(
+                    child,
+                    null,
+                    null,
+                    childIndent,
+                    spacingBuilder,
+                    padding
+                ));
             }
 
             child = child.getTreeNext();
@@ -259,7 +325,9 @@ public class KiteBlock extends AbstractBlock {
                     AlignmentGroup group = findGroupForIdentifier(groups, previousIdentifier);
                     if (group != null) {
                         int keyLength = previousIdentifier.getTextLength();
-                        padding = group.maxKeyLength - keyLength;
+                        // For ASSIGN, always have at least 1 space; for COLON, longest key has 0 spaces
+                        int extraSpace = (alignToken == KiteTokenTypes.ASSIGN) ? 1 : 0;
+                        padding = group.maxKeyLength - keyLength + extraSpace;
                     }
                     previousIdentifier = null;
                 }
