@@ -51,18 +51,14 @@ public class KiteFoldingBuilder extends FoldingBuilderEx {
             elementType == KiteElementTypes.SCHEMA_DECLARATION ||
             elementType == KiteElementTypes.FUNCTION_DECLARATION) {
 
-            // Find LBRACE and RBRACE tokens within this declaration
-            ASTNode lbrace = findFirstTokenOfType(node, KiteTokenTypes.LBRACE);
-            if (lbrace != null) {
-                ASTNode rbrace = findMatchingRBrace(lbrace);
-                if (rbrace != null) {
-                    TextRange range = new TextRange(lbrace.getStartOffset(), rbrace.getStartOffset() + 1);
-                    int startLine = document.getLineNumber(range.getStartOffset());
-                    int endLine = document.getLineNumber(range.getEndOffset());
+            // Find the block range (from { to })
+            TextRange range = findBlockRange(node);
+            if (range != null) {
+                int startLine = document.getLineNumber(range.getStartOffset());
+                int endLine = document.getLineNumber(range.getEndOffset());
 
-                    if (endLine > startLine) {
-                        descriptors.add(new FoldingDescriptor(node, range));
-                    }
+                if (endLine > startLine) {
+                    descriptors.add(new FoldingDescriptor(node, range));
                 }
             }
         }
@@ -106,82 +102,40 @@ public class KiteFoldingBuilder extends FoldingBuilderEx {
     }
 
     /**
-     * Finds the first token of the specified type within an AST node.
+     * Finds the block range by matching the first { with its closing } using depth counting on text.
      */
-    private ASTNode findFirstTokenOfType(ASTNode node, IElementType type) {
-        for (ASTNode child = node.getFirstChildNode(); child != null; child = child.getTreeNext()) {
-            if (child.getElementType() == type) {
-                return child;
-            }
-            ASTNode found = findFirstTokenOfType(child, type);
-            if (found != null) {
-                return found;
-            }
-        }
-        return null;
-    }
+    private TextRange findBlockRange(ASTNode declarationNode) {
+        String text = declarationNode.getText();
 
-    /**
-     * Finds the matching RBRACE for the given LBRACE token by counting brace depth.
-     */
-    private ASTNode findMatchingRBrace(ASTNode lbrace) {
+        // Find first '{'
+        int firstBrace = text.indexOf('{');
+        if (firstBrace == -1) {
+            return null;
+        }
+
+        // Use depth counting to find matching '}'
         int depth = 1;
-        ASTNode current = lbrace.getTreeNext();
+        int pos = firstBrace + 1;
 
-        while (current != null && depth > 0) {
-            IElementType type = current.getElementType();
-            if (type == KiteTokenTypes.LBRACE) {
+        while (pos < text.length() && depth > 0) {
+            char c = text.charAt(pos);
+            if (c == '{') {
                 depth++;
-            } else if (type == KiteTokenTypes.RBRACE) {
+            } else if (c == '}') {
                 depth--;
-                if (depth == 0) {
-                    return current;
-                }
             }
-
-            // Recursively search in children
-            if (current.getFirstChildNode() != null) {
-                ASTNode childResult = findMatchingRBraceRecursive(current.getFirstChildNode(), depth);
-                if (childResult != null) {
-                    return childResult;
-                }
-            }
-
-            current = current.getTreeNext();
+            pos++;
         }
 
-        return null;
-    }
-
-    /**
-     * Helper for recursive brace matching within a subtree.
-     */
-    private ASTNode findMatchingRBraceRecursive(ASTNode node, int initialDepth) {
-        int depth = initialDepth;
-        ASTNode current = node;
-
-        while (current != null && depth > 0) {
-            IElementType type = current.getElementType();
-            if (type == KiteTokenTypes.LBRACE) {
-                depth++;
-            } else if (type == KiteTokenTypes.RBRACE) {
-                depth--;
-                if (depth == 0) {
-                    return current;
-                }
-            }
-
-            // Recursively search in children
-            if (current.getFirstChildNode() != null) {
-                ASTNode childResult = findMatchingRBraceRecursive(current.getFirstChildNode(), depth);
-                if (childResult != null) {
-                    return childResult;
-                }
-            }
-
-            current = current.getTreeNext();
+        if (depth != 0) {
+            // Didn't find matching brace
+            return null;
         }
 
-        return null;
+        // pos is now one past the closing brace
+        int startOffset = declarationNode.getStartOffset() + firstBrace;
+        int endOffset = declarationNode.getStartOffset() + pos;
+
+        return new TextRange(startOffset, endOffset);
     }
 }

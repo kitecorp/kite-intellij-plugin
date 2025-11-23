@@ -67,7 +67,11 @@ public class KitePsiParser implements PsiParser {
                                            elementType == KiteElementTypes.SCHEMA_DECLARATION ||
                                            elementType == KiteElementTypes.RESOURCE_DECLARATION;
 
-        // Consume tokens until we find a block
+        // INPUT and OUTPUT are always single-line declarations
+        boolean isSingleLineDeclaration = elementType == KiteElementTypes.INPUT_DECLARATION ||
+                                          elementType == KiteElementTypes.OUTPUT_DECLARATION;
+
+        // Consume tokens until we find a block or end of line
         while (!builder.eof()) {
             IElementType tokenType = builder.getTokenType();
 
@@ -83,9 +87,12 @@ public class KitePsiParser implements PsiParser {
                     consumeUntilClosingBrace(builder);
                 }
                 break;
-            } else if (tokenType == KiteTokenTypes.NEWLINE || tokenType == KiteTokenTypes.SEMICOLON) {
-                // End of single-line declaration (like type or import)
-                builder.advanceLexer();
+            } else if (tokenType == KiteTokenTypes.NL || tokenType == KiteTokenTypes.SEMICOLON) {
+                // End of single-line declaration
+                // Don't consume the newline for single-line declarations - let parseBlockContent handle it
+                if (!isSingleLineDeclaration) {
+                    builder.advanceLexer();
+                }
                 break;
             } else {
                 builder.advanceLexer();
@@ -96,6 +103,8 @@ public class KitePsiParser implements PsiParser {
     }
 
     private void parseBlockContent(PsiBuilder builder) {
+        int braceDepth = 0;  // Track nested braces for object/array literals
+
         while (!builder.eof()) {
             // Skip whitespace and comments
             while (!builder.eof() && isSkippableToken(builder.getTokenType())) {
@@ -106,14 +115,22 @@ public class KitePsiParser implements PsiParser {
 
             IElementType tokenType = builder.getTokenType();
 
-            // Check for closing brace
+            // Check for closing brace - but only exit if we're at depth 0
             if (tokenType == KiteTokenTypes.RBRACE) {
+                if (braceDepth == 0) {
+                    // This is the closing brace of the block itself
+                    builder.advanceLexer();
+                    break;
+                } else {
+                    // This closes a nested object/array literal
+                    braceDepth--;
+                    builder.advanceLexer();
+                }
+            } else if (tokenType == KiteTokenTypes.LBRACE) {
+                // Opening brace of a nested object/array literal
+                braceDepth++;
                 builder.advanceLexer();
-                break;
-            }
-
-            // Check for nested declaration keywords
-            if (tokenType == KiteTokenTypes.RESOURCE) {
+            } else if (tokenType == KiteTokenTypes.RESOURCE) {
                 parseDeclaration(builder, KiteElementTypes.RESOURCE_DECLARATION);
             } else if (tokenType == KiteTokenTypes.INPUT) {
                 parseDeclaration(builder, KiteElementTypes.INPUT_DECLARATION);
@@ -147,7 +164,7 @@ public class KitePsiParser implements PsiParser {
     }
 
     private boolean isSkippableToken(IElementType tokenType) {
-        return tokenType == KiteTokenTypes.NEWLINE ||
+        return tokenType == KiteTokenTypes.NL ||
                tokenType == KiteTokenTypes.WHITESPACE ||
                tokenType == KiteTokenTypes.LINE_COMMENT ||
                tokenType == KiteTokenTypes.BLOCK_COMMENT ||
