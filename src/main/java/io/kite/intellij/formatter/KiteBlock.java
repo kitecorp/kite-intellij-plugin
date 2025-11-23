@@ -52,11 +52,15 @@ public class KiteBlock extends AbstractBlock {
             return buildAlignedChildren(KiteTokenTypes.COLON);
         }
 
-        // Align equals in resource/component/schema blocks
+        // Align equals in resource/component blocks
         if (nodeType == KiteElementTypes.RESOURCE_DECLARATION ||
-            nodeType == KiteElementTypes.COMPONENT_DECLARATION ||
-            nodeType == KiteElementTypes.SCHEMA_DECLARATION) {
+            nodeType == KiteElementTypes.COMPONENT_DECLARATION) {
             return buildAlignedChildren(KiteTokenTypes.ASSIGN);
+        }
+
+        // Special handling for schema declarations (properties are nested)
+        if (nodeType == KiteElementTypes.SCHEMA_DECLARATION) {
+            return buildSchemaChildren(KiteTokenTypes.ASSIGN);
         }
 
         // FILE level: handle both decorator colons and declaration equals
@@ -229,6 +233,100 @@ public class KiteBlock extends AbstractBlock {
     }
 
     /**
+     * Builds children for schema declarations with proper alignment of ASSIGN tokens.
+     * Schema properties are nested, so this method flattens all tokens and applies alignment.
+     */
+    private List<Block> buildSchemaChildren(IElementType alignToken) {
+        List<Block> blocks = new ArrayList<>();
+
+        // First pass: identify alignment groups
+        List<AlignmentGroup> groups = identifySchemaPropertyGroups(alignToken);
+
+        // Second pass: flatten all tokens and build blocks with alignment
+        List<ASTNode> allTokens = new ArrayList<>();
+        flattenTokens(myNode, allTokens);
+
+        ASTNode prevIdentifier = null;
+        boolean inSchemaBody = false;
+
+        for (ASTNode token : allTokens) {
+            IElementType tokenType = token.getElementType();
+
+            // Skip whitespace
+            if (tokenType == TokenType.WHITE_SPACE && token.getTextLength() > 0) {
+                continue;
+            }
+
+            // Track when we're inside the schema body
+            if (tokenType == KiteTokenTypes.LBRACE) {
+                inSchemaBody = true;
+            }
+
+            // Handle identifiers - track pairs (type + property name)
+            if (inSchemaBody && tokenType == KiteTokenTypes.IDENTIFIER) {
+                if (prevIdentifier != null) {
+                    // This is the property name (second identifier in a pair)
+                    prevIdentifier = token;
+                } else {
+                    // This is the type (first identifier)
+                    prevIdentifier = token;
+                }
+            }
+
+            // Calculate padding for ASSIGN tokens
+            Integer padding = null;
+            if (inSchemaBody && tokenType == alignToken && prevIdentifier != null) {
+                // Find which group this identifier belongs to
+                AlignmentGroup group = findGroupForIdentifier(groups, prevIdentifier);
+                if (group != null) {
+                    int keyLength = prevIdentifier.getTextLength();
+                    int extraSpace = 1; // For ASSIGN, always at least 1 space
+                    padding = group.maxKeyLength - keyLength + extraSpace;
+                }
+                prevIdentifier = null;
+            }
+
+            // Reset prevIdentifier at end of property
+            if (tokenType == KiteTokenTypes.NL || tokenType == KiteTokenTypes.NEWLINE ||
+                tokenType == KiteTokenTypes.SEMICOLON) {
+                prevIdentifier = null;
+            }
+
+            // Create block for this token
+            if (token.getTextLength() > 0) {
+                Indent tokenIndent = getChildIndent(tokenType);
+                blocks.add(new KiteBlock(
+                    token,
+                    null,
+                    null,
+                    tokenIndent,
+                    spacingBuilder,
+                    padding
+                ));
+            }
+        }
+
+        return blocks;
+    }
+
+    /**
+     * Recursively flattens all tokens in a tree into a list.
+     */
+    private void flattenTokens(ASTNode node, List<ASTNode> tokens) {
+        ASTNode child = node.getFirstChildNode();
+        while (child != null) {
+            if (child.getFirstChildNode() == null) {
+                // Leaf node - add to list
+                tokens.add(child);
+            } else {
+                // Non-leaf node - recurse
+                flattenTokens(child, tokens);
+            }
+            child = child.getTreeNext();
+        }
+    }
+
+    /**
      * Builds children for FILE node, handling both decorator colons and declaration equals.
      */
     private List<Block> buildFileChildren() {
@@ -369,6 +467,11 @@ public class KiteBlock extends AbstractBlock {
             return identifySimpleGroup(alignToken);
         }
 
+        // For schema declarations, use special grouping to handle properties with and without default values
+        if (myNode.getElementType() == KiteElementTypes.SCHEMA_DECLARATION) {
+            return identifySchemaPropertyGroups(alignToken);
+        }
+
         // For block declarations, use smart grouping
         AlignmentGroup currentGroup = null;
         IElementType lastDeclType = null;
@@ -443,6 +546,81 @@ public class KiteBlock extends AbstractBlock {
         }
 
         return groups;
+    }
+
+    /**
+     * Identifies alignment groups for schema properties.
+     * Schema properties have pattern: typeIdentifier identifier [= value]
+     * We want to align ALL property names (second identifier), whether or not they have default values.
+     * This method traverses all tokens recursively to handle nested structures.
+     */
+    private List<AlignmentGroup> identifySchemaPropertyGroups(IElementType alignToken) {
+        List<AlignmentGroup> groups = new ArrayList<>();
+        AlignmentGroup currentGroup = new AlignmentGroup();
+        groups.add(currentGroup);
+
+        // Recursively collect all identifiers that should be aligned
+        collectSchemaPropertyIdentifiers(myNode, currentGroup);
+
+        return groups;
+    }
+
+    /**
+     * Recursively collects schema property identifiers from a node and its descendants.
+     */
+    private void collectSchemaPropertyIdentifiers(ASTNode node, AlignmentGroup group) {
+        ASTNode child = node.getFirstChildNode();
+        ASTNode prevIdentifier = null;
+        boolean inSchemaBody = false;
+
+        while (child != null) {
+            IElementType childType = child.getElementType();
+
+            // Skip until we're inside the schema body (after LBRACE)
+            if (childType == KiteTokenTypes.LBRACE) {
+                inSchemaBody = true;
+            } else if (childType == KiteTokenTypes.RBRACE) {
+                break; // Stop at closing brace
+            } else if (inSchemaBody && childType == KiteTokenTypes.IDENTIFIER) {
+                if (prevIdentifier != null) {
+                    // This is the second identifier in a pair - it's the property name
+                    // Add it to the group whether or not it's followed by ASSIGN
+                    group.identifiers.add(child);
+                    group.maxKeyLength = Math.max(group.maxKeyLength, child.getTextLength());
+                    prevIdentifier = null; // Reset for next pair
+                } else {
+                    // This is the first identifier - likely the type
+                    prevIdentifier = child;
+                }
+            }
+            // Reset prevIdentifier if we hit ASSIGN or other tokens that end a property
+            else if (childType == KiteTokenTypes.ASSIGN ||
+                     childType == KiteTokenTypes.NL ||
+                     childType == KiteTokenTypes.NEWLINE ||
+                     childType == KiteTokenTypes.SEMICOLON) {
+                // Property ended, reset for next property
+                prevIdentifier = null;
+            }
+            // For any non-leaf nodes, recurse into them
+            else if (child.getFirstChildNode() != null) {
+                collectSchemaPropertyIdentifiers(child, group);
+            }
+
+            child = child.getTreeNext();
+        }
+    }
+
+    /**
+     * Checks if a token type represents a value (used in schema property parsing).
+     */
+    private boolean isValueToken(IElementType type) {
+        return type == KiteTokenTypes.NUMBER ||
+               type == KiteTokenTypes.STRING ||
+               type == KiteTokenTypes.TRUE ||
+               type == KiteTokenTypes.FALSE ||
+               type == KiteTokenTypes.NULL ||
+               type == KiteElementTypes.OBJECT_LITERAL ||
+               type == KiteElementTypes.ARRAY_LITERAL;
     }
 
     /**
@@ -620,12 +798,13 @@ public class KiteBlock extends AbstractBlock {
     private Indent getChildIndent(IElementType childType) {
         IElementType parentType = myNode.getElementType();
 
-        // Content inside braces/brackets should be indented
+        // Content inside braces should be indented
         if (isBlockElement(parentType)) {
-            if (childType == KiteTokenTypes.LBRACE || childType == KiteTokenTypes.RBRACE ||
-                childType == KiteTokenTypes.LBRACK || childType == KiteTokenTypes.RBRACK) {
+            // Braces get no indent (align with parent)
+            if (childType == KiteTokenTypes.LBRACE || childType == KiteTokenTypes.RBRACE) {
                 return Indent.getNoneIndent();
             }
+            // Brackets and their content get normal indent
             return Indent.getNormalIndent();
         }
 
@@ -647,8 +826,7 @@ public class KiteBlock extends AbstractBlock {
                type == KiteElementTypes.FUNCTION_DECLARATION ||
                type == KiteElementTypes.FOR_STATEMENT ||
                type == KiteElementTypes.WHILE_STATEMENT ||
-               type == KiteElementTypes.OBJECT_LITERAL ||
-               type == KiteElementTypes.ARRAY_LITERAL;
+               type == KiteElementTypes.OBJECT_LITERAL;
     }
 
     @Override

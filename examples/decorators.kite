@@ -15,15 +15,15 @@ input number instanceCount = 10
 @maxLength(63)
 input string bucketName
 */
-@validate(regex: "^[a-z0-9-]+$",
-          flag : 'i')
+@validate(regex : "^[a-z0-9-]+$",
+          flag: 'i')
 @minLength(3)
 @maxLength(63)
 input string bucketName
 
 @validate(
+  flag   : 'i'
   regex: "^[a-z0-9-]+$",
-  flag : 'i'
 )
 @minLength(3)
 @maxLength(63)
@@ -36,13 +36,13 @@ input string bucketName
   CostCenter : "engineering"
 })
 resource Storage backup {
-  name        = bucketName
+  name            = bucketName
   replication = true
 }
 
 @allowed(["small", "medium", "large"])
-input string size = "medium"
+input string size   = "medium"
 
 @unique
 @nonEmpty
-var regions = ["us-east-1", "eu-west-1", "ap-southeast-1"]
+var regions= ["us-east-1", "eu-west-1", "ap-southeast-1"]
