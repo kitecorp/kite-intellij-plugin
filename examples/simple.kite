@@ -11,7 +11,7 @@ schema DatabaseConfig {
 }
 
 @provisionOn(["aws"])
-@tags({Environment: "production", Team: "platform"})
+@tags({Environment  : "production" , Team   : "platform"})
 resource S3.Bucket photos {
   name = "my-photos-bucket"
   region = "us-east-1"
@@ -19,7 +19,7 @@ resource S3.Bucket photos {
   region  = "us-east-1"
 }
 
-fun calculateCost(number instances, string name) number {
+fun calculateCost(number instances,string name) number {
   var baseCost = 0.10
   return instances * baseCost
 }
