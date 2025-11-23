@@ -156,8 +156,15 @@ Automatic code formatting with the 'Reformat Code' action (Cmd+Alt+L on Mac, Ctr
     flag  : 'i'
   )
   ```
-- **How it works**: The formatter finds the longest property name and adds padding before shorter names so all colons align vertically
-- This makes object structures and decorator arguments more readable and easier to scan
+- **Resource/Component/Schema blocks**: Assignment operators (`=`) are vertically aligned
+  ```kite
+  resource Storage backup {
+    name        = bucketName
+    replication = true
+  }
+  ```
+- **How it works**: The formatter finds the longest property name and adds padding before shorter names so all colons or equals signs align vertically
+- This makes all structured code more readable and easier to scan
 
 ### Key Files
 1. `KiteFormattingModelBuilder.java` - Main formatter entry point, defines spacing rules via `SpacingBuilder`
