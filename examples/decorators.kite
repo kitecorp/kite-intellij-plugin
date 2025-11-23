@@ -41,7 +41,7 @@ resource Storage backup {
 }
 
 @allowed(["small", "medium", "large"])
-input string size = "medium"
+input string size          = "medium"
 
 @unique
 @nonEmpty
