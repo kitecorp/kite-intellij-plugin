@@ -74,8 +74,10 @@ public class KiteBlock extends AbstractBlock {
         while (child != null) {
             IElementType childType = child.getElementType();
 
-            // Skip only true whitespace (not newlines which formatter needs)
+            // Skip whitespace and newlines
             if (childType != TokenType.WHITE_SPACE &&
+                childType != KiteTokenTypes.NL &&
+                childType != KiteTokenTypes.NEWLINE &&
                 child.getTextLength() > 0) {
 
                 Indent childIndent = getChildIndentWithBraceTracking(childType, insideBraces);
@@ -189,7 +191,10 @@ public class KiteBlock extends AbstractBlock {
         while (child != null) {
             IElementType childType = child.getElementType();
 
-            if (childType != TokenType.WHITE_SPACE && child.getTextLength() > 0) {
+            if (childType != TokenType.WHITE_SPACE &&
+                childType != KiteTokenTypes.NL &&
+                childType != KiteTokenTypes.NEWLINE &&
+                child.getTextLength() > 0) {
                 // For declaration elements, inline their children instead of creating a block for the element
                 if (childType == KiteElementTypes.INPUT_DECLARATION ||
                     childType == KiteElementTypes.OUTPUT_DECLARATION ||
@@ -375,7 +380,10 @@ public class KiteBlock extends AbstractBlock {
         while (child != null) {
             IElementType childType = child.getElementType();
 
-            if (childType != TokenType.WHITE_SPACE && child.getTextLength() > 0) {
+            if (childType != TokenType.WHITE_SPACE &&
+                childType != KiteTokenTypes.NL &&
+                childType != KiteTokenTypes.NEWLINE &&
+                child.getTextLength() > 0) {
                 // For declaration elements (var/input/output), inline their children
                 if (childType == KiteElementTypes.VARIABLE_DECLARATION ||
                     childType == KiteElementTypes.INPUT_DECLARATION ||
@@ -447,7 +455,10 @@ public class KiteBlock extends AbstractBlock {
         while (child != null) {
             IElementType childType = child.getElementType();
 
-            if (childType != TokenType.WHITE_SPACE && child.getTextLength() > 0) {
+            if (childType != TokenType.WHITE_SPACE &&
+                childType != KiteTokenTypes.NL &&
+                childType != KiteTokenTypes.NEWLINE &&
+                child.getTextLength() > 0) {
                 Indent childIndent = getChildIndentWithBraceTracking(childType, insideBraces);
 
                 // Track identifiers that precede the align token
@@ -947,7 +958,7 @@ public class KiteBlock extends AbstractBlock {
             }
             // Only indent content that's actually inside braces
             if (insideBraces) {
-                return Indent.getNormalIndent();
+                return Indent.getSpaceIndent(4);
             }
             return Indent.getNoneIndent();
         }
