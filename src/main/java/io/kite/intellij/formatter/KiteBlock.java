@@ -392,7 +392,8 @@ public class KiteBlock extends AbstractBlock {
                     // FILE-level declarations are never inside braces
                     buildDeclarationBlocks(child, KiteTokenTypes.ASSIGN, assignGroups, blocks, false);
                 } else {
-                    Indent childIndent = getChildIndent(childType);
+                    // FILE-level elements are never inside braces
+                    Indent childIndent = getChildIndentWithBraceTracking(childType, false);
 
                     // Track identifiers that precede align tokens
                     if (childType == KiteTokenTypes.IDENTIFIER) {
