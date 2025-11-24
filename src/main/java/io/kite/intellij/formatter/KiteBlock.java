@@ -1015,10 +1015,10 @@ public class KiteBlock extends AbstractBlock {
                 System.err.println("[KiteBlock.getChildIndent] --> Returning getNoneIndent() for opening brace");
                 return Indent.getNoneIndent();
             }
-            // Closing brace gets normal indent to align properly
+            // Closing brace aligns with opening brace (no indent relative to parent)
             if (childType == KiteTokenTypes.RBRACE) {
-                System.err.println("[KiteBlock.getChildIndent] --> Returning getNormalIndent() for closing brace");
-                return Indent.getNormalIndent();
+                System.err.println("[KiteBlock.getChildIndent] --> Returning getNoneIndent() for closing brace");
+                return Indent.getNoneIndent();
             }
             // All content (identifiers, colons, values, nested literals) gets continuation indent
             System.err.println("[KiteBlock.getChildIndent] --> Returning getContinuationIndent() for object content");
