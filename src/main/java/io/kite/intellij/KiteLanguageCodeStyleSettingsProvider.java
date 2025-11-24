@@ -47,6 +47,7 @@ public class KiteLanguageCodeStyleSettingsProvider extends LanguageCodeStyleSett
         indentOptions.CONTINUATION_INDENT_SIZE = 8;
         indentOptions.TAB_SIZE = 4;
         indentOptions.USE_TAB_CHARACTER = false;
+        indentOptions.SMART_TABS = false;
         return defaultSettings;
     }
 
@@ -57,6 +58,7 @@ public class KiteLanguageCodeStyleSettingsProvider extends LanguageCodeStyleSett
         indentOptions.CONTINUATION_INDENT_SIZE = 8;
         indentOptions.TAB_SIZE = 4;
         indentOptions.USE_TAB_CHARACTER = false;
+        indentOptions.SMART_TABS = false;
     }
 
     @Override
