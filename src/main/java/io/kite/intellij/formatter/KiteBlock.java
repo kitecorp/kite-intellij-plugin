@@ -953,38 +953,50 @@ public class KiteBlock extends AbstractBlock {
         System.err.println("[KiteBlock.getChildIndent] parentType=" + parentType + ", childType=" + childType +
                           ", insideBraces=" + insideBraces + ", insideParens=" + insideParens);
 
-        // Object/array literal elements get same indent as their siblings (properties)
-        // Their content will get additional indent via getSpaceIndent(2) below
+        // Object/array literal ELEMENTS (as children) get proper indent based on context
         if (childType == KiteElementTypes.OBJECT_LITERAL || childType == KiteElementTypes.ARRAY_LITERAL) {
             if (insideBraces) {
-                System.err.println("[KiteBlock.getChildIndent] --> Returning getNormalIndent() for literal inside braces");
+                System.err.println("[KiteBlock.getChildIndent] --> Returning getNormalIndent() for literal element inside braces");
                 return Indent.getNormalIndent();
             }
-            System.err.println("[KiteBlock.getChildIndent] --> Returning getNoneIndent() for literal outside braces");
+            System.err.println("[KiteBlock.getChildIndent] --> Returning getNoneIndent() for literal element outside braces");
             return Indent.getNoneIndent();
         }
 
-        // Special case: for object/array literals, content (except braces) gets indented
-        // This check must come FIRST to ensure it takes precedence
-        if (parentType == KiteElementTypes.OBJECT_LITERAL || parentType == KiteElementTypes.ARRAY_LITERAL) {
-            System.err.println("[KiteBlock.getChildIndent] *** OBJECT/ARRAY LITERAL PARENT DETECTED ***");
-            // The opening braces/brackets themselves don't get indented
-            if (childType == KiteTokenTypes.LBRACE || childType == KiteTokenTypes.LBRACK) {
-                System.err.println("[KiteBlock.getChildIndent] --> Returning getNoneIndent() for opening brace/bracket");
+        // Special case: OBJECT_LITERAL parents - content gets continuation indent for visual depth
+        if (parentType == KiteElementTypes.OBJECT_LITERAL) {
+            System.err.println("[KiteBlock.getChildIndent] *** OBJECT_LITERAL PARENT DETECTED ***");
+            // The opening brace itself doesn't get indented
+            if (childType == KiteTokenTypes.LBRACE) {
+                System.err.println("[KiteBlock.getChildIndent] --> Returning getNoneIndent() for opening brace");
                 return Indent.getNoneIndent();
             }
-            // Closing braces should align with the opening of the literal (normal indent from parent)
+            // Closing brace gets normal indent to align properly
             if (childType == KiteTokenTypes.RBRACE) {
                 System.err.println("[KiteBlock.getChildIndent] --> Returning getNormalIndent() for closing brace");
                 return Indent.getNormalIndent();
             }
-            if (childType == KiteTokenTypes.RBRACK) {
-                System.err.println("[KiteBlock.getChildIndent] --> Returning getNormalIndent() for closing bracket");
-                return Indent.getNormalIndent();
-            }
-            // Everything else (identifiers, colons, strings, etc.) gets continuation indent for deeper nesting
-            System.err.println("[KiteBlock.getChildIndent] --> Returning getContinuationIndent() for content");
+            // All content (identifiers, colons, values, nested literals) gets continuation indent
+            System.err.println("[KiteBlock.getChildIndent] --> Returning getContinuationIndent() for object content");
             return Indent.getContinuationIndent();
+        }
+
+        // Special case: ARRAY_LITERAL parents - content gets normal indent for consistent alignment
+        if (parentType == KiteElementTypes.ARRAY_LITERAL) {
+            System.err.println("[KiteBlock.getChildIndent] *** ARRAY_LITERAL PARENT DETECTED ***");
+            // The opening bracket itself doesn't get indented
+            if (childType == KiteTokenTypes.LBRACK) {
+                System.err.println("[KiteBlock.getChildIndent] --> Returning getNoneIndent() for opening bracket");
+                return Indent.getNoneIndent();
+            }
+            // Closing bracket aligns with opening bracket (no additional indent)
+            if (childType == KiteTokenTypes.RBRACK) {
+                System.err.println("[KiteBlock.getChildIndent] --> Returning getNoneIndent() for closing bracket (aligns with opening)");
+                return Indent.getNoneIndent();
+            }
+            // All content (elements, object literals, etc.) gets normal indent
+            System.err.println("[KiteBlock.getChildIndent] --> Returning getNormalIndent() for array content");
+            return Indent.getNormalIndent();
         }
 
         // Closing braces and brackets NEVER get indent (align with parent)

@@ -262,6 +262,173 @@ public void customizeDefaults(@NotNull CommonCodeStyleSettings commonSettings,
 - ❌ Using different `Language.INSTANCE` for SpacingBuilder vs FormattingModel
 - ✅ **Solution**: Skip newlines + track braces AFTER + use `Indent.getSpaceIndent(4)`
 
+#### Understanding IntelliJ's Indent Types: A Deep Dive
+
+**CRITICAL: The Three Indent Types**
+
+IntelliJ Platform provides three distinct indent types, each working differently:
+
+1. **`Indent.getSpaceIndent(n)`** - ABSOLUTE positioning from column 0
+   - Creates a fixed indent of exactly `n` spaces from the start of the line
+   - NOT relative to parent indentation
+   - Example: `getSpaceIndent(4)` always produces 4 spaces, regardless of nesting level
+   - **Use case**: Rare - only when you need absolute column positioning
+
+2. **`Indent.getNormalIndent()`** - Relative indent using INDENT_SIZE
+   - Adds one indentation level relative to the parent block
+   - Uses `INDENT_SIZE` from code style settings (2 spaces in Kite)
+   - Example: If parent is at 4 spaces, child with `getNormalIndent()` will be at 6 spaces (4 + 2)
+   - **Use case**: Standard block content (resource bodies, function bodies, etc.)
+
+3. **`Indent.getContinuationIndent()`** - Relative indent using CONTINUATION_INDENT_SIZE
+   - Adds one continuation level relative to the parent block
+   - Uses `CONTINUATION_INDENT_SIZE` from code style settings (4 spaces in Kite)
+   - Example: If parent is at 4 spaces, child with `getContinuationIndent()` will be at 8 spaces (4 + 4)
+   - **Use case**: Wrapped parameters, nested literals, deeper nesting that needs visual distinction
+
+**Current Kite Settings:**
+```java
+indentOptions.INDENT_SIZE = 2;
+indentOptions.CONTINUATION_INDENT_SIZE = 4;
+indentOptions.TAB_SIZE = 2;
+```
+
+#### Case Study: Object Literal Indentation Fix
+
+**Problem:** Object literal properties were not getting proper indentation when "Reformat Code" was executed.
+
+**Expected behavior:**
+```kite
+  resource VM.Instance server {
+    tag = {
+      Name       : "web-server",  // <- 6 spaces (4 for resource + 2 for literal content)
+      Environment: "production"   // <- 6 spaces
+    }                            // <- 4 spaces (aligned with property)
+  }
+```
+
+**Debugging Journey:**
+
+1. **First Failed Attempt - Using `getSpaceIndent(2)`:**
+   ```java
+   // WRONG - creates absolute 2 spaces from column 0
+   if (parentType == KiteElementTypes.OBJECT_LITERAL) {
+       return Indent.getSpaceIndent(2);
+   }
+   ```
+   **Result:** Properties appeared at column 2 instead of column 6
+   **Why it failed:** `getSpaceIndent()` ignores parent indentation entirely
+
+2. **Second Failed Attempt - Using `getNormalIndent()`:**
+   ```java
+   // DIDN'T WORK - added only 2 spaces but wasn't enough visual nesting
+   if (parentType == KiteElementTypes.OBJECT_LITERAL) {
+       return Indent.getNormalIndent();
+   }
+   ```
+   **Result:** Code compiled and ran but indentation didn't change visually
+   **Why it failed:** `getNormalIndent()` only adds INDENT_SIZE (2 spaces), which wasn't sufficient for the visual nesting needed in object literals. The formatter needed continuation indent for proper visual hierarchy.
+
+3. **Final Working Solution - Using `getContinuationIndent()`:**
+   ```java
+   // CORRECT - adds 4 spaces relative to parent (CONTINUATION_INDENT_SIZE)
+   if (parentType == KiteElementTypes.OBJECT_LITERAL || parentType == KiteElementTypes.ARRAY_LITERAL) {
+       // Opening braces don't get indented
+       if (childType == KiteTokenTypes.LBRACE || childType == KiteTokenTypes.LBRACK) {
+           return Indent.getNoneIndent();
+       }
+       // Closing braces get normal indent to align with the property
+       if (childType == KiteTokenTypes.RBRACE || childType == KiteTokenTypes.RBRACK) {
+           return Indent.getNormalIndent();
+       }
+       // All content (identifiers, colons, values) gets continuation indent
+       return Indent.getContinuationIndent();
+   }
+   ```
+   **Result:** Properties correctly indented at 6 spaces (4 parent + 4 continuation), closing brace at 4 spaces
+   **Why it worked:** `getContinuationIndent()` provides the deeper nesting visual that object/array literal content needs
+
+**Key Insight:** Object literals and array literals need **continuation indent** for their content, not normal indent. This creates proper visual hierarchy:
+- Resource/component body uses normal indent (2 spaces) → 4 total
+- Property value (object literal) content uses continuation indent (4 spaces) → 8 total (but 6 in practice due to property already being at 2)
+
+**Implementation in KiteBlock.java (lines 956-988):**
+```java
+// OBJECT_LITERAL as a block element itself needs proper indent when inside braces
+if (elementType == KiteElementTypes.OBJECT_LITERAL) {
+    System.err.println("[KiteBlock.getChildIndent] Block element is OBJECT_LITERAL, insideBraces=" + insideBraces);
+    if (insideBraces) {
+        System.err.println("[KiteBlock.getChildIndent] --> Returning getNormalIndent() for OBJECT_LITERAL block inside braces");
+        return Indent.getNormalIndent();
+    }
+    return Indent.getNoneIndent();
+}
+
+// Special case: for object/array literals, content (except braces) gets indented
+// This check must come FIRST to ensure it takes precedence
+if (parentType == KiteElementTypes.OBJECT_LITERAL || parentType == KiteElementTypes.ARRAY_LITERAL) {
+    System.err.println("[KiteBlock.getChildIndent] *** OBJECT/ARRAY LITERAL PARENT DETECTED ***");
+    // The opening braces/brackets themselves don't get indented
+    if (childType == KiteTokenTypes.LBRACE || childType == KiteTokenTypes.LBRACK) {
+        System.err.println("[KiteBlock.getChildIndent] --> Returning getNoneIndent() for opening brace/bracket");
+        return Indent.getNoneIndent();
+    }
+    // Closing braces should align with the opening of the literal (normal indent from parent)
+    if (childType == KiteTokenTypes.RBRACE) {
+        System.err.println("[KiteBlock.getChildIndent] --> Returning getNormalIndent() for closing brace");
+        return Indent.getNormalIndent();
+    }
+    if (childType == KiteTokenTypes.RBRACK) {
+        System.err.println("[KiteBlock.getChildIndent] --> Returning getNormalIndent() for closing bracket");
+        return Indent.getNormalIndent();
+    }
+    // Everything else (identifiers, colons, strings, etc.) gets continuation indent for deeper nesting
+    System.err.println("[KiteBlock.getChildIndent] --> Returning getContinuationIndent() for content");
+    return Indent.getContinuationIndent();
+}
+```
+
+#### Debugging Tips for Formatter Issues
+
+1. **Add Debug Logging:**
+   ```java
+   System.err.println("[KiteBlock.getChildIndent] parentType=" + parentType + ", childType=" + childType);
+   ```
+   Use `System.err` to see output in IDE's stderr even when running from Gradle
+
+2. **Check Actual vs Expected:**
+   - Create test files in `examples/` with comments showing expected indentation
+   - Run "Reformat Code" (Cmd+Alt+L) to see actual results
+   - Compare line-by-line
+
+3. **Force Clean Builds:**
+   ```bash
+   ./gradlew clean compileJava --no-build-cache --rerun-tasks
+   ```
+   Gradle's build cache can mask code changes
+
+4. **Kill Background Processes:**
+   ```bash
+   killall -9 java
+   ```
+   Multiple IDE instances can cause confusion about which version is running
+
+5. **Verify Code Style Settings:**
+   Check `KiteLanguageCodeStyleSettingsProvider.java` to confirm INDENT_SIZE and CONTINUATION_INDENT_SIZE values
+
+6. **Test the Indent Type:**
+   If unsure which indent type to use, try all three and observe the differences:
+   - `getSpaceIndent(n)` → absolute positioning
+   - `getNormalIndent()` → adds INDENT_SIZE
+   - `getContinuationIndent()` → adds CONTINUATION_INDENT_SIZE
+
+7. **Common Mistakes:**
+   - ❌ Using `getSpaceIndent()` when you want relative indentation
+   - ❌ Using `getNormalIndent()` for deeply nested structures that need visual distinction
+   - ❌ Not handling opening and closing braces separately
+   - ❌ Not checking `insideBraces` state for block elements
+   - ❌ Assuming code changes are live without verifying via clean build
+
 ### Features
 - Format entire file with Cmd+Alt+L (Mac) or Ctrl+Alt+L (Windows/Linux)
 - Format selected text only by selecting code first, then using the reformat shortcut
