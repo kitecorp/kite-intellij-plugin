@@ -429,9 +429,79 @@ if (parentType == KiteElementTypes.OBJECT_LITERAL || parentType == KiteElementTy
    - ❌ Not checking `insideBraces` state for block elements
    - ❌ Assuming code changes are live without verifying via clean build
 
+#### RESOLVED: Nested Object Literal Indentation
+
+**Problem:** Nested object literals were not being indented correctly because the parser was creating flat token structures instead of hierarchical PSI elements.
+
+**Root Cause:** The `parseObjectLiteral()` method in `KitePsiParser.java` was counting braces but not recursively creating nested `OBJECT_LITERAL` elements:
+```java
+// OLD CODE - just counted braces, no nesting
+int braceDepth = 1;
+while (!builder.eof() && braceDepth > 0) {
+    if (tokenType == KiteTokenTypes.LBRACE) braceDepth++;
+    else if (tokenType == KiteTokenTypes.RBRACE) braceDepth--;
+    builder.advanceLexer();
+}
+```
+
+**Solution:** Two changes were needed:
+
+1. **Parser Fix** (`KitePsiParser.java`): Recursively create nested `OBJECT_LITERAL` and `ARRAY_LITERAL` elements:
+```java
+private void parseObjectLiteral(PsiBuilder builder) {
+    PsiBuilder.Marker marker = builder.mark();
+    builder.advanceLexer();  // Consume opening brace
+
+    while (!builder.eof()) {
+        IElementType tokenType = builder.getTokenType();
+        if (tokenType == KiteTokenTypes.LBRACE) {
+            parseObjectLiteral(builder);  // Recurse for nested objects
+        } else if (tokenType == KiteTokenTypes.LBRACK) {
+            parseArrayLiteral(builder);   // Recurse for nested arrays
+        } else if (tokenType == KiteTokenTypes.RBRACE) {
+            builder.advanceLexer();
+            break;
+        } else {
+            builder.advanceLexer();
+        }
+    }
+    marker.done(KiteElementTypes.OBJECT_LITERAL);
+}
+```
+
+2. **Formatter Fix** (`KiteBlock.java`): Reorder checks in `getChildIndent()` so `OBJECT_LITERAL` parent handling runs BEFORE the generic literal handling, and give nested literals `getNormalIndent()`:
+```java
+// Handle OBJECT_LITERAL parents FIRST
+if (parentType == KiteElementTypes.OBJECT_LITERAL) {
+    if (childType == KiteTokenTypes.LBRACE) return Indent.getNoneIndent();
+    if (childType == KiteTokenTypes.RBRACE) return Indent.getNoneIndent();
+    // Nested literals get normal indent for proper nesting levels
+    if (childType == KiteElementTypes.OBJECT_LITERAL ||
+        childType == KiteElementTypes.ARRAY_LITERAL) {
+        return Indent.getNormalIndent();
+    }
+    return Indent.getNormalIndent();
+}
+```
+
+**Expected behavior (2 spaces per nesting level):**
+```kite
+resource VM.Instance server {
+  tag = {
+    Name       : "web-server",
+    Environment: "production"
+    New        : {
+      a          : "b"
+    }
+  }
+}
+```
+
+**Test file:** `/Users/mimedia/IdeaProjects/kite-intellij-plugin/examples/component.kite`
+
 ### Features
 - Format entire file with Cmd+Alt+L (Mac) or Ctrl+Alt+L (Windows/Linux)
 - Format selected text only by selecting code first, then using the reformat shortcut
 - Consistent spacing around keywords, operators, and delimiters
-- Proper indentation for nested structures (4 spaces)
+- Proper indentation for nested structures (2 spaces per level in Kite)
 - Preserves semantic meaning while improving readability

@@ -59,6 +59,9 @@ public class KitePsiParser implements PsiParser {
             } else if (tokenType == KiteTokenTypes.LBRACE) {
                 // Parse object literal (e.g., in decorator arguments)
                 parseObjectLiteral(builder);
+            } else if (tokenType == KiteTokenTypes.LBRACK) {
+                // Parse array literal
+                parseArrayLiteral(builder);
             } else {
                 // Unknown token, just advance
                 builder.advanceLexer();
@@ -127,6 +130,9 @@ public class KitePsiParser implements PsiParser {
             } else if (tokenType == KiteTokenTypes.LBRACE) {
                 // Parse object literal
                 parseObjectLiteral(builder);
+            } else if (tokenType == KiteTokenTypes.LBRACK) {
+                // Parse array literal
+                parseArrayLiteral(builder);
             } else if (tokenType == KiteTokenTypes.RESOURCE) {
                 parseDeclaration(builder, KiteElementTypes.RESOURCE_DECLARATION);
             } else if (tokenType == KiteTokenTypes.INPUT) {
@@ -174,6 +180,7 @@ public class KitePsiParser implements PsiParser {
 
     /**
      * Parses an object literal { ... }
+     * Recursively creates nested OBJECT_LITERAL elements for nested braces.
      */
     private void parseObjectLiteral(PsiBuilder builder) {
         PsiBuilder.Marker marker = builder.mark();
@@ -181,20 +188,57 @@ public class KitePsiParser implements PsiParser {
         // Consume opening brace
         builder.advanceLexer();
 
-        // Consume until closing brace with depth tracking
-        int braceDepth = 1;
-        while (!builder.eof() && braceDepth > 0) {
+        // Consume until closing brace, recursively handling nested structures
+        while (!builder.eof()) {
             IElementType tokenType = builder.getTokenType();
 
             if (tokenType == KiteTokenTypes.LBRACE) {
-                braceDepth++;
+                // Recursively parse nested object literal
+                parseObjectLiteral(builder);
+            } else if (tokenType == KiteTokenTypes.LBRACK) {
+                // Recursively parse nested array literal
+                parseArrayLiteral(builder);
             } else if (tokenType == KiteTokenTypes.RBRACE) {
-                braceDepth--;
+                // End of this object literal
+                builder.advanceLexer();
+                break;
+            } else {
+                builder.advanceLexer();
             }
-
-            builder.advanceLexer();
         }
 
         marker.done(KiteElementTypes.OBJECT_LITERAL);
+    }
+
+    /**
+     * Parses an array literal [ ... ]
+     * Recursively creates nested ARRAY_LITERAL and OBJECT_LITERAL elements.
+     */
+    private void parseArrayLiteral(PsiBuilder builder) {
+        PsiBuilder.Marker marker = builder.mark();
+
+        // Consume opening bracket
+        builder.advanceLexer();
+
+        // Consume until closing bracket, recursively handling nested structures
+        while (!builder.eof()) {
+            IElementType tokenType = builder.getTokenType();
+
+            if (tokenType == KiteTokenTypes.LBRACE) {
+                // Recursively parse nested object literal
+                parseObjectLiteral(builder);
+            } else if (tokenType == KiteTokenTypes.LBRACK) {
+                // Recursively parse nested array literal
+                parseArrayLiteral(builder);
+            } else if (tokenType == KiteTokenTypes.RBRACK) {
+                // End of this array literal
+                builder.advanceLexer();
+                break;
+            } else {
+                builder.advanceLexer();
+            }
+        }
+
+        marker.done(KiteElementTypes.ARRAY_LITERAL);
     }
 }
