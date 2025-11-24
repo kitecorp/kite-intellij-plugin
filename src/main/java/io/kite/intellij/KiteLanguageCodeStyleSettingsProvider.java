@@ -43,9 +43,9 @@ public class KiteLanguageCodeStyleSettingsProvider extends LanguageCodeStyleSett
     public CommonCodeStyleSettings getDefaultCommonSettings() {
         CommonCodeStyleSettings defaultSettings = new CommonCodeStyleSettings(getLanguage());
         CommonCodeStyleSettings.IndentOptions indentOptions = defaultSettings.initIndentOptions();
-        indentOptions.INDENT_SIZE = 4;
-        indentOptions.CONTINUATION_INDENT_SIZE = 8;
-        indentOptions.TAB_SIZE = 4;
+        indentOptions.INDENT_SIZE = 2;
+        indentOptions.CONTINUATION_INDENT_SIZE = 4;
+        indentOptions.TAB_SIZE = 2;
         indentOptions.USE_TAB_CHARACTER = false;
         indentOptions.SMART_TABS = false;
         return defaultSettings;
@@ -54,9 +54,9 @@ public class KiteLanguageCodeStyleSettingsProvider extends LanguageCodeStyleSett
     @Override
     public void customizeDefaults(@NotNull CommonCodeStyleSettings commonSettings,
                                   @NotNull CommonCodeStyleSettings.IndentOptions indentOptions) {
-        indentOptions.INDENT_SIZE = 4;
-        indentOptions.CONTINUATION_INDENT_SIZE = 8;
-        indentOptions.TAB_SIZE = 4;
+        indentOptions.INDENT_SIZE = 2;
+        indentOptions.CONTINUATION_INDENT_SIZE = 4;
+        indentOptions.TAB_SIZE = 2;
         indentOptions.USE_TAB_CHARACTER = false;
         indentOptions.SMART_TABS = false;
     }

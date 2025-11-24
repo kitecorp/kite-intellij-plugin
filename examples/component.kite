@@ -1,41 +1,43 @@
 // Component example with inputs and outputs
 component WebServer api {
   input number port = 8080
-  input string siz = "t2.micro"
+  input string siz  = "t2.micro"
 
-  var x = 1
+  var x  = 1
   var yp = 2
 
   for env in environments {
-     console.log("Processing environment: ${env}")
+    console.log("Processing environment: ${env}")
   }
 
   resource VM.Instance server {
     size = size
-    tag = {
-      Name: "web-server",
-      Environment: "production"
-    }
+    tag  = {
+    Name       : "web-server", // <- should be indented 6 spaces
+    Environment: "production" // <- should be indented 6 spaces
+  } // <- should be indented 4 spaces
   }
 
   resource SecurityGroup firewall {
     ingress = [
-      { port: port, protocol: "tcp" }
-    ]
+      { // <- should be indented 6 spaces
+          port: port, protocol: "tcp" // <- should be indented 12 spaces
+      } // <- should be indented 6 spaces
+  ] // <- should be indented 6 spaces
   }
 
-  output string endpoint = server.publicIp
+  output string endpoint   = server.publicIp
   output string instanceId = server.id
 }
 
 var WebServer x
 
 // formatting
-input number port  = 8080
-input string siz = "t2.micro"
+input number port = 8080
+input string siz  = "t2.micro"
 
 output number port = 8080
-output string siz = "t2.micro"
+output string siz  = "t2.micro"
 
 var number port = 8080
-var string siz = "t2.micro"
+var string siz  = "t2.micro"
