@@ -13,22 +13,25 @@ component WebServer api {
   resource VM.Instance server {
     size = size
     tag  = {
-    Name       : "web-server", // <- should be indented 6 spaces
-    Environment: "production" // <- should be indented 6 spaces
-  } // <- should be indented 4 spaces
-  }
+    Environment: "production" // should be 6 spaces
+    Name       : "web-server", // should be 6 spaces
+    New        : { // should be 6 spaces
+      a: "b"
+    } // should be 6 spaces
+  } // should be 4 spaces
+    } // should be 2 spaces
 
   resource SecurityGroup firewall {
     ingress = [
-      { // <- should be indented 6 spaces
-          port: port, protocol: "tcp" // <- should be indented 12 spaces
-      } // <- should be indented 6 spaces
-  ] // <- should be indented 6 spaces
-  }
+    {
+      port    : port, protocol: "tcp"
+    }
+  ]
+    } // should be 2 spaces
 
   output string endpoint   = server.publicIp
   output string instanceId = server.id
-}
+  } // should be 0 spaces
 
 var WebServer x
 
