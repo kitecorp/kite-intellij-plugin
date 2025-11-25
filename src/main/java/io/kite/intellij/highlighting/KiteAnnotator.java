@@ -21,7 +21,7 @@ import static com.intellij.openapi.editor.colors.TextAttributesKey.createTextAtt
 /**
  * Semantic annotator for Kite language that provides context-aware syntax highlighting.
  * This annotator identifies types in various contexts and highlights them appropriately.
- * Also handles string interpolation highlighting.
+ * Also handles string interpolation highlighting and property name/value distinction.
  */
 public class KiteAnnotator implements Annotator {
 
@@ -72,12 +72,13 @@ public class KiteAnnotator implements Annotator {
         if (beforeElement.matches(".*(^|\\s)(input|output|component|resource)\\s+$")) {
             isType = true;
         }
-        // After colon, it's a type
-        else if (beforeElement.matches(".*:\\s*$")) {
+        // After colon (but not after =), it's a type
+        else if (beforeElement.matches(".*:\\s*$") && !beforeElement.contains("=")) {
             isType = true;
         }
-        // After dot, it's part of a type chain (e.g., VM.Instance)
-        else if (beforeElement.matches(".*\\.\\s*$")) {
+        // After dot, it's part of a type chain (e.g., VM.Instance) BUT NOT if there's an = before it
+        // server.size after "=" is property access, not a type
+        else if (beforeElement.matches(".*\\.\\s*$") && !beforeElement.contains("=")) {
             isType = true;
         }
         // After var, it's only a type if followed by another identifier (not = or +=)
@@ -115,7 +116,11 @@ public class KiteAnnotator implements Annotator {
                     .range(element)
                     .textAttributes(TYPE_NAME)
                     .create();
+            return;
         }
+
+        // All other identifiers (property names, values, declaration names) use default text color
+        // No special highlighting needed - they inherit from IDENTIFIER
     }
 
     private String getLineText(PsiElement element) {

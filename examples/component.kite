@@ -42,3 +42,4 @@ output string siz  = "t2.micro"
 
 var number port = 8080
 var string siz  = "t2.micro"
+var string size  = api.endpoint
