@@ -11,6 +11,9 @@ import io.kite.intellij.psi.KiteElementTypes;
 import io.kite.intellij.psi.KiteTokenTypes;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.ArrayList;
+import java.util.List;
+
 /**
  * Handler for "Go to Declaration" (Cmd+Click) in Kite files.
  * Uses direct PSI traversal to resolve identifiers to their declarations.
@@ -34,13 +37,17 @@ public class KiteGotoDeclarationHandler implements GotoDeclarationHandler {
             return null;
         }
 
-        // Don't provide navigation for declaration names (the name being declared)
-        // e.g., in "input number port = 8080", "port" is a declaration name, not a reference
+        String name = sourceElement.getText();
+
+        // For declaration names, show a dropdown of all usages
+        // e.g., clicking on "server" in "resource VM.Instance server { }" shows all usages of "server"
         if (isDeclarationName(sourceElement)) {
+            List<PsiElement> usages = findUsages(file, name, sourceElement);
+            if (!usages.isEmpty()) {
+                return usages.toArray(new PsiElement[0]);
+            }
             return null;
         }
-
-        String name = sourceElement.getText();
 
         // Check if this is a property access (identifier after a DOT)
         PsiElement objectElement = getPropertyAccessObject(sourceElement);
@@ -57,6 +64,41 @@ public class KiteGotoDeclarationHandler implements GotoDeclarationHandler {
         }
 
         return null;
+    }
+
+    /**
+     * Find all usages (references) of a name in the file.
+     * Used when clicking on a declaration name to show where it's used.
+     */
+    private List<PsiElement> findUsages(PsiElement element, String targetName, PsiElement sourceElement) {
+        List<PsiElement> usages = new ArrayList<>();
+        findUsagesRecursive(element, targetName, sourceElement, usages);
+        return usages;
+    }
+
+    /**
+     * Recursively find all usages of a name.
+     */
+    private void findUsagesRecursive(PsiElement element, String targetName, PsiElement sourceElement, List<PsiElement> usages) {
+        IElementType type = element.getNode().getElementType();
+
+        // Check if this is an identifier with the target name
+        if (type == KiteTokenTypes.IDENTIFIER && targetName.equals(element.getText())) {
+            // Exclude the source element itself
+            if (element != sourceElement) {
+                // Only include if this is NOT a declaration name (i.e., it's a reference/usage)
+                if (!isDeclarationName(element)) {
+                    usages.add(element);
+                }
+            }
+        }
+
+        // Recurse into children
+        PsiElement child = element.getFirstChild();
+        while (child != null) {
+            findUsagesRecursive(child, targetName, sourceElement, usages);
+            child = child.getNextSibling();
+        }
     }
 
     /**

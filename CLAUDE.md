@@ -849,15 +849,55 @@ private PsiElement findNameInDeclaration(PsiElement declaration, IElementType de
 
 4. **Check token types**: Use PSI Viewer (Tools > View PSI Structure) to see actual token types in your file
 
+### Declaration Name Exclusion
+
+**Problem:** Clicking on `port` in `input number port = 8080` was navigating to other declarations named `port`. But `port` here is itself a declaration name, not a reference.
+
+**Solution:** Check if the clicked identifier is a declaration name and skip navigation:
+
+```java
+private boolean isDeclarationName(PsiElement element) {
+    // Check if this identifier is followed by = or { or += or : (declaration/property pattern)
+    PsiElement next = skipWhitespaceForward(element.getNextSibling());
+    if (next != null) {
+        IElementType nextType = next.getNode().getElementType();
+        if (nextType == KiteTokenTypes.ASSIGN ||
+            nextType == KiteTokenTypes.LBRACE ||
+            nextType == KiteTokenTypes.PLUS_ASSIGN ||
+            nextType == KiteTokenTypes.COLON) {
+            // This identifier is followed by = or { or : - it's a declaration/property name
+            return true;
+        }
+    }
+
+    // Check if this is a for loop variable (identifier after "for" keyword)
+    PsiElement prev = skipWhitespaceBackward(element.getPrevSibling());
+    if (prev != null && prev.getNode().getElementType() == KiteTokenTypes.FOR) {
+        return true;
+    }
+
+    return false;
+}
+```
+
+**Key insight:** An identifier is a declaration name if it's followed by `=`, `{`, `+=`, or `:`. These patterns indicate:
+- `=` → variable/input/output declaration: `input number port = 8080`
+- `{` → resource/component/schema/function declaration: `resource VM.Instance server {`
+- `+=` → property append: `tags += { ... }`
+- `:` → object property key: `{ port: 8080 }`
+
 ### Test Cases
 
 Test file: `examples/component.kite`
 
 | Click on | Expected Navigation |
 |----------|---------------------|
-| `server` in `server.size` | Line 9: `resource VM.Instance server {` |
-| `size` in `server.size` | Line 14: `size = siz` |
-| `port` (simple reference) | Line 10: `input number port = 8080` |
+| `server` in `server.size` | Line 13: `resource VM.Instance server {` |
+| `size` in `server.size` | Line 14: `size = size` |
+| `port` in `{ port: port }` (first) | Nothing (it's a property key) |
+| `port` in `{ port: port }` (second) | Line 3: `input number port = 8080` |
+| `port` in `input number port = 8080` | Nothing (it's a declaration name) |
+| `firewall` in `resource SecurityGroup firewall` | Nothing (it's a declaration name) |
 
 ### What Didn't Work (Save Time)
 
