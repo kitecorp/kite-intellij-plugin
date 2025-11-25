@@ -69,16 +69,16 @@ public class KiteGotoDeclarationHandler implements GotoDeclarationHandler {
     /**
      * Find all usages (references) of a name in the file.
      * Used when clicking on a declaration name to show where it's used.
-     * Returns wrapped elements with custom presentation for better dropdown display.
+     * Returns wrapped elements with custom presentation for the popup.
      */
     private List<PsiElement> findUsages(PsiElement element, String targetName, PsiElement sourceElement) {
         List<PsiElement> rawUsages = new ArrayList<>();
         findUsagesRecursive(element, targetName, sourceElement, rawUsages);
 
-        // Wrap each usage with custom presentation
+        // Wrap each usage in a navigatable element with custom presentation
         List<PsiElement> wrappedUsages = new ArrayList<>();
         for (PsiElement usage : rawUsages) {
-            wrappedUsages.add(new KiteUsageTargetElement(usage));
+            wrappedUsages.add(new KiteNavigatablePsiElement(usage));
         }
         return wrappedUsages;
     }

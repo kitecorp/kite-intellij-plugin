@@ -117,5 +117,11 @@
 
         <!-- Go to Declaration handler -->
         <gotoDeclarationHandler implementation="io.kite.intellij.navigation.KiteGotoDeclarationHandler"/>
+
+        <!-- Icon provider for navigation popups -->
+        <iconProvider implementation="io.kite.intellij.navigation.KiteNavigationIconProvider"/>
+
+        <!-- Custom renderer for Go to Declaration popup (line text, location, icons) -->
+        <gotoTargetRendererProvider implementation="io.kite.intellij.navigation.KiteGotoTargetRendererProvider"/>
     </extensions>
 </idea-plugin>
