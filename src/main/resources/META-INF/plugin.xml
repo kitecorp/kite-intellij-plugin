@@ -80,5 +80,9 @@
 
         <!-- Code style settings -->
         <langCodeStyleSettingsProvider implementation="io.kite.intellij.KiteLanguageCodeStyleSettingsProvider"/>
+
+        <!-- Brace matching -->
+        <lang.braceMatcher language="Kite"
+                           implementationClass="io.kite.intellij.KiteBraceMatcher"/>
     </extensions>
 </idea-plugin>
