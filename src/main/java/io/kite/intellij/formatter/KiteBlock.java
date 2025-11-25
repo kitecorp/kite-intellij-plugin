@@ -208,9 +208,6 @@ public class KiteBlock extends AbstractBlock {
     private List<Block> buildAlignedChildren(IElementType alignToken) {
         List<Block> blocks = new ArrayList<>();
 
-        IElementType myType = myNode.getElementType();
-        System.err.println("[buildAlignedChildren] Building aligned children for parent type: " + myType + ", text: " + myNode.getText().substring(0, Math.min(50, myNode.getTextLength())));
-
         // First pass: identify alignment groups and their max key lengths
         List<AlignmentGroup> groups = identifyAlignmentGroups(alignToken);
 
@@ -223,7 +220,6 @@ public class KiteBlock extends AbstractBlock {
 
         while (child != null) {
             IElementType childType = child.getElementType();
-            System.err.println("[buildAlignedChildren] Processing child: " + childType + ", braceDepth=" + braceDepth);
 
             if (!shouldSkipToken(childType) && child.getTextLength() > 0) {
                 boolean insideBraces = braceDepth > 0;  // Compute from depth
@@ -480,9 +476,6 @@ public class KiteBlock extends AbstractBlock {
                                        boolean parentInsideParens,
                                        boolean parentInsideBrackets,
                                        int parentBraceDepth) {
-        System.err.println("[inlineLiteralChildren] Inlining children of: " + literalNode.getElementType() +
-                          ", parentBraceDepth=" + parentBraceDepth);
-
         ASTNode child = literalNode.getFirstChildNode();
         // Track brace depth starting from parent's depth
         int braceDepth = parentBraceDepth;
@@ -494,9 +487,6 @@ public class KiteBlock extends AbstractBlock {
             IElementType childType = child.getElementType();
 
             if (!shouldSkipToken(childType) && child.getTextLength() > 0) {
-                System.err.println("[inlineLiteralChildren] Processing: " + childType +
-                                  ", braceDepth=" + braceDepth + ", insideBraces=" + insideBraces);
-
                 // Recursively inline nested object/array literals
                 if (childType == KiteElementTypes.OBJECT_LITERAL || childType == KiteElementTypes.ARRAY_LITERAL) {
                     inlineLiteralChildren(child, blocks, insideBraces, insideParens, insideBrackets, braceDepth);
@@ -517,11 +507,9 @@ public class KiteBlock extends AbstractBlock {
                 if (childType == KiteTokenTypes.LBRACE) {
                     braceDepth++;
                     insideBraces = braceDepth > 0;
-                    System.err.println("[inlineLiteralChildren] After LBRACE: braceDepth=" + braceDepth);
                 } else if (childType == KiteTokenTypes.RBRACE) {
                     braceDepth--;
                     insideBraces = braceDepth > 0;
-                    System.err.println("[inlineLiteralChildren] After RBRACE: braceDepth=" + braceDepth);
                 }
 
                 // Track brackets separately from braces
@@ -1060,23 +1048,16 @@ public class KiteBlock extends AbstractBlock {
     private Indent getChildIndent(IElementType childType, boolean insideBraces, boolean insideParens, boolean insideBrackets, int braceDepth) {
         IElementType parentType = myNode.getElementType();
 
-        // Debug logging
-        System.err.println("[KiteBlock.getChildIndent] parentType=" + parentType + ", childType=" + childType +
-                          ", insideBraces=" + insideBraces + ", insideParens=" + insideParens + ", insideBrackets=" + insideBrackets);
-
         // Special handling for array brackets (opening and closing)
         if (childType == KiteTokenTypes.LBRACK) {
-            System.err.println("[KiteBlock.getChildIndent] --> Returning getNoneIndent() for opening bracket");
             return Indent.getNoneIndent();
         }
 
         // Closing bracket gets normal indent when inside braces (to match array content)
         if (childType == KiteTokenTypes.RBRACK) {
             if (insideBraces) {
-                System.err.println("[KiteBlock.getChildIndent] --> Returning getNormalIndent() for closing bracket inside braces");
                 return Indent.getNormalIndent();
             }
-            System.err.println("[KiteBlock.getChildIndent] --> Returning getNoneIndent() for closing bracket");
             return Indent.getNoneIndent();
         }
 
@@ -1101,15 +1082,12 @@ public class KiteBlock extends AbstractBlock {
 
         // Special case: ARRAY_LITERAL parents - content gets normal indent for consistent alignment
         if (parentType == KiteElementTypes.ARRAY_LITERAL) {
-            System.err.println("[KiteBlock.getChildIndent] *** ARRAY_LITERAL PARENT DETECTED ***");
             // The opening bracket itself doesn't get indented
             if (childType == KiteTokenTypes.LBRACK) {
-                System.err.println("[KiteBlock.getChildIndent] --> Returning getNoneIndent() for opening bracket");
                 return Indent.getNoneIndent();
             }
             // Closing bracket aligns with opening bracket (no additional indent)
             if (childType == KiteTokenTypes.RBRACK) {
-                System.err.println("[KiteBlock.getChildIndent] --> Returning getNoneIndent() for closing bracket");
                 return Indent.getNoneIndent();
             }
             // Nested object/array literals get normal indent for proper nesting
@@ -1117,7 +1095,6 @@ public class KiteBlock extends AbstractBlock {
                 return Indent.getNormalIndent();
             }
             // All content (elements, object literals, etc.) gets normal indent
-            System.err.println("[KiteBlock.getChildIndent] --> Returning getNormalIndent() for array content");
             return Indent.getNormalIndent();
         }
 
@@ -1127,8 +1104,6 @@ public class KiteBlock extends AbstractBlock {
         // The literal's CONTENT should be indented relative to the parent's baseline, not the literal's position.
         // Using NONE indent here means the literal's baseline = parent's baseline, so children get +2 from there.
         if (childType == KiteElementTypes.OBJECT_LITERAL || childType == KiteElementTypes.ARRAY_LITERAL) {
-            System.err.println("[KiteBlock.getChildIndent] braceDepth=" + braceDepth + " for " + childType);
-            System.err.println("[KiteBlock.getChildIndent] --> Returning getNoneIndent() for literal element (avoids double indent)");
             return Indent.getNoneIndent();
         }
 
@@ -1141,7 +1116,6 @@ public class KiteBlock extends AbstractBlock {
                 // braceDepth=2: Object literal's closing brace, aligns with brace opener (2 spaces)
                 // braceDepth=3: Nested object's closing brace (4 spaces)
                 int spaces = (braceDepth - 1) * indentSize;
-                System.err.println("[KiteBlock.getChildIndent] --> Returning getSpaceIndent(" + spaces + ") for } at braceDepth=" + braceDepth);
                 return Indent.getSpaceIndent(spaces);
             }
             return Indent.getNoneIndent();
@@ -1165,7 +1139,6 @@ public class KiteBlock extends AbstractBlock {
 
                 // Content gets indent based on current depth
                 int spaces = braceDepth * indentSize;
-                System.err.println("[KiteBlock.getChildIndent] --> Returning getSpaceIndent(" + spaces + ") for content at braceDepth=" + braceDepth);
                 return Indent.getSpaceIndent(spaces);
             }
             return Indent.getNoneIndent();

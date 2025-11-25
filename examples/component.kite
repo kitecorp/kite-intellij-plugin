@@ -13,13 +13,13 @@ component WebServer api {
   resource VM.Instance server {
     size = size
     tag  = {
-      Environment: "production" // should be 6 spaces
-      Name       : "web-server", // should be 6 spaces
+      Environment: "production"
+      Name       : "web-server",
       New        : {
         a: "b"
       }
     }
-  } 
+  }
 
   resource SecurityGroup firewall {
     ingress = [
