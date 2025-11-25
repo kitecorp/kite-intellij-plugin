@@ -16,8 +16,7 @@ component WebServer api {
       Environment: "production" // should be 6 spaces
       Name       : "web-server", // should be 6 spaces
       New        : {
-      // should be 6 spaces
-      a: "b"
+        a: "b"
     } // should be 6 spaces
     } // should be 4 spaces
   } // should be 2 spaces
