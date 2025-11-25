@@ -1,7 +1,7 @@
 // Component example with inputs and outputs
 component WebServer api {
   input number port = 8080
-  input string siz  = "t2.micro"
+  input string size  = "t2.micro"
 
   var x  = 1
   var yp = 2
