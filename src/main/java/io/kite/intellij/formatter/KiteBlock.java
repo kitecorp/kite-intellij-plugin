@@ -512,10 +512,12 @@ public class KiteBlock extends AbstractBlock {
                     insideBraces = braceDepth > 0;
                 }
 
-                // Track brackets separately from braces
+                // Brackets also contribute to depth for indentation (arrays indent their content)
                 if (childType == KiteTokenTypes.LBRACK) {
+                    braceDepth++;
                     insideBrackets = true;
                 } else if (childType == KiteTokenTypes.RBRACK) {
+                    braceDepth--;
                     insideBrackets = false;
                 }
 
@@ -1041,22 +1043,30 @@ public class KiteBlock extends AbstractBlock {
      * @param childType      The type of the child element
      * @param insideBraces   Whether we're currently inside braces
      * @param insideParens   Whether we're currently inside parentheses
-     * @param insideBrackets Whether we're currently inside array brackets
+     * @param insideBrackets Whether we're currently inside array brackets (reserved for future use)
      * @param braceDepth     Current depth of nested braces (for detecting nested objects)
      * @return The appropriate indent for this child
      */
+    @SuppressWarnings("unused") // insideBrackets reserved for future array-specific indent rules
     private Indent getChildIndent(IElementType childType, boolean insideBraces, boolean insideParens, boolean insideBrackets, int braceDepth) {
         IElementType parentType = myNode.getElementType();
 
-        // Special handling for array brackets (opening and closing)
+        // Opening brackets: block's own bracket has no indent, nested brackets get depth-based indent
         if (childType == KiteTokenTypes.LBRACK) {
+            if (braceDepth > 0 && isBlockElement(parentType)) {
+                int indentSize = 2;
+                int spaces = braceDepth * indentSize;
+                return Indent.getSpaceIndent(spaces);
+            }
             return Indent.getNoneIndent();
         }
 
-        // Closing bracket gets normal indent when inside braces (to match array content)
+        // Closing bracket gets calculated indent based on depth (same as closing braces)
         if (childType == KiteTokenTypes.RBRACK) {
-            if (insideBraces) {
-                return Indent.getNormalIndent();
+            if (insideBraces && isBlockElement(parentType)) {
+                int indentSize = 2;
+                int spaces = (braceDepth - 1) * indentSize;
+                return Indent.getSpaceIndent(spaces);
             }
             return Indent.getNoneIndent();
         }
@@ -1081,15 +1091,8 @@ public class KiteBlock extends AbstractBlock {
         }
 
         // Special case: ARRAY_LITERAL parents - content gets normal indent for consistent alignment
+        // Note: LBRACK/RBRACK cases are already handled at the top of this method
         if (parentType == KiteElementTypes.ARRAY_LITERAL) {
-            // The opening bracket itself doesn't get indented
-            if (childType == KiteTokenTypes.LBRACK) {
-                return Indent.getNoneIndent();
-            }
-            // Closing bracket aligns with opening bracket (no additional indent)
-            if (childType == KiteTokenTypes.RBRACK) {
-                return Indent.getNoneIndent();
-            }
             // Nested object/array literals get normal indent for proper nesting
             if (childType == KiteElementTypes.OBJECT_LITERAL || childType == KiteElementTypes.ARRAY_LITERAL) {
                 return Indent.getNormalIndent();
@@ -1121,8 +1124,13 @@ public class KiteBlock extends AbstractBlock {
             return Indent.getNoneIndent();
         }
 
-        // Opening braces: don't indent
+        // Opening braces: block's own brace has no indent, nested braces get depth-based indent
         if (childType == KiteTokenTypes.LBRACE) {
+            if (braceDepth > 0 && isBlockElement(parentType)) {
+                int indentSize = 2;
+                int spaces = braceDepth * indentSize;
+                return Indent.getSpaceIndent(spaces);
+            }
             return Indent.getNoneIndent();
         }
 
@@ -1193,8 +1201,7 @@ public class KiteBlock extends AbstractBlock {
         }
 
         // Use custom padding for aligned tokens (colons or equals)
-        if (child2 instanceof KiteBlock) {
-            KiteBlock kiteBlock2 = (KiteBlock) child2;
+        if (child2 instanceof KiteBlock kiteBlock2) {
             IElementType tokenType = kiteBlock2.myNode.getElementType();
 
             if (kiteBlock2.alignmentPadding != null &&

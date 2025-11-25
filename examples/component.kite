@@ -23,13 +23,13 @@ component WebServer api {
 
   resource SecurityGroup firewall {
     ingress = [
-  { port    : port, protocol: "tcp" }
+  { port    : port, protocol: "tcp" } // should be 6 spaces
     ]
-  } // should be 2 spaces
+  }
 
   output string endpoint   = server.publicIp
   output string instanceId = server.id
-} // should be 0 spaces
+}
 
 var WebServer x
 
