@@ -609,3 +609,260 @@ Custom SVG icon for `.kite` files displayed in the IDE file tree.
 - Bottom-right: `#2E86C1`
 - Bottom-left (shadow): `#2980B9` → `#1A5276` gradient
 - Spine lines: `#1A5276` with 0.3-0.5 opacity
+
+## Go to Declaration (Cmd+Click Navigation)
+
+### Overview
+"Go to Declaration" enables Cmd+Click (Mac) or Ctrl+Click (Windows/Linux) navigation from identifier usages to their declarations. Supports both simple identifiers and property access expressions.
+
+### Implementation
+- **File**: `src/main/java/io/kite/intellij/navigation/KiteGotoDeclarationHandler.java`
+- **Registration**: Registered in `plugin.xml` as `gotoDeclarationHandler` extension
+
+### Supported Navigation Types
+
+1. **Simple Identifier Navigation**
+   - Clicking on `server` navigates to `resource VM.Instance server { ... }`
+   - Works for: variables, resources, components, schemas, functions, inputs, outputs, for-loop variables
+
+2. **Property Access Navigation**
+   - Clicking on `size` in `server.size` navigates to `size = "t2.micro"` inside the server declaration
+   - Detects property access by checking for DOT token before the identifier
+
+### Key Technical Decisions
+
+#### Why NOT PsiReferenceContributor (Failed Approach)
+
+Initially attempted the "idiomatic" IntelliJ approach using `PsiReferenceContributor`:
+
+```java
+// KiteReferenceContributor.java - DIDN'T WORK
+registrar.registerReferenceProvider(
+    PlatformPatterns.psiElement(),
+    new PsiReferenceProvider() {
+        @Override
+        public PsiReference[] getReferencesByElement(PsiElement element, ProcessingContext context) {
+            // Create KiteReference for identifiers
+        }
+    }
+);
+```
+
+**Problems encountered:**
+- `PsiReferenceContributor` was never called by IntelliJ (no log output from inside the provider)
+- Pattern matching with `PlatformPatterns.psiElement()` didn't work for the Kite language
+- Even using `PsiReferenceService.getService().getContributedReferences()` returned 0 references
+
+**Lesson:** For custom languages, the PsiReference system may require additional infrastructure (like `PsiElement` marker interfaces or proper `LeafPsiElement` subclasses) that wasn't present in our PSI implementation.
+
+#### Why Direct PSI Traversal (Working Approach)
+
+Direct PSI traversal in `GotoDeclarationHandler` is simpler and more reliable:
+
+```java
+public class KiteGotoDeclarationHandler implements GotoDeclarationHandler {
+    @Override
+    public PsiElement[] getGotoDeclarationTargets(PsiElement sourceElement, int offset, Editor editor) {
+        // Direct PSI tree traversal to find declarations
+    }
+}
+```
+
+**Benefits:**
+- Works immediately without additional PSI infrastructure
+- Full control over resolution logic
+- Easy to debug (add System.err.println to see exactly what's happening)
+- Maximum performance (no framework overhead)
+
+### Implementation Details
+
+#### Property Access Detection
+
+Check if an identifier is part of `object.property` by looking for DOT token before it:
+
+```java
+private PsiElement getPropertyAccessObject(PsiElement element) {
+    PsiElement prev = skipWhitespaceBackward(element.getPrevSibling());
+    if (prev != null && prev.getNode().getElementType() == KiteTokenTypes.DOT) {
+        PsiElement objectElement = skipWhitespaceBackward(prev.getPrevSibling());
+        if (objectElement != null && objectElement.getNode().getElementType() == KiteTokenTypes.IDENTIFIER) {
+            return objectElement;
+        }
+    }
+    return null;
+}
+```
+
+#### Property Resolution Within Declarations
+
+To resolve `size` in `server.size`:
+1. Find the declaration element for `server` (e.g., `RESOURCE_DECLARATION`)
+2. Search within that declaration's braces for property assignments matching `size`
+3. Look for patterns: `identifier =`, `identifier :`, `identifier +=`
+
+```java
+private PsiElement findPropertyRecursive(PsiElement element, String propertyName,
+                                          PsiElement sourceElement, boolean insideBraces) {
+    PsiElement child = element.getFirstChild();
+    boolean currentInsideBraces = insideBraces;
+
+    while (child != null) {
+        IElementType childType = child.getNode().getElementType();
+
+        // Track brace entry/exit
+        if (childType == KiteTokenTypes.LBRACE) {
+            currentInsideBraces = true;
+        } else if (childType == KiteTokenTypes.RBRACE) {
+            currentInsideBraces = false;
+        }
+
+        // Check for property patterns inside braces
+        if (currentInsideBraces && childType == KiteTokenTypes.IDENTIFIER) {
+            if (propertyName.equals(child.getText()) && child != sourceElement) {
+                PsiElement next = skipWhitespaceForward(child.getNextSibling());
+                if (next != null) {
+                    IElementType nextType = next.getNode().getElementType();
+                    if (nextType == KiteTokenTypes.ASSIGN ||
+                        nextType == KiteTokenTypes.COLON ||
+                        nextType == KiteTokenTypes.PLUS_ASSIGN) {
+                        return child;  // Found the property declaration
+                    }
+                }
+            }
+        }
+
+        // Recurse into children (but not into nested declarations)
+        if (child.getFirstChild() != null && !isDeclarationType(childType)) {
+            PsiElement result = findPropertyRecursive(child, propertyName, sourceElement, currentInsideBraces);
+            if (result != null) return result;
+        }
+
+        child = child.getNextSibling();
+    }
+    return null;
+}
+```
+
+#### Whitespace Handling (Critical!)
+
+When traversing PSI siblings, you must skip whitespace tokens. IntelliJ uses `TokenType.WHITE_SPACE` for spaces, but our lexer also defines `KiteTokenTypes.NL` for newlines:
+
+```java
+private boolean isWhitespace(IElementType type) {
+    return type == TokenType.WHITE_SPACE ||  // IntelliJ's built-in whitespace
+           type == KiteTokenTypes.NL ||       // Our newline token
+           type == KiteTokenTypes.WHITESPACE ||
+           type == KiteTokenTypes.NEWLINE;
+}
+
+private PsiElement skipWhitespaceBackward(PsiElement element) {
+    while (element != null && isWhitespace(element.getNode().getElementType())) {
+        element = element.getPrevSibling();
+    }
+    return element;
+}
+
+private PsiElement skipWhitespaceForward(PsiElement element) {
+    while (element != null && isWhitespace(element.getNode().getElementType())) {
+        element = element.getNextSibling();
+    }
+    return element;
+}
+```
+
+**Important:** The formatter needs to distinguish between spaces and newlines for blank line detection, so we keep them as separate token types in the lexer.
+
+### Declaration Types
+
+The handler recognizes these declaration types:
+
+```java
+private boolean isDeclarationType(IElementType type) {
+    return type == KiteElementTypes.VARIABLE_DECLARATION ||
+           type == KiteElementTypes.INPUT_DECLARATION ||
+           type == KiteElementTypes.OUTPUT_DECLARATION ||
+           type == KiteElementTypes.RESOURCE_DECLARATION ||
+           type == KiteElementTypes.COMPONENT_DECLARATION ||
+           type == KiteElementTypes.SCHEMA_DECLARATION ||
+           type == KiteElementTypes.FUNCTION_DECLARATION ||
+           type == KiteElementTypes.TYPE_DECLARATION ||
+           type == KiteElementTypes.FOR_STATEMENT;  // for-loop variables
+}
+```
+
+### Finding the Name in a Declaration
+
+Different declaration types have the name in different positions:
+
+```java
+private PsiElement findNameInDeclaration(PsiElement declaration, IElementType declarationType) {
+    // For-loop special case: "for identifier in ..."
+    if (declarationType == KiteElementTypes.FOR_STATEMENT) {
+        boolean foundFor = false;
+        PsiElement child = declaration.getFirstChild();
+        while (child != null) {
+            IElementType childType = child.getNode().getElementType();
+            if (childType == KiteTokenTypes.FOR) {
+                foundFor = true;
+            } else if (foundFor && childType == KiteTokenTypes.IDENTIFIER) {
+                return child;
+            }
+            child = child.getNextSibling();
+        }
+    }
+
+    // For var/input/output/resource/component/schema/function:
+    // Find the last identifier before '=' or '{'
+    PsiElement lastIdentifier = null;
+    PsiElement child = declaration.getFirstChild();
+    while (child != null) {
+        IElementType childType = child.getNode().getElementType();
+        if (childType == KiteTokenTypes.IDENTIFIER) {
+            lastIdentifier = child;
+        } else if (childType == KiteTokenTypes.ASSIGN ||
+                   childType == KiteTokenTypes.LBRACE ||
+                   childType == KiteTokenTypes.PLUS_ASSIGN) {
+            if (lastIdentifier != null) {
+                return lastIdentifier;
+            }
+        }
+        child = child.getNextSibling();
+    }
+    return lastIdentifier;
+}
+```
+
+### Debugging Tips
+
+1. **Add stderr logging** (visible in Gradle output):
+   ```java
+   System.err.println("[KiteGoto] Processing: " + sourceElement.getText());
+   ```
+
+2. **Kill old IDE instances** before testing:
+   ```bash
+   pkill -9 -f "java.*idea"
+   ./gradlew compileJava && ./gradlew runIde
+   ```
+
+3. **Verify handler is called**: If no debug output appears, the handler isn't being invoked (check plugin.xml registration)
+
+4. **Check token types**: Use PSI Viewer (Tools > View PSI Structure) to see actual token types in your file
+
+### Test Cases
+
+Test file: `examples/component.kite`
+
+| Click on | Expected Navigation |
+|----------|---------------------|
+| `server` in `server.size` | Line 9: `resource VM.Instance server {` |
+| `size` in `server.size` | Line 14: `size = siz` |
+| `port` (simple reference) | Line 10: `input number port = 8080` |
+
+### What Didn't Work (Save Time)
+
+- ❌ `PsiReferenceContributor` with pattern matching - never called for Kite language
+- ❌ `PsiReferenceService.getContributedReferences()` - returned 0 references
+- ❌ Using `PlatformPatterns.psiElement(LeafPsiElement.class).withLanguage()` - too restrictive
+- ❌ Forgetting `TokenType.WHITE_SPACE` in whitespace check - breaks property detection
+- ✅ **Solution**: Direct PSI traversal in `GotoDeclarationHandler` with comprehensive whitespace handling
