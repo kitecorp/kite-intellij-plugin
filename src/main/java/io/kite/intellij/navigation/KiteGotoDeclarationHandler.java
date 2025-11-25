@@ -11,6 +11,8 @@ import io.kite.intellij.psi.KiteElementTypes;
 import io.kite.intellij.psi.KiteTokenTypes;
 import org.jetbrains.annotations.Nullable;
 
+import com.intellij.openapi.diagnostic.Logger;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
@@ -26,6 +28,8 @@ import java.util.regex.Pattern;
  * - Together they enable Cmd+Click navigation with only the variable name underlined
  */
 public class KiteGotoDeclarationHandler implements GotoDeclarationHandler {
+    private static final Logger LOG = Logger.getInstance(KiteGotoDeclarationHandler.class);
+
     // Patterns for string interpolation
     private static final Pattern BRACE_INTERPOLATION_PATTERN = Pattern.compile("\\$\\{([^}]+)\\}");
     private static final Pattern SIMPLE_INTERPOLATION_PATTERN = Pattern.compile("\\$([a-zA-Z_][a-zA-Z0-9_]*)");
@@ -43,10 +47,46 @@ public class KiteGotoDeclarationHandler implements GotoDeclarationHandler {
         }
 
         IElementType elementType = sourceElement.getNode().getElementType();
+        LOG.info("[KiteGotoDecl] sourceElement type: " + elementType + ", text: " + sourceElement.getText().substring(0, Math.min(50, sourceElement.getText().length())));
 
-        // STRING tokens with interpolations are handled by KiteReferenceContributor
-        // which provides KiteStringInterpolationReference with HighlightedReference.
-        // We return null here so the reference system handles both navigation AND highlighting.
+        // Handle INTERP_IDENTIFIER tokens (the identifier inside ${...})
+        // With the new lexer, each interpolated identifier is its own token
+        if (elementType == KiteTokenTypes.INTERP_IDENTIFIER) {
+            String varName = sourceElement.getText();
+            LOG.info("[KiteGotoDecl] INTERP_IDENTIFIER token: " + varName);
+            PsiElement declaration = findDeclaration(file, varName, sourceElement);
+            if (declaration != null) {
+                LOG.info("[KiteGotoDecl] Found declaration for INTERP_IDENTIFIER: " + varName);
+                return new PsiElement[]{declaration};
+            }
+            return null;
+        }
+
+        // Handle INTERP_SIMPLE tokens (the $identifier pattern)
+        // The token includes the $ prefix, so extract just the variable name
+        if (elementType == KiteTokenTypes.INTERP_SIMPLE) {
+            String text = sourceElement.getText();
+            if (text.startsWith("$") && text.length() > 1) {
+                String varName = text.substring(1);
+                LOG.info("[KiteGotoDecl] INTERP_SIMPLE token: " + varName);
+                PsiElement declaration = findDeclaration(file, varName, sourceElement);
+                if (declaration != null) {
+                    LOG.info("[KiteGotoDecl] Found declaration for INTERP_SIMPLE: " + varName);
+                    return new PsiElement[]{declaration};
+                }
+            }
+            return null;
+        }
+
+        // Handle legacy STRING tokens with interpolations (for backwards compatibility)
+        if (elementType == KiteTokenTypes.STRING) {
+            LOG.info("[KiteGotoDecl] Legacy STRING token detected, handling string interpolation navigation");
+            PsiElement[] targets = handleStringInterpolation(sourceElement, offset, file);
+            if (targets != null && targets.length > 0) {
+                LOG.info("[KiteGotoDecl] Found " + targets.length + " interpolation targets");
+            }
+            return targets;
+        }
 
         // Only handle IDENTIFIER tokens
         if (elementType != KiteTokenTypes.IDENTIFIER) {
@@ -355,6 +395,93 @@ public class KiteGotoDeclarationHandler implements GotoDeclarationHandler {
     }
 
     /**
+     * Handle string interpolation navigation.
+     * Finds the interpolation variable at the given offset and resolves it to its declaration.
+     */
+    @Nullable
+    private PsiElement[] handleStringInterpolation(PsiElement stringElement, int offset, PsiFile file) {
+        String text = stringElement.getText();
+        int elementStart = stringElement.getTextRange().getStartOffset();
+        int relativeOffset = offset - elementStart;
+
+        LOG.info("[KiteGotoDecl] String text: " + text + ", relativeOffset: " + relativeOffset);
+
+        // Check ${...} interpolations
+        Matcher braceMatcher = BRACE_INTERPOLATION_PATTERN.matcher(text);
+        while (braceMatcher.find()) {
+            int contentStart = braceMatcher.start(1);
+            int contentEnd = braceMatcher.end(1);
+            String content = braceMatcher.group(1);
+
+            // Check if offset is within this interpolation
+            if (relativeOffset >= braceMatcher.start() && relativeOffset <= braceMatcher.end()) {
+                String varName = extractFirstIdentifier(content);
+                if (varName != null) {
+                    LOG.info("[KiteGotoDecl] Found brace interpolation var: " + varName);
+                    PsiElement declaration = findDeclaration(file, varName, stringElement);
+                    if (declaration != null) {
+                        return new PsiElement[]{declaration};
+                    }
+                }
+            }
+        }
+
+        // Check $var interpolations
+        Matcher simpleMatcher = SIMPLE_INTERPOLATION_PATTERN.matcher(text);
+        while (simpleMatcher.find()) {
+            int matchStart = simpleMatcher.start();
+
+            // Skip if this is part of ${...}
+            if (matchStart + 1 < text.length() && text.charAt(matchStart + 1) == '{') {
+                continue;
+            }
+
+            // Check if offset is within this interpolation
+            if (relativeOffset >= matchStart && relativeOffset <= simpleMatcher.end()) {
+                String varName = simpleMatcher.group(1);
+                LOG.info("[KiteGotoDecl] Found simple interpolation var: " + varName);
+                PsiElement declaration = findDeclaration(file, varName, stringElement);
+                if (declaration != null) {
+                    return new PsiElement[]{declaration};
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Extract the first identifier from an expression.
+     * For "obj.prop" returns "obj", for "func()" returns "func", etc.
+     */
+    @Nullable
+    private String extractFirstIdentifier(String expression) {
+        if (expression == null || expression.isEmpty()) {
+            return null;
+        }
+
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < expression.length(); i++) {
+            char c = expression.charAt(i);
+            if (i == 0) {
+                if (Character.isJavaIdentifierStart(c)) {
+                    sb.append(c);
+                } else {
+                    return null;
+                }
+            } else {
+                if (Character.isJavaIdentifierPart(c)) {
+                    sb.append(c);
+                } else {
+                    break;
+                }
+            }
+        }
+
+        return sb.length() > 0 ? sb.toString() : null;
+    }
+
+    /**
      * Check if this identifier is a declaration name (the name being declared, not a reference).
      * Declaration names are:
      * - The last identifier before = or { in input/output/var/resource/component/schema/function/type declarations
@@ -395,97 +522,5 @@ public class KiteGotoDeclarationHandler implements GotoDeclarationHandler {
         }
 
         return false;
-    }
-
-    /**
-     * Handle string interpolation navigation.
-     * Finds the interpolation variable at the click position and resolves it to a declaration.
-     * Supports both ${var} and $var syntax, including multiple interpolations in one string.
-     */
-    @Nullable
-    private PsiElement[] handleStringInterpolation(PsiElement stringElement, int offset, PsiFile file) {
-        String text = stringElement.getText();
-        int elementStart = stringElement.getTextRange().getStartOffset();
-        int relativeOffset = offset - elementStart;
-
-        // Check ${expression} patterns first
-        Matcher braceMatcher = BRACE_INTERPOLATION_PATTERN.matcher(text);
-        while (braceMatcher.find()) {
-            int contentStart = braceMatcher.start(1);  // Start of content inside ${}
-            int contentEnd = braceMatcher.end(1);      // End of content inside ${}
-
-            // Check if click is within this interpolation
-            if (relativeOffset >= contentStart && relativeOffset <= contentEnd) {
-                String content = braceMatcher.group(1);
-                String varName = extractFirstIdentifier(content);
-                if (varName != null) {
-                    // Check if click is within the variable name portion
-                    int varEndInContent = varName.length();
-                    int varEndAbsolute = contentStart + varEndInContent;
-                    if (relativeOffset >= contentStart && relativeOffset <= varEndAbsolute) {
-                        PsiElement declaration = findDeclaration(file, varName, stringElement);
-                        if (declaration != null) {
-                            return new PsiElement[]{declaration};
-                        }
-                    }
-                }
-            }
-        }
-
-        // Check $var patterns
-        Matcher simpleMatcher = SIMPLE_INTERPOLATION_PATTERN.matcher(text);
-        while (simpleMatcher.find()) {
-            int matchStart = simpleMatcher.start();
-
-            // Skip if this $ is immediately followed by { (part of ${} syntax)
-            if (matchStart + 1 < text.length() && text.charAt(matchStart + 1) == '{') {
-                continue;
-            }
-
-            int varStart = simpleMatcher.start(1);  // Start of variable name (after $)
-            int varEnd = simpleMatcher.end(1);      // End of variable name
-
-            // Check if click is within this variable name
-            if (relativeOffset >= varStart && relativeOffset <= varEnd) {
-                String varName = simpleMatcher.group(1);
-                PsiElement declaration = findDeclaration(file, varName, stringElement);
-                if (declaration != null) {
-                    return new PsiElement[]{declaration};
-                }
-            }
-        }
-
-        return null;
-    }
-
-    /**
-     * Extract the first identifier from an expression.
-     * For "obj.prop" returns "obj", for "func()" returns "func", etc.
-     */
-    @Nullable
-    private String extractFirstIdentifier(String expression) {
-        if (expression == null || expression.isEmpty()) {
-            return null;
-        }
-
-        StringBuilder sb = new StringBuilder();
-        for (int i = 0; i < expression.length(); i++) {
-            char c = expression.charAt(i);
-            if (i == 0) {
-                if (Character.isJavaIdentifierStart(c)) {
-                    sb.append(c);
-                } else {
-                    return null;
-                }
-            } else {
-                if (Character.isJavaIdentifierPart(c)) {
-                    sb.append(c);
-                } else {
-                    break;
-                }
-            }
-        }
-
-        return sb.length() > 0 ? sb.toString() : null;
     }
 }

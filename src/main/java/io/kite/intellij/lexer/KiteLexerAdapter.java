@@ -164,8 +164,29 @@ public class KiteLexerAdapter extends LexerBase {
             case KiteLexer.FALSE -> KiteTokenTypes.FALSE;
             case KiteLexer.NULL -> KiteTokenTypes.NULL;
             case KiteLexer.NUMBER -> KiteTokenTypes.NUMBER;
-            case KiteLexer.STRING -> KiteTokenTypes.STRING;
+            case KiteLexer.SIMPLE_STRING -> KiteTokenTypes.SIMPLE_STRING;
             case KiteLexer.IDENTIFIER -> KiteTokenTypes.IDENTIFIER;
+
+            // String interpolation tokens (double-quoted strings)
+            case KiteLexer.DQUOTE_OPEN -> KiteTokenTypes.DQUOTE_OPEN;
+            case KiteLexer.DQUOTE_CLOSE -> KiteTokenTypes.DQUOTE_CLOSE;
+            case KiteLexer.DSTRING_TEXT -> KiteTokenTypes.DSTRING_TEXT;
+            case KiteLexer.DSTRING_ESCAPE -> KiteTokenTypes.DSTRING_ESCAPE;
+            case KiteLexer.INTERP_OPEN -> KiteTokenTypes.INTERP_OPEN;
+            case KiteLexer.INTERP_CLOSE -> KiteTokenTypes.INTERP_CLOSE;
+            case KiteLexer.INTERP_SIMPLE -> KiteTokenTypes.INTERP_SIMPLE;
+            case KiteLexer.DOLLAR_LITERAL -> KiteTokenTypes.DOLLAR_LITERAL;
+
+            // Tokens inside ${...} interpolation
+            case KiteLexer.INTERP_IDENTIFIER -> KiteTokenTypes.INTERP_IDENTIFIER;
+            case KiteLexer.INTERP_DOT -> KiteTokenTypes.INTERP_DOT;
+            case KiteLexer.INTERP_LBRACK -> KiteTokenTypes.INTERP_LBRACK;
+            case KiteLexer.INTERP_RBRACK -> KiteTokenTypes.INTERP_RBRACK;
+            case KiteLexer.INTERP_LPAREN -> KiteTokenTypes.INTERP_LPAREN;
+            case KiteLexer.INTERP_RPAREN -> KiteTokenTypes.INTERP_RPAREN;
+            case KiteLexer.INTERP_COMMA -> KiteTokenTypes.INTERP_COMMA;
+            case KiteLexer.INTERP_NUMBER -> KiteTokenTypes.INTERP_NUMBER;
+            case KiteLexer.INTERP_STRING -> KiteTokenTypes.INTERP_STRING;
 
             // Operators - Arithmetic
             case KiteLexer.PLUS -> KiteTokenTypes.PLUS;

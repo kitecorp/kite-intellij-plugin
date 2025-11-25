@@ -32,16 +32,71 @@ java {
     }
 }
 
-// Configure ANTLR
-generateGrammarSource {
-    maxHeapSize = "64m"
-    arguments += ['-package', 'io.kite.intellij.parser', '-visitor', '-no-listener']
-    outputDirectory = file("${project.buildDir}/generated-src/antlr/main/io/kite/intellij/parser")
+// Configure ANTLR - separate lexer and parser grammars require two-phase generation
+// The lexer generates a .tokens file that the parser needs
+def antlrOutputDir = file("${project.buildDir}/generated-src/antlr/main/io/kite/intellij/parser")
+def antlrSourceDir = file("src/main/antlr/io/kite/intellij/parser")
+
+// Disable the default generateGrammarSource task - we'll use custom tasks
+generateGrammarSource.enabled = false
+
+// Task 1: Generate the lexer first (produces KiteLexer.tokens)
+tasks.register('generateLexer', JavaExec) {
+    group = 'build'
+    description = 'Generate ANTLR lexer (must run before parser)'
+    mainClass = 'org.antlr.v4.Tool'
+    classpath = configurations.antlr
+    args = [
+        '-package', 'io.kite.intellij.parser',
+        '-visitor',
+        '-no-listener',
+        '-o', antlrOutputDir.absolutePath,
+        "${antlrSourceDir}/KiteLexer.g4"
+    ]
+
+    inputs.file("${antlrSourceDir}/KiteLexer.g4")
+    outputs.files(
+        "${antlrOutputDir}/KiteLexer.java",
+        "${antlrOutputDir}/KiteLexer.tokens"
+    )
+}
+
+// Task 2: Generate the parser (uses KiteLexer.tokens from lexer)
+tasks.register('generateParser', JavaExec) {
+    group = 'build'
+    description = 'Generate ANTLR parser (depends on lexer for tokens)'
+    dependsOn generateLexer
+
+    mainClass = 'org.antlr.v4.Tool'
+    classpath = configurations.antlr
+    args = [
+        '-package', 'io.kite.intellij.parser',
+        '-visitor',
+        '-no-listener',
+        '-lib', antlrOutputDir.absolutePath,  // Where to find KiteLexer.tokens
+        '-o', antlrOutputDir.absolutePath,
+        "${antlrSourceDir}/KiteParser.g4"
+    ]
+
+    inputs.file("${antlrSourceDir}/KiteParser.g4")
+    inputs.file("${antlrOutputDir}/KiteLexer.tokens")
+    outputs.files(
+        "${antlrOutputDir}/KiteParser.java",
+        "${antlrOutputDir}/KiteParserVisitor.java",
+        "${antlrOutputDir}/KiteParserBaseVisitor.java"
+    )
+}
+
+// Convenience task to generate both
+tasks.register('generateAntlr') {
+    group = 'build'
+    description = 'Generate all ANTLR sources (lexer then parser)'
+    dependsOn generateParser
 }
 
 // Make sure ANTLR runs before compileJava
 tasks.named('compileJava') {
-    dependsOn generateGrammarSource
+    dependsOn generateAntlr
 }
 
 // Add generated sources to source sets

@@ -73,6 +73,8 @@ public class KiteSyntaxHighlighter extends SyntaxHighlighterBase {
     private static final TextAttributesKey[] IDENTIFIER_KEYS = new TextAttributesKey[]{IDENTIFIER};
     private static final TextAttributesKey[] DECORATOR_KEYS = new TextAttributesKey[]{DECORATOR};
     private static final TextAttributesKey[] OPERATOR_KEYS = new TextAttributesKey[]{OPERATOR};
+    private static final TextAttributesKey[] INTERP_DELIM_KEYS = new TextAttributesKey[]{INTERPOLATION_DELIM};
+    private static final TextAttributesKey[] INTERP_VAR_KEYS = new TextAttributesKey[]{INTERPOLATION_VAR};
 
     @NotNull
     @Override
@@ -103,13 +105,43 @@ public class KiteSyntaxHighlighter extends SyntaxHighlighterBase {
             return NUMBER_KEYS;
         }
 
-        // String
-        if (tokenType == KiteTokenTypes.STRING) {
+        // Strings (single-quoted and double-quoted content)
+        if (tokenType == KiteTokenTypes.STRING ||
+                tokenType == KiteTokenTypes.SIMPLE_STRING ||
+                tokenType == KiteTokenTypes.DQUOTE_OPEN ||
+                tokenType == KiteTokenTypes.DQUOTE_CLOSE ||
+                tokenType == KiteTokenTypes.DSTRING_TEXT ||
+                tokenType == KiteTokenTypes.DSTRING_ESCAPE ||
+                tokenType == KiteTokenTypes.DOLLAR_LITERAL ||
+                tokenType == KiteTokenTypes.INTERP_STRING) {
             return STRING_KEYS;
         }
 
-        // Number
-        if (tokenType == KiteTokenTypes.NUMBER) {
+        // Interpolation delimiters (${, }, and $var)
+        if (tokenType == KiteTokenTypes.INTERP_OPEN ||
+                tokenType == KiteTokenTypes.INTERP_CLOSE) {
+            return INTERP_DELIM_KEYS;
+        }
+
+        // Interpolation variables (the identifier in ${var} or $var)
+        if (tokenType == KiteTokenTypes.INTERP_SIMPLE ||
+                tokenType == KiteTokenTypes.INTERP_IDENTIFIER) {
+            return INTERP_VAR_KEYS;
+        }
+
+        // Other interpolation tokens (use operator style)
+        if (tokenType == KiteTokenTypes.INTERP_DOT ||
+                tokenType == KiteTokenTypes.INTERP_LBRACK ||
+                tokenType == KiteTokenTypes.INTERP_RBRACK ||
+                tokenType == KiteTokenTypes.INTERP_LPAREN ||
+                tokenType == KiteTokenTypes.INTERP_RPAREN ||
+                tokenType == KiteTokenTypes.INTERP_COMMA) {
+            return OPERATOR_KEYS;
+        }
+
+        // Numbers (including numbers inside interpolation)
+        if (tokenType == KiteTokenTypes.NUMBER ||
+                tokenType == KiteTokenTypes.INTERP_NUMBER) {
             return NUMBER_KEYS;
         }
 

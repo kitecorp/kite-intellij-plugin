@@ -53,8 +53,30 @@ public class KiteTokenTypes {
     public static final IElementType FALSE = new KiteTokenType("FALSE");
     public static final IElementType NULL = new KiteTokenType("NULL");
     public static final IElementType NUMBER = new KiteTokenType("NUMBER");
-    public static final IElementType STRING = new KiteTokenType("STRING");
+    public static final IElementType STRING = new KiteTokenType("STRING");  // Legacy - kept for compatibility
+    public static final IElementType SIMPLE_STRING = new KiteTokenType("SIMPLE_STRING");  // Single-quoted strings
     public static final IElementType IDENTIFIER = new KiteTokenType("IDENTIFIER");
+
+    // String interpolation tokens (double-quoted strings with ${} or $var)
+    public static final IElementType DQUOTE_OPEN = new KiteTokenType("DQUOTE_OPEN");       // Opening "
+    public static final IElementType DQUOTE_CLOSE = new KiteTokenType("DQUOTE_CLOSE");     // Closing "
+    public static final IElementType DSTRING_TEXT = new KiteTokenType("DSTRING_TEXT");     // Text content inside "..."
+    public static final IElementType DSTRING_ESCAPE = new KiteTokenType("DSTRING_ESCAPE"); // Escape sequences like \n
+    public static final IElementType INTERP_OPEN = new KiteTokenType("INTERP_OPEN");       // ${
+    public static final IElementType INTERP_CLOSE = new KiteTokenType("INTERP_CLOSE");     // }
+    public static final IElementType INTERP_SIMPLE = new KiteTokenType("INTERP_SIMPLE");   // $identifier
+    public static final IElementType DOLLAR_LITERAL = new KiteTokenType("DOLLAR_LITERAL"); // Lone $ not followed by { or identifier
+
+    // Tokens inside ${...} interpolation
+    public static final IElementType INTERP_IDENTIFIER = new KiteTokenType("INTERP_IDENTIFIER");
+    public static final IElementType INTERP_DOT = new KiteTokenType("INTERP_DOT");
+    public static final IElementType INTERP_LBRACK = new KiteTokenType("INTERP_LBRACK");
+    public static final IElementType INTERP_RBRACK = new KiteTokenType("INTERP_RBRACK");
+    public static final IElementType INTERP_LPAREN = new KiteTokenType("INTERP_LPAREN");
+    public static final IElementType INTERP_RPAREN = new KiteTokenType("INTERP_RPAREN");
+    public static final IElementType INTERP_COMMA = new KiteTokenType("INTERP_COMMA");
+    public static final IElementType INTERP_NUMBER = new KiteTokenType("INTERP_NUMBER");
+    public static final IElementType INTERP_STRING = new KiteTokenType("INTERP_STRING");
 
     // Operators - Arithmetic
     public static final IElementType PLUS = new KiteTokenType("PLUS");

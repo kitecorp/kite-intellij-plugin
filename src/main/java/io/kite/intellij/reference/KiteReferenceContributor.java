@@ -53,9 +53,33 @@ public class KiteReferenceContributor extends PsiReferenceContributor {
 
                         IElementType elementType = element.getNode().getElementType();
 
-                        // Handle STRING tokens with interpolations
+                        // Handle legacy STRING tokens with interpolations (for backwards compatibility)
                         if (elementType == KiteTokenTypes.STRING) {
                             return getStringInterpolationReferences(element);
+                        }
+
+                        // Handle INTERP_IDENTIFIER (the identifier inside ${...})
+                        // e.g., in "${port}", the INTERP_IDENTIFIER token is "port"
+                        if (elementType == KiteTokenTypes.INTERP_IDENTIFIER) {
+                            String varName = element.getText();
+                            LOG.info("[KiteRefContrib] Creating reference for INTERP_IDENTIFIER: " + varName);
+                            TextRange range = new TextRange(0, varName.length());
+                            return new PsiReference[]{new KiteStringInterpolationReference(element, range, varName)};
+                        }
+
+                        // Handle INTERP_SIMPLE (the $identifier token for simple interpolation)
+                        // e.g., "$port" - the whole token includes the $
+                        if (elementType == KiteTokenTypes.INTERP_SIMPLE) {
+                            String text = element.getText();
+                            // Extract variable name by removing the leading $
+                            if (text.startsWith("$") && text.length() > 1) {
+                                String varName = text.substring(1);
+                                LOG.info("[KiteRefContrib] Creating reference for INTERP_SIMPLE: " + varName);
+                                // Reference range is just the identifier part (after the $)
+                                TextRange range = new TextRange(1, text.length());
+                                return new PsiReference[]{new KiteStringInterpolationReference(element, range, varName)};
+                            }
+                            return PsiReference.EMPTY_ARRAY;
                         }
 
                         // Only provide references for IDENTIFIER tokens
