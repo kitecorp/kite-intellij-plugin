@@ -33,6 +33,18 @@
     </ul>
   ]]></description>
 
+    <!-- Short summary of new features and bugfixes in the latest version -->
+    <change-notes><![CDATA[
+    <b>0.1.0</b>
+    <ul>
+      <li>Fixed nested object literal indentation in code formatter</li>
+      <li>Improved alignment for multi-line vs inline object literals</li>
+      <li>Comments now properly break alignment groups</li>
+      <li>Fixed schema property alignment with type annotations</li>
+      <li>Better handling of VAR declaration alignment</li>
+    </ul>
+  ]]></change-notes>
+
     <!-- Product and plugin compatibility requirements.
          Read more: https://plugins.jetbrains.com/docs/intellij/plugin-compatibility.html -->
     <depends>com.intellij.modules.platform</depends>
@@ -88,5 +100,8 @@
         <!-- Go to Declaration (Cmd+Click) -->
         <psi.referenceContributor language="Kite"
                                    implementation="io.kite.intellij.reference.KiteReferenceContributor"/>
+
+        <!-- Go to Declaration handler -->
+        <gotoDeclarationHandler implementation="io.kite.intellij.navigation.KiteGotoDeclarationHandler"/>
     </extensions>
 </idea-plugin>

@@ -27,7 +27,7 @@ component WebServer api {
     ]
   }
 
-  output string endpoint   = server.publicIp
+  output string endpoint   = server.size
   output string instanceId = server.id
 }
 
