@@ -34,6 +34,12 @@ public class KiteGotoDeclarationHandler implements GotoDeclarationHandler {
             return null;
         }
 
+        // Don't provide navigation for declaration names (the name being declared)
+        // e.g., in "input number port = 8080", "port" is a declaration name, not a reference
+        if (isDeclarationName(sourceElement)) {
+            return null;
+        }
+
         String name = sourceElement.getText();
 
         // Check if this is a property access (identifier after a DOT)
@@ -281,5 +287,48 @@ public class KiteGotoDeclarationHandler implements GotoDeclarationHandler {
                type == KiteTokenTypes.NL ||
                type == KiteTokenTypes.WHITESPACE ||
                type == KiteTokenTypes.NEWLINE;
+    }
+
+    /**
+     * Check if this identifier is a declaration name (the name being declared, not a reference).
+     * Declaration names are:
+     * - The last identifier before = or { in input/output/var/resource/component/schema/function/type declarations
+     * - The identifier after "for" keyword in for loops
+     * - Property names in object literals (identifier before : or =)
+     */
+    private boolean isDeclarationName(PsiElement element) {
+        // Check if this identifier is followed by = or { or += or : (declaration/property pattern)
+        PsiElement next = skipWhitespaceForward(element.getNextSibling());
+        if (next != null) {
+            IElementType nextType = next.getNode().getElementType();
+            if (nextType == KiteTokenTypes.ASSIGN ||
+                nextType == KiteTokenTypes.LBRACE ||
+                nextType == KiteTokenTypes.PLUS_ASSIGN ||
+                nextType == KiteTokenTypes.COLON) {
+                // This identifier is followed by = or { or : - it's a declaration/property name
+                return true;
+            }
+        }
+
+        // Check if this is a for loop variable (identifier after "for" keyword)
+        PsiElement prev = skipWhitespaceBackward(element.getPrevSibling());
+        if (prev != null && prev.getNode().getElementType() == KiteTokenTypes.FOR) {
+            return true;
+        }
+
+        // Check if parent is a declaration and this is the declared name
+        PsiElement parent = element.getParent();
+        if (parent != null) {
+            IElementType parentType = parent.getNode().getElementType();
+            if (isDeclarationType(parentType)) {
+                // Find the name element in this declaration
+                PsiElement nameElement = findNameInDeclaration(parent, parentType);
+                if (nameElement == element) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 }
