@@ -4,17 +4,16 @@ import com.intellij.codeInsight.navigation.actions.GotoDeclarationHandler;
 import com.intellij.openapi.editor.Editor;
 import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiFile;
+import com.intellij.psi.TokenType;
 import com.intellij.psi.tree.IElementType;
-import com.intellij.psi.util.PsiTreeUtil;
 import io.kite.intellij.KiteLanguage;
 import io.kite.intellij.psi.KiteElementTypes;
 import io.kite.intellij.psi.KiteTokenTypes;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.Collection;
-
 /**
  * Handler for "Go to Declaration" (Cmd+Click) in Kite files.
+ * Uses direct PSI traversal to resolve identifiers to their declarations.
  */
 public class KiteGotoDeclarationHandler implements GotoDeclarationHandler {
 
@@ -35,123 +34,142 @@ public class KiteGotoDeclarationHandler implements GotoDeclarationHandler {
             return null;
         }
 
-        String targetName = sourceElement.getText();
-        System.err.println("[KiteGoto] Looking for: " + targetName);
+        String name = sourceElement.getText();
 
         // Check if this is a property access (identifier after a DOT)
-        // Skip whitespace to find the actual previous token
-        PsiElement prevSibling = skipWhitespaceBackward(sourceElement.getPrevSibling());
-        System.err.println("[KiteGoto] prevSibling (after skip): " + (prevSibling != null ? prevSibling.getNode().getElementType() + " = '" + prevSibling.getText() + "'" : "null"));
-        if (prevSibling != null && prevSibling.getNode().getElementType() == KiteTokenTypes.DOT) {
-            // This is a property access like server.size - find the property in the object
-            PsiElement objectIdentifier = skipWhitespaceBackward(prevSibling.getPrevSibling());
-            System.err.println("[KiteGoto] objectIdentifier: " + (objectIdentifier != null ? objectIdentifier.getNode().getElementType() + " = '" + objectIdentifier.getText() + "'" : "null"));
-            if (objectIdentifier != null && objectIdentifier.getNode().getElementType() == KiteTokenTypes.IDENTIFIER) {
-                String objectName = objectIdentifier.getText();
+        PsiElement objectElement = getPropertyAccessObject(sourceElement);
 
-                // Find the declaration of the object (e.g., resource server)
-                PsiElement objectDeclaration = findDeclarationElement(file, objectName, objectIdentifier);
-                System.err.println("[KiteGoto] objectDeclaration: " + (objectDeclaration != null ? objectDeclaration.getNode().getElementType() : "null"));
-                if (objectDeclaration != null) {
-                    // Search for property within the object's body
-                    PsiElement property = findPropertyInDeclaration(objectDeclaration, targetName);
-                    System.err.println("[KiteGoto] property found: " + (property != null ? property.getText() : "null"));
-                    if (property != null) {
-                        return new PsiElement[]{property};
+        if (objectElement != null) {
+            // Property access: resolve within the object's declaration scope
+            return resolvePropertyAccess(file, objectElement.getText(), name, sourceElement);
+        } else {
+            // Simple identifier: search declarations in file scope
+            PsiElement declaration = findDeclaration(file, name, sourceElement);
+            if (declaration != null) {
+                return new PsiElement[]{declaration};
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Check if this identifier is part of a property access expression (after a DOT).
+     */
+    @Nullable
+    private PsiElement getPropertyAccessObject(PsiElement element) {
+        PsiElement prev = skipWhitespaceBackward(element.getPrevSibling());
+        if (prev != null && prev.getNode().getElementType() == KiteTokenTypes.DOT) {
+            PsiElement objectElement = skipWhitespaceBackward(prev.getPrevSibling());
+            if (objectElement != null && objectElement.getNode().getElementType() == KiteTokenTypes.IDENTIFIER) {
+                return objectElement;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Resolve property access: find the property within the object's declaration scope.
+     */
+    @Nullable
+    private PsiElement[] resolvePropertyAccess(PsiFile file, String objectName, String propertyName, PsiElement sourceElement) {
+        // First, find the declaration of the object
+        PsiElement objectDeclaration = findDeclarationElement(file, objectName);
+
+        if (objectDeclaration != null) {
+            // Search for the property within the object's declaration body
+            PsiElement property = findPropertyInDeclaration(objectDeclaration, propertyName, sourceElement);
+            if (property != null) {
+                return new PsiElement[]{property};
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Find property definitions within a declaration body.
+     */
+    @Nullable
+    private PsiElement findPropertyInDeclaration(PsiElement declaration, String propertyName, PsiElement sourceElement) {
+        return findPropertyRecursive(declaration, propertyName, sourceElement, false);
+    }
+
+    /**
+     * Recursively search for property definitions within a declaration.
+     */
+    @Nullable
+    private PsiElement findPropertyRecursive(PsiElement element, String propertyName, PsiElement sourceElement, boolean insideBraces) {
+        PsiElement child = element.getFirstChild();
+        boolean currentInsideBraces = insideBraces;
+
+        while (child != null) {
+            IElementType childType = child.getNode().getElementType();
+
+            // Track when we enter/exit braces
+            if (childType == KiteTokenTypes.LBRACE) {
+                currentInsideBraces = true;
+            } else if (childType == KiteTokenTypes.RBRACE) {
+                currentInsideBraces = false;
+            }
+
+            // Check for property patterns only inside the braces
+            if (currentInsideBraces && childType == KiteTokenTypes.IDENTIFIER) {
+                String identText = child.getText();
+                if (propertyName.equals(identText) && child != sourceElement) {
+                    // Check if this identifier is followed by = or : (property assignment)
+                    PsiElement next = skipWhitespaceForward(child.getNextSibling());
+                    if (next != null) {
+                        IElementType nextType = next.getNode().getElementType();
+                        if (nextType == KiteTokenTypes.ASSIGN ||
+                            nextType == KiteTokenTypes.COLON ||
+                            nextType == KiteTokenTypes.PLUS_ASSIGN) {
+                            return child;
+                        }
                     }
                 }
             }
-            // If we can't resolve the property, return null (don't fall through to global search)
-            return null;
-        }
 
-        // Regular declaration lookup
-        PsiElement declaration = findDeclaration(file, targetName, sourceElement);
-        if (declaration != null) {
-            return new PsiElement[]{declaration};
-        }
-
-        return null;
-    }
-
-    /**
-     * Find a property assignment within a declaration body.
-     * Looks for patterns like: propertyName = value
-     */
-    @Nullable
-    private PsiElement findPropertyInDeclaration(PsiElement declaration, String propertyName) {
-        // Search within the declaration for property assignments
-        return findPropertyRecursive(declaration, propertyName);
-    }
-
-    @Nullable
-    private PsiElement findPropertyRecursive(PsiElement declaration, String propertyName) {
-        // Find all leaf elements in the declaration and check each one
-        // Use text search within the declaration's text range
-        String text = declaration.getText();
-        int startOffset = declaration.getTextOffset();
-
-        // Find pattern "propertyName =" or "propertyName=" in the text
-        String pattern1 = propertyName + " =";
-        String pattern2 = propertyName + "=";
-
-        int idx = text.indexOf(pattern1);
-        if (idx == -1) {
-            idx = text.indexOf(pattern2);
-        }
-
-        if (idx != -1) {
-            // Found the pattern, now find the actual PSI element at this position
-            int absoluteOffset = startOffset + idx;
-            PsiFile file = declaration.getContainingFile();
-            PsiElement elementAtOffset = file.findElementAt(absoluteOffset);
-
-            if (elementAtOffset != null &&
-                elementAtOffset.getNode().getElementType() == KiteTokenTypes.IDENTIFIER &&
-                propertyName.equals(elementAtOffset.getText())) {
-                return elementAtOffset;
+            // Check for input/output/var declarations inside braces
+            if (currentInsideBraces && isDeclarationType(childType)) {
+                PsiElement declName = findNameInDeclaration(child, childType);
+                if (declName != null && propertyName.equals(declName.getText()) && declName != sourceElement) {
+                    return declName;
+                }
             }
+
+            // Recurse into composite elements, but not into nested declarations
+            if (child.getFirstChild() != null && !isDeclarationType(childType)) {
+                PsiElement result = findPropertyRecursive(child, propertyName, sourceElement, currentInsideBraces);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            child = child.getNextSibling();
         }
 
         return null;
     }
 
-    private boolean isWhitespace(IElementType type) {
-        return type == KiteTokenTypes.WHITESPACE ||
-               type == KiteTokenTypes.NL ||
-               type == KiteTokenTypes.NEWLINE;
-    }
-
     /**
-     * Skip whitespace tokens when traversing backward.
+     * Find a declaration with the given name in the file (for simple identifier resolution).
      */
     @Nullable
-    private PsiElement skipWhitespaceBackward(@Nullable PsiElement element) {
-        while (element != null && isWhitespace(element.getNode().getElementType())) {
-            element = element.getPrevSibling();
-        }
-        return element;
-    }
-
-    /**
-     * Find the declaration element (the whole declaration node) for a given name.
-     */
-    @Nullable
-    private PsiElement findDeclarationElement(PsiElement element, String targetName, PsiElement sourceElement) {
+    private PsiElement findDeclaration(PsiElement element, String targetName, PsiElement sourceElement) {
         IElementType type = element.getNode().getElementType();
 
         if (isDeclarationType(type)) {
             PsiElement nameElement = findNameInDeclaration(element, type);
-            if (nameElement != null && targetName.equals(nameElement.getText())) {
-                if (!nameElement.getTextRange().equals(sourceElement.getTextRange())) {
-                    return element;  // Return the whole declaration, not just the name
-                }
+            if (nameElement != null && targetName.equals(nameElement.getText()) && nameElement != sourceElement) {
+                return nameElement;
             }
         }
 
+        // Recurse into children
         PsiElement child = element.getFirstChild();
         while (child != null) {
-            PsiElement result = findDeclarationElement(child, targetName, sourceElement);
+            PsiElement result = findDeclaration(child, targetName, sourceElement);
             if (result != null) {
                 return result;
             }
@@ -162,27 +180,23 @@ public class KiteGotoDeclarationHandler implements GotoDeclarationHandler {
     }
 
     /**
-     * Find the declaration for the given name in the file.
+     * Find the declaration element (the whole node) for a given name.
      */
     @Nullable
-    private PsiElement findDeclaration(PsiElement element, String targetName, PsiElement sourceElement) {
+    private PsiElement findDeclarationElement(PsiElement element, String targetName) {
         IElementType type = element.getNode().getElementType();
 
-        // Check if this is a declaration type
         if (isDeclarationType(type)) {
             PsiElement nameElement = findNameInDeclaration(element, type);
             if (nameElement != null && targetName.equals(nameElement.getText())) {
-                // Don't resolve to self
-                if (!nameElement.getTextRange().equals(sourceElement.getTextRange())) {
-                    return nameElement;
-                }
+                return element; // Return the whole declaration, not just the name
             }
         }
 
         // Recurse into children
         PsiElement child = element.getFirstChild();
         while (child != null) {
-            PsiElement result = findDeclaration(child, targetName, sourceElement);
+            PsiElement result = findDeclarationElement(child, targetName);
             if (result != null) {
                 return result;
             }
@@ -227,7 +241,6 @@ public class KiteGotoDeclarationHandler implements GotoDeclarationHandler {
         // For var/input/output: keyword [type] name [= value]
         // For resource/component/schema/function: keyword [type] name { ... }
         // Find the identifier that comes before '=' or '{'
-
         PsiElement lastIdentifier = null;
         PsiElement child = declaration.getFirstChild();
         while (child != null) {
@@ -245,5 +258,28 @@ public class KiteGotoDeclarationHandler implements GotoDeclarationHandler {
         }
 
         return lastIdentifier;
+    }
+
+    @Nullable
+    private PsiElement skipWhitespaceBackward(@Nullable PsiElement element) {
+        while (element != null && isWhitespace(element.getNode().getElementType())) {
+            element = element.getPrevSibling();
+        }
+        return element;
+    }
+
+    @Nullable
+    private PsiElement skipWhitespaceForward(@Nullable PsiElement element) {
+        while (element != null && isWhitespace(element.getNode().getElementType())) {
+            element = element.getNextSibling();
+        }
+        return element;
+    }
+
+    private boolean isWhitespace(IElementType type) {
+        return type == TokenType.WHITE_SPACE ||
+               type == KiteTokenTypes.NL ||
+               type == KiteTokenTypes.WHITESPACE ||
+               type == KiteTokenTypes.NEWLINE;
     }
 }
