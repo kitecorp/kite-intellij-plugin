@@ -12,6 +12,11 @@ import io.kite.intellij.psi.KiteTokenTypes;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
 /**
  * Reference contributor for Kite language.
  * Provides references for identifiers to enable "Go to Declaration" (Cmd+Click).
