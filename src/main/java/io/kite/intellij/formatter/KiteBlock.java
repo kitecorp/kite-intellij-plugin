@@ -1304,9 +1304,10 @@ public class KiteBlock extends AbstractBlock {
     public @Nullable Spacing getSpacing(@Nullable Block child1, @NotNull Block child2) {
         IElementType parentType = myNode.getElementType();
 
-        // Special handling for object and array literals to ensure proper indentation
+        // Special handling for multi-line object and array literals to ensure proper indentation
+        // Only force line breaks for multi-line literals; single-line literals stay inline
         if (parentType == KiteElementTypes.OBJECT_LITERAL || parentType == KiteElementTypes.ARRAY_LITERAL) {
-            if (child1 instanceof KiteBlock && child2 instanceof KiteBlock) {
+            if (isMultiLine(myNode) && child1 instanceof KiteBlock && child2 instanceof KiteBlock) {
                 IElementType type1 = ((KiteBlock) child1).myNode.getElementType();
                 IElementType type2 = ((KiteBlock) child2).myNode.getElementType();
 

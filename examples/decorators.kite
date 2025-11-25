@@ -15,7 +15,7 @@ input number instanceCount = 10
 @maxLength(63)
 input string bucketName
 */
-@validate(regex : "^[a-z0-9-]+$",
+@validate(regex: "^[a-z0-9-]+$",
           flag: 'i')
 @minLength(3)
 @maxLength(63)
