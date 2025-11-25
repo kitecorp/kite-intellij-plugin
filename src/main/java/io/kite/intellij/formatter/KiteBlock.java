@@ -1133,16 +1133,16 @@ public class KiteBlock extends AbstractBlock {
         }
 
         // Closing braces - align based on what they're closing
+        // Use calculated spacing for proper nesting alignment
         if (childType == KiteTokenTypes.RBRACE) {
-            if (insideBraces) {
-                // braceDepth=1: This is the block's own closing brace, aligns with block baseline
-                if (braceDepth == 1) {
-                    System.err.println("[KiteBlock.getChildIndent] --> Returning getNoneIndent() for block's closing }");
-                    return Indent.getNoneIndent();
-                }
-                // braceDepth>=2: Nested closing brace (e.g., object literal), aligns with outer content
-                System.err.println("[KiteBlock.getChildIndent] --> Returning getNormalIndent() for nested } at depth=" + braceDepth);
-                return Indent.getNormalIndent();
+            if (insideBraces && isBlockElement(parentType)) {
+                int indentSize = 2; // INDENT_SIZE from code style settings
+                // braceDepth=1: Block's own closing brace, aligns with block baseline (0 spaces)
+                // braceDepth=2: Object literal's closing brace, aligns with brace opener (2 spaces)
+                // braceDepth=3: Nested object's closing brace (4 spaces)
+                int spaces = (braceDepth - 1) * indentSize;
+                System.err.println("[KiteBlock.getChildIndent] --> Returning getSpaceIndent(" + spaces + ") for } at braceDepth=" + braceDepth);
+                return Indent.getSpaceIndent(spaces);
             }
             return Indent.getNoneIndent();
         }
@@ -1162,13 +1162,6 @@ public class KiteBlock extends AbstractBlock {
                 // braceDepth=3: nested object literal → +6 (3 * INDENT_SIZE)
                 // etc.
                 int indentSize = 2; // INDENT_SIZE from code style settings
-
-                // Closing braces should align with their opening scope (one level less)
-                if (childType == KiteTokenTypes.RBRACE) {
-                    int spaces = (braceDepth - 1) * indentSize;
-                    System.err.println("[KiteBlock.getChildIndent] --> Returning getSpaceIndent(" + spaces + ") for } at braceDepth=" + braceDepth);
-                    return Indent.getSpaceIndent(spaces);
-                }
 
                 // Content gets indent based on current depth
                 int spaces = braceDepth * indentSize;

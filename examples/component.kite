@@ -17,15 +17,13 @@ component WebServer api {
       Name       : "web-server", // should be 6 spaces
       New        : {
         a: "b"
-    } // should be 6 spaces
-    } // should be 4 spaces
-  } // should be 2 spaces
+      }
+    }
+  } 
 
   resource SecurityGroup firewall {
     ingress = [
-  {
-      port    : port, protocol: "tcp"
-    }
+  { port    : port, protocol: "tcp" }
     ]
   } // should be 2 spaces
 
