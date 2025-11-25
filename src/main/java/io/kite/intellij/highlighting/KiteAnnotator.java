@@ -5,6 +5,7 @@ import com.intellij.lang.annotation.Annotator;
 import com.intellij.lang.annotation.HighlightSeverity;
 import com.intellij.openapi.editor.colors.TextAttributesKey;
 import com.intellij.openapi.editor.markup.TextAttributes;
+import com.intellij.openapi.util.TextRange;
 import com.intellij.psi.PsiElement;
 import com.intellij.psi.tree.IElementType;
 import com.intellij.ui.JBColor;
@@ -12,12 +13,15 @@ import io.kite.intellij.psi.KiteTokenTypes;
 import org.jetbrains.annotations.NotNull;
 
 import java.awt.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static com.intellij.openapi.editor.colors.TextAttributesKey.createTextAttributesKey;
 
 /**
  * Semantic annotator for Kite language that provides context-aware syntax highlighting.
  * This annotator identifies types in various contexts and highlights them appropriately.
+ * Also handles string interpolation highlighting.
  */
 public class KiteAnnotator implements Annotator {
 
@@ -27,11 +31,21 @@ public class KiteAnnotator implements Annotator {
                     new TextAttributes(JBColor.namedColor("Kite.typeName", new Color(0x498BF6)),
                             null, null, null, Font.PLAIN));
 
+    // Pattern to match string interpolations: ${expression}
+    // Supports: ${var}, ${obj.prop}, ${func()}, ${arr[0]}, etc.
+    private static final Pattern INTERPOLATION_PATTERN = Pattern.compile("\\$\\{([^}]+)\\}");
+
     @Override
     public void annotate(@NotNull PsiElement element, @NotNull AnnotationHolder holder) {
         IElementType elementType = element.getNode().getElementType();
 
-        // Only process identifiers
+        // Handle string interpolations
+        if (elementType == KiteTokenTypes.STRING) {
+            annotateStringInterpolations(element, holder);
+            return;
+        }
+
+        // Only process identifiers for type highlighting
         if (elementType != KiteTokenTypes.IDENTIFIER) {
             return;
         }
@@ -146,5 +160,42 @@ public class KiteAnnotator implements Annotator {
         }
 
         return fileText.substring(offset, lineEnd);
+    }
+
+    /**
+     * Annotates string interpolations within a STRING token.
+     * Highlights ${...} patterns with special colors for delimiters and variable content.
+     */
+    private void annotateStringInterpolations(@NotNull PsiElement element, @NotNull AnnotationHolder holder) {
+        String text = element.getText();
+        int startOffset = element.getTextRange().getStartOffset();
+
+        Matcher matcher = INTERPOLATION_PATTERN.matcher(text);
+        while (matcher.find()) {
+            int matchStart = matcher.start();
+            int matchEnd = matcher.end();
+            String content = matcher.group(1);  // The content inside ${}
+
+            // Highlight ${ - opening delimiter
+            TextRange openDelimRange = new TextRange(startOffset + matchStart, startOffset + matchStart + 2);
+            holder.newSilentAnnotation(HighlightSeverity.INFORMATION)
+                    .range(openDelimRange)
+                    .textAttributes(KiteSyntaxHighlighter.INTERPOLATION_DELIM)
+                    .create();
+
+            // Highlight the content (variable/expression) inside
+            TextRange contentRange = new TextRange(startOffset + matchStart + 2, startOffset + matchEnd - 1);
+            holder.newSilentAnnotation(HighlightSeverity.INFORMATION)
+                    .range(contentRange)
+                    .textAttributes(KiteSyntaxHighlighter.INTERPOLATION_VAR)
+                    .create();
+
+            // Highlight } - closing delimiter
+            TextRange closeDelimRange = new TextRange(startOffset + matchEnd - 1, startOffset + matchEnd);
+            holder.newSilentAnnotation(HighlightSeverity.INFORMATION)
+                    .range(closeDelimRange)
+                    .textAttributes(KiteSyntaxHighlighter.INTERPOLATION_DELIM)
+                    .create();
+        }
     }
 }

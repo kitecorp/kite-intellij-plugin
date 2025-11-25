@@ -499,9 +499,113 @@ resource VM.Instance server {
 
 **Test file:** `/Users/mimedia/IdeaProjects/kite-intellij-plugin/examples/component.kite`
 
+#### Inline vs Multi-line Literal Formatting
+
+**Problem:** Single-line objects like `{ port: port, protocol: "tcp" }` should NOT have alignment padding before colons, but multi-line objects should.
+
+**Solution:** Use `isMultiLine()` check to distinguish formatting approach:
+```java
+private boolean isMultiLine(ASTNode node) {
+    String text = node.getText();
+    return text.contains("\n");
+}
+```
+
+**Implementation Pattern:**
+1. In `buildAlignedChildren()` and `inlineLiteralChildren()`:
+   - If `isMultiLine(objectLiteralNode)` → use `inlineObjectWithAlignment()` for colon alignment
+   - If NOT multi-line → use `inlineLiteralChildren()` without alignment padding
+2. In `getSpacing()`:
+   - Only force line breaks for multi-line literals
+   ```java
+   if (parentType == KiteElementTypes.OBJECT_LITERAL || parentType == KiteElementTypes.ARRAY_LITERAL) {
+       if (isMultiLine(myNode) && child1 instanceof KiteBlock && child2 instanceof KiteBlock) {
+           // Force line breaks only for multi-line literals
+       }
+   }
+   ```
+
+**Key Method - `inlineObjectWithAlignment()`:**
+- Two-pass algorithm: first find max key length among direct children, then build blocks with padding
+- Recursively calls itself for nested multi-line objects
+- Recursively calls `inlineLiteralChildren()` for nested single-line objects
+
+#### Alignment Groups Break on Comments
+
+**Problem:** Comments between declarations should break alignment groups so declarations above and below are aligned independently.
+
+**Solution:** Add comment detection as group separators in `identifyAlignmentGroups()`:
+```java
+// Comments also separate alignment groups (they indicate logical sections)
+if (childType == KiteTokenTypes.LINE_COMMENT || childType == KiteTokenTypes.BLOCK_COMMENT) {
+    hasBlankLineSinceLastDecl = true;  // Treat comment as group separator
+}
+```
+
+**Example:**
+```kite
+var x  = 1     // Group 1
+var yp = 2     // Group 1 (aligns with x)
+
+// This comment breaks the group
+var a = 3      // Group 2 (fresh alignment, no padding)
+```
+
+#### Schema Property Alignment with Type + Name
+
+**Problem:** Schema properties have format `type propName = value` and alignment was only using `propName` length, causing incorrect spacing.
+
+**Solution:** Track `previousTypeIdentifier` and calculate combined length:
+```java
+ASTNode previousIdentifier = null;
+ASTNode previousTypeIdentifier = null;  // For schema properties
+
+// When calculating key length for alignment:
+if (myNode.getElementType() == KiteElementTypes.SCHEMA_DECLARATION && previousTypeIdentifier != null) {
+    // Schema properties: combine type + space + propName
+    keyLength = previousTypeIdentifier.getTextLength() + 1 + previousIdentifier.getTextLength();
+} else {
+    // Normal properties: just propName
+    keyLength = previousIdentifier.getTextLength();
+}
+```
+
+**Result:**
+```kite
+schema DatabaseConfig {
+  string  host        // "string" (6) + 1 + "host" (4) = 11
+  number  port = 5432 // "number" (6) + 1 + "port" (4) = 11
+  boolean ssl  = true // "boolean" (7) + 1 + "ssl" (3) = 11
+}
+```
+
 ### Features
 - Format entire file with Cmd+Alt+L (Mac) or Ctrl+Alt+L (Windows/Linux)
 - Format selected text only by selecting code first, then using the reformat shortcut
 - Consistent spacing around keywords, operators, and delimiters
 - Proper indentation for nested structures (2 spaces per level in Kite)
 - Preserves semantic meaning while improving readability
+
+## File Type Icon
+
+### Overview
+Custom SVG icon for `.kite` files displayed in the IDE file tree.
+
+### Implementation
+- **File**: `src/main/resources/icons/kite-file.svg`
+- **Registration**: Registered in `plugin.xml` via `<icon>` attribute on `fileType` extension
+
+### Icon Design
+- 16x16 pixel SVG
+- Four-panel kite shape representing the Kite language
+- Gradient fills for depth (light blue top-right to dark blue bottom-left)
+- Subtle drop shadow using SVG filter
+- 12° rotation for dynamic appearance
+- Subtle spine lines for structural definition
+
+### Color Scheme
+- Top-right (light source): `#6BB9F0` → `#4A9BD9` gradient
+- Top-left: `#4AA3DF`
+- Bottom-right: `#2E86C1`
+- Bottom-left (shadow): `#2980B9` → `#1A5276` gradient
+- Spine lines: `#1A5276` with 0.3-0.5 opacity

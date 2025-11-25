@@ -55,6 +55,17 @@ public class KiteSyntaxHighlighter extends SyntaxHighlighterBase {
     public static final TextAttributesKey OPERATOR =
             createTextAttributesKey("KITE_OPERATOR", DefaultLanguageHighlighterColors.OPERATION_SIGN);
 
+    // Interpolation highlighting
+    public static final TextAttributesKey INTERPOLATION_DELIM =
+            createTextAttributesKey("KITE_INTERPOLATION_DELIM",
+                    new TextAttributes(JBColor.namedColor("Kite.interpolationDelim", new Color(0xD97706)),
+                            null, null, null, Font.BOLD));
+
+    public static final TextAttributesKey INTERPOLATION_VAR =
+            createTextAttributesKey("KITE_INTERPOLATION_VAR",
+                    new TextAttributes(JBColor.namedColor("Kite.interpolationVar", new Color(0x498BF6)),
+                            null, null, null, Font.PLAIN));
+
     private static final TextAttributesKey[] EMPTY_KEYS = new TextAttributesKey[0];
     private static final TextAttributesKey[] KEYWORD_KEYS = new TextAttributesKey[]{KEYWORD};
     private static final TextAttributesKey[] STRING_KEYS = new TextAttributesKey[]{STRING};
