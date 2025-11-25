@@ -86,6 +86,7 @@ public class KiteReferenceContributor extends PsiReferenceContributor {
      */
     private static PsiReference[] getStringInterpolationReferences(@NotNull PsiElement element) {
         String text = element.getText();
+        LOG.info("[KiteRefContrib] Getting string interpolation references for: " + text);
         List<PsiReference> references = new ArrayList<>();
 
         // Handle ${expression} patterns
@@ -100,6 +101,7 @@ public class KiteReferenceContributor extends PsiReferenceContributor {
             if (varName != null) {
                 // Create a reference that covers just the variable name portion
                 TextRange range = new TextRange(contentStart, contentStart + varName.length());
+                LOG.info("[KiteRefContrib] Created brace interpolation reference: varName=" + varName + ", range=" + range);
                 references.add(new KiteStringInterpolationReference(element, range, varName));
             }
         }

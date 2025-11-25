@@ -8,7 +8,7 @@ component WebServer api {
 
   for env in environments {
     console.log("Processing environment: ${port}")
-    console.log("Processing environment: $port")
+    console.log("Processing environment: $port ${size}")
     console.log("Processing environment: $size")
   }
 

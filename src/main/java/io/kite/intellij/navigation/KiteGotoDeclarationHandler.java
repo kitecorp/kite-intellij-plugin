@@ -44,12 +44,9 @@ public class KiteGotoDeclarationHandler implements GotoDeclarationHandler {
 
         IElementType elementType = sourceElement.getNode().getElementType();
 
-        // Handle STRING tokens with interpolations
-        // Navigation targets are provided here, but highlighting range comes from
-        // KiteStringInterpolationReference (which implements HighlightedReference)
-        if (elementType == KiteTokenTypes.STRING) {
-            return handleStringInterpolation(sourceElement, offset, file);
-        }
+        // STRING tokens with interpolations are handled by KiteReferenceContributor
+        // which provides KiteStringInterpolationReference with HighlightedReference.
+        // We return null here so the reference system handles both navigation AND highlighting.
 
         // Only handle IDENTIFIER tokens
         if (elementType != KiteTokenTypes.IDENTIFIER) {
