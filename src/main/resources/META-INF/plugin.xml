@@ -28,7 +28,13 @@
         <ul>
           <li>Simple identifiers: click <code>server</code> to jump to <code>resource VM.Instance server { }</code></li>
           <li>Property access: click <code>size</code> in <code>server.size</code> to jump to the <code>size = ...</code> property inside the server declaration</li>
-          <li>Smart detection: declaration names themselves don't navigate (clicking <code>port</code> in <code>input number port = 8080</code> does nothing)</li>
+        </ul>
+      </li>
+      <li><b>Find Usages</b> - Cmd+Click on a declaration name shows a dropdown of all usages with:
+        <ul>
+          <li>Context-aware icons (Resource, Component, Function, etc.)</li>
+          <li>Full line of code preview</li>
+          <li>File name and line number</li>
         </ul>
       </li>
       <li><b>Structure View</b> - Hierarchical outline with color-coded icons for resources, components, schemas, functions, types, variables, inputs, outputs, and imports</li>
@@ -46,7 +52,13 @@
     <ul>
       <li><b>Go to Declaration</b> - Cmd+Click navigation to jump from identifier usages to their declarations</li>
       <li>Property access navigation: click <code>size</code> in <code>server.size</code> to navigate inside the declaration</li>
-      <li>Smart declaration detection: declaration names themselves don't trigger navigation</li>
+      <li><b>Find Usages</b> - Cmd+Click on a declaration name shows a dropdown of all usages with:
+        <ul>
+          <li>Context-aware colored icons (Resource, Component, Function, etc.)</li>
+          <li>Full line of code preview</li>
+          <li>File name and line number</li>
+        </ul>
+      </li>
       <li>Type-aware syntax highlighting: types shown in blue, other identifiers use default theme color</li>
     </ul>
     <b>0.1.0</b>
@@ -121,7 +133,5 @@
         <!-- Icon provider for navigation popups -->
         <iconProvider implementation="io.kite.intellij.navigation.KiteNavigationIconProvider"/>
 
-        <!-- Custom renderer for Go to Declaration popup (line text, location, icons) -->
-        <gotoTargetRendererProvider implementation="io.kite.intellij.navigation.KiteGotoTargetRendererProvider"/>
     </extensions>
 </idea-plugin>

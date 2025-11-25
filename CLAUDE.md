@@ -906,3 +906,138 @@ Test file: `examples/component.kite`
 - ❌ Using `PlatformPatterns.psiElement(LeafPsiElement.class).withLanguage()` - too restrictive
 - ❌ Forgetting `TokenType.WHITE_SPACE` in whitespace check - breaks property detection
 - ✅ **Solution**: Direct PSI traversal in `GotoDeclarationHandler` with comprehensive whitespace handling
+
+### Find Usages Dropdown (Declaration Name Click)
+
+#### Overview
+When Cmd+clicking on a **declaration name** (e.g., `server` in `resource VM.Instance server {}`), a dropdown popup shows all usages of that identifier. Each usage displays:
+- Context-aware colored icon (Resource=purple R, Component=blue C, etc.)
+- Full line of code where the usage appears
+- Location string: "in [Context Type] - filename.kite:line"
+
+#### Implementation Files
+- **Wrapper**: `src/main/java/io/kite/intellij/navigation/KiteNavigatablePsiElement.java`
+- **Icon Provider**: `src/main/java/io/kite/intellij/navigation/KiteNavigationIconProvider.java`
+- **Handler**: `src/main/java/io/kite/intellij/navigation/KiteGotoDeclarationHandler.java`
+
+#### How It Works
+
+1. `KiteGotoDeclarationHandler.getGotoDeclarationTargets()` detects if the clicked identifier is a declaration name
+2. If so, calls `findUsages()` to collect all references to that name
+3. Each raw `PsiElement` usage is wrapped in `KiteNavigatablePsiElement`
+4. IntelliJ shows the popup using `NavigationItem.getPresentation()` from the wrapper
+
+#### The Wrapper Pattern (Key Solution)
+
+The wrapper class `KiteNavigatablePsiElement` provides custom presentation while maintaining navigation functionality:
+
+```java
+public class KiteNavigatablePsiElement extends FakePsiElement implements NavigationItem {
+    private final PsiElement myElement;
+    private final String myLineText;
+    private final String myLocationString;
+    private final Icon myIcon;
+
+    public KiteNavigatablePsiElement(@NotNull PsiElement element) {
+        this.myElement = element;
+        this.myLineText = getLineText(element);           // Full line of code
+        this.myLocationString = buildLocationString(element);  // "in Resource - file.kite:42"
+        this.myIcon = getIconForContext(element);         // Context-aware icon
+    }
+
+    @Override
+    public ItemPresentation getPresentation() {
+        return new ItemPresentation() {
+            @Override
+            public @Nullable String getPresentableText() { return myLineText; }
+            @Override
+            public @Nullable String getLocationString() { return myLocationString; }
+            @Override
+            public @Nullable Icon getIcon(boolean unused) { return myIcon; }
+        };
+    }
+
+    @Override
+    public void navigate(boolean requestFocus) {
+        // Delegate to wrapped element for actual navigation
+        Navigatable navigatable = PsiNavigationSupport.getInstance().getDescriptor(myElement);
+        if (navigatable != null) {
+            navigatable.navigate(requestFocus);
+        }
+    }
+}
+```
+
+#### IconProvider Integration
+
+`FakePsiElement.getIcon()` is **final** and cannot be overridden. Instead, use an `IconProvider` extension to provide icons for the wrapper:
+
+```java
+public class KiteNavigationIconProvider extends IconProvider {
+    @Override
+    public @Nullable Icon getIcon(@NotNull PsiElement element, int flags) {
+        // Handle our custom navigatable wrapper
+        if (element instanceof KiteNavigatablePsiElement) {
+            KiteNavigatablePsiElement wrapper = (KiteNavigatablePsiElement) element;
+            if (wrapper.getPresentation() != null) {
+                return wrapper.getPresentation().getIcon(false);
+            }
+        }
+        // ... rest of existing code for other elements
+    }
+}
+```
+
+#### What Didn't Work (Provider Approaches)
+
+Several IntelliJ extension points were tried but didn't work for the classic "Go to Declaration" popup:
+
+1. **`ItemPresentationProvider`** - Requires `NavigationItem` interface, but `PsiElement` doesn't extend it
+   - Error: Type argument `PsiElement` not within bounds
+
+2. **`TargetPresentationProvider`** - Wrong API path
+   - This is for the newer navigation API (`TargetPopupPresentation`), not the classic popup
+   - Method signature: `getPresentation()` not `getTargetPresentation()`
+
+3. **`GotoTargetRendererProvider`** - Wrong handler type
+   - This works with `GotoTargetHandler`, not `GotoDeclarationHandler`
+   - Our handler is `GotoDeclarationHandler` for Cmd+Click navigation
+
+4. **Direct icon in wrapper via `getIcon()`** - Cannot override
+   - Error: `getIcon(int) in FakePsiElement cannot override - overridden method is final`
+
+5. **Returning non-wrapper elements** - Icons work but no custom presentation
+   - `IconProvider` provides icons for raw `PsiElement` objects
+   - But `ItemPresentation` comes from the element itself, which has no custom presentation
+
+#### Why the Wrapper Pattern Works
+
+The combination works because:
+1. `GotoDeclarationHandler.getGotoDeclarationTargets()` can return any `PsiElement[]`
+2. `FakePsiElement` is a valid `PsiElement` that IntelliJ accepts
+3. `NavigationItem.getPresentation()` is checked by the popup renderer for display text
+4. `IconProvider` extension is consulted for icons (bypasses final `getIcon()`)
+5. Navigation delegates to the wrapped element, preserving actual file navigation
+
+#### Usage Detection Logic
+
+```java
+private boolean isDeclarationName(PsiElement element) {
+    // Declaration names are followed by = or { or += or :
+    PsiElement next = skipWhitespaceForward(element.getNextSibling());
+    if (next != null) {
+        IElementType nextType = next.getNode().getElementType();
+        if (nextType == KiteTokenTypes.ASSIGN ||
+            nextType == KiteTokenTypes.LBRACE ||
+            nextType == KiteTokenTypes.PLUS_ASSIGN ||
+            nextType == KiteTokenTypes.COLON) {
+            return true;
+        }
+    }
+    // Also check for-loop variable
+    PsiElement prev = skipWhitespaceBackward(element.getPrevSibling());
+    return prev != null && prev.getNode().getElementType() == KiteTokenTypes.FOR;
+}
+```
+
+When `isDeclarationName()` returns `true`, the handler finds all usages and wraps them for the popup display.
