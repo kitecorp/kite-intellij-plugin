@@ -8,30 +8,31 @@ component WebServer api {
 
   for env in environments {
     console.log("Processing environment: ${env}")
-  }
+  } // should be 2 spaces
 
   resource VM.Instance server {
     size = size
     tag  = {
-    Environment: "production" // should be 6 spaces
-    Name       : "web-server", // should be 6 spaces
-    New        : { // should be 6 spaces
+      Environment: "production" // should be 6 spaces
+      Name       : "web-server", // should be 6 spaces
+      New        : {
+      // should be 6 spaces
       a: "b"
     } // should be 6 spaces
-  } // should be 4 spaces
-    } // should be 2 spaces
+    } // should be 4 spaces
+  } // should be 2 spaces
 
   resource SecurityGroup firewall {
     ingress = [
-    {
+  {
       port    : port, protocol: "tcp"
     }
-  ]
-    } // should be 2 spaces
+    ]
+  } // should be 2 spaces
 
   output string endpoint   = server.publicIp
   output string instanceId = server.id
-  } // should be 0 spaces
+} // should be 0 spaces
 
 var WebServer x
 
