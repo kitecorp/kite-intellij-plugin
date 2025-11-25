@@ -84,5 +84,9 @@
         <!-- Brace matching -->
         <lang.braceMatcher language="Kite"
                            implementationClass="io.kite.intellij.KiteBraceMatcher"/>
+
+        <!-- Go to Declaration (Cmd+Click) -->
+        <psi.referenceContributor language="Kite"
+                                   implementation="io.kite.intellij.reference.KiteReferenceContributor"/>
     </extensions>
 </idea-plugin>
