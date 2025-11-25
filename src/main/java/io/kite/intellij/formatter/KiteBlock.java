@@ -48,9 +48,12 @@ public class KiteBlock extends AbstractBlock {
     protected List<Block> buildChildren() {
         IElementType nodeType = myNode.getElementType();
 
-        // Special handling for object literals - align colons
+        // Special handling for object literals - align colons only for multi-line objects
         if (nodeType == KiteElementTypes.OBJECT_LITERAL) {
-            return buildAlignedChildren(KiteTokenTypes.COLON);
+            if (isMultiLine(myNode)) {
+                return buildAlignedChildren(KiteTokenTypes.COLON);
+            }
+            // Single-line objects: no alignment, use default block building
         }
 
         // Array literals - use default block building
@@ -237,8 +240,15 @@ public class KiteBlock extends AbstractBlock {
                 // This is critical: if we create a block for the literal, its children's indent
                 // is calculated relative to where '{' appears, not the logical indentation level.
                 // By inlining, children's indent is relative to the parent's (RESOURCE_DECLARATION's) baseline.
-                else if (childType == KiteElementTypes.OBJECT_LITERAL || childType == KiteElementTypes.ARRAY_LITERAL) {
-                    // Inline the literal's children directly into this block
+                else if (childType == KiteElementTypes.OBJECT_LITERAL) {
+                    if (isMultiLine(child)) {
+                        // Multi-line object: apply colon alignment
+                        inlineObjectWithAlignment(child, blocks, insideBraces, insideParens, insideBrackets, braceDepth);
+                    } else {
+                        // Single-line object: no alignment
+                        inlineLiteralChildren(child, blocks, insideBraces, insideParens, insideBrackets, braceDepth);
+                    }
+                } else if (childType == KiteElementTypes.ARRAY_LITERAL) {
                     inlineLiteralChildren(child, blocks, insideBraces, insideParens, insideBrackets, braceDepth);
                 } else {
                     // Track identifiers that precede the align token
@@ -488,7 +498,15 @@ public class KiteBlock extends AbstractBlock {
 
             if (!shouldSkipToken(childType) && child.getTextLength() > 0) {
                 // Recursively inline nested object/array literals
-                if (childType == KiteElementTypes.OBJECT_LITERAL || childType == KiteElementTypes.ARRAY_LITERAL) {
+                if (childType == KiteElementTypes.OBJECT_LITERAL) {
+                    if (isMultiLine(child)) {
+                        // Multi-line object: apply colon alignment
+                        inlineObjectWithAlignment(child, blocks, insideBraces, insideParens, insideBrackets, braceDepth);
+                    } else {
+                        // Single-line object: no alignment
+                        inlineLiteralChildren(child, blocks, insideBraces, insideParens, insideBrackets, braceDepth);
+                    }
+                } else if (childType == KiteElementTypes.ARRAY_LITERAL) {
                     inlineLiteralChildren(child, blocks, insideBraces, insideParens, insideBrackets, braceDepth);
                 } else {
                     // Calculate indent based on current brace depth
@@ -513,6 +531,110 @@ public class KiteBlock extends AbstractBlock {
                 }
 
                 // Brackets also contribute to depth for indentation (arrays indent their content)
+                if (childType == KiteTokenTypes.LBRACK) {
+                    braceDepth++;
+                    insideBrackets = true;
+                } else if (childType == KiteTokenTypes.RBRACK) {
+                    braceDepth--;
+                    insideBrackets = false;
+                }
+
+                // Update insideParens state AFTER processing current element
+                if (childType == KiteTokenTypes.LPAREN) {
+                    insideParens = true;
+                } else if (childType == KiteTokenTypes.RPAREN) {
+                    insideParens = false;
+                }
+            }
+
+            child = child.getTreeNext();
+        }
+    }
+
+    /**
+     * Inlines children of a multi-line object literal with colon alignment.
+     * Similar to inlineLiteralChildren but calculates and applies alignment padding for colons.
+     */
+    private void inlineObjectWithAlignment(ASTNode literalNode,
+                                           List<Block> blocks,
+                                           boolean parentInsideBraces,
+                                           boolean parentInsideParens,
+                                           boolean parentInsideBrackets,
+                                           int parentBraceDepth) {
+        // First pass: find max key length for direct children only (not nested objects)
+        int maxKeyLength = 0;
+        ASTNode child = literalNode.getFirstChildNode();
+        while (child != null) {
+            IElementType childType = child.getElementType();
+            if (childType == KiteTokenTypes.IDENTIFIER) {
+                ASTNode nextToken = findNextToken(child, KiteTokenTypes.COLON);
+                if (nextToken != null) {
+                    maxKeyLength = Math.max(maxKeyLength, child.getTextLength());
+                }
+            }
+            child = child.getTreeNext();
+        }
+
+        // Second pass: build blocks with alignment padding
+        child = literalNode.getFirstChildNode();
+        int braceDepth = parentBraceDepth;
+        boolean insideBraces = parentInsideBraces;
+        boolean insideParens = parentInsideParens;
+        boolean insideBrackets = parentInsideBrackets;
+        ASTNode previousIdentifier = null;
+
+        while (child != null) {
+            IElementType childType = child.getElementType();
+
+            if (!shouldSkipToken(childType) && child.getTextLength() > 0) {
+                // Recursively handle nested object/array literals
+                if (childType == KiteElementTypes.OBJECT_LITERAL) {
+                    if (isMultiLine(child)) {
+                        inlineObjectWithAlignment(child, blocks, insideBraces, insideParens, insideBrackets, braceDepth);
+                    } else {
+                        inlineLiteralChildren(child, blocks, insideBraces, insideParens, insideBrackets, braceDepth);
+                    }
+                } else if (childType == KiteElementTypes.ARRAY_LITERAL) {
+                    inlineLiteralChildren(child, blocks, insideBraces, insideParens, insideBrackets, braceDepth);
+                } else {
+                    Indent childIndent = getChildIndent(childType, insideBraces, insideParens, insideBrackets, braceDepth);
+
+                    // Track identifiers before colons
+                    if (childType == KiteTokenTypes.IDENTIFIER) {
+                        ASTNode nextToken = findNextToken(child, KiteTokenTypes.COLON);
+                        if (nextToken != null) {
+                            previousIdentifier = child;
+                        }
+                    }
+
+                    // Calculate padding for colons
+                    Integer padding = null;
+                    if (childType == KiteTokenTypes.COLON && previousIdentifier != null) {
+                        int keyLength = previousIdentifier.getTextLength();
+                        padding = maxKeyLength - keyLength; // No extra space for colons
+                        previousIdentifier = null;
+                    }
+
+                    blocks.add(new KiteBlock(
+                        child,
+                        null,
+                        null,
+                        childIndent,
+                        spacingBuilder,
+                        padding
+                    ));
+                }
+
+                // Update brace depth AFTER processing current element
+                if (childType == KiteTokenTypes.LBRACE) {
+                    braceDepth++;
+                    insideBraces = braceDepth > 0;
+                } else if (childType == KiteTokenTypes.RBRACE) {
+                    braceDepth--;
+                    insideBraces = braceDepth > 0;
+                }
+
+                // Brackets also contribute to depth for indentation
                 if (childType == KiteTokenTypes.LBRACK) {
                     braceDepth++;
                     insideBrackets = true;

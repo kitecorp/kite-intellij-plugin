@@ -91,9 +91,9 @@ public class KiteFormattingModelBuilder implements FormattingModelBuilder {
             .around(io.kite.intellij.psi.KiteTokenTypes.UNION).spaces(1)
 
             // Colon spacing in object literals
-            // Before: 0 spaces by default, up to 30 for alignment
+            // Before: 0 spaces by default (alignment handled via alignmentPadding in KiteBlock)
             // After: always 1 space
-            .before(io.kite.intellij.psi.KiteTokenTypes.COLON).spacing(0, 30, 0, true, 0)
+            .before(io.kite.intellij.psi.KiteTokenTypes.COLON).spaces(0)
             .after(io.kite.intellij.psi.KiteTokenTypes.COLON).spaces(1)
 
             // Space after semicolon

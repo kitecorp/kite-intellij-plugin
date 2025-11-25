@@ -23,7 +23,7 @@ component WebServer api {
 
   resource SecurityGroup firewall {
     ingress = [
-  { port    : port, protocol: "tcp" } // should be 6 spaces
+      { port: port, protocol: "tcp" }
     ]
   }
 
