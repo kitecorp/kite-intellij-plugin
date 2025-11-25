@@ -31,9 +31,10 @@ public class KiteAnnotator implements Annotator {
                     new TextAttributes(JBColor.namedColor("Kite.typeName", new Color(0x498BF6)),
                             null, null, null, Font.PLAIN));
 
-    // Pattern to match string interpolations: ${expression}
-    // Supports: ${var}, ${obj.prop}, ${func()}, ${arr[0]}, etc.
-    private static final Pattern INTERPOLATION_PATTERN = Pattern.compile("\\$\\{([^}]+)\\}");
+    // Pattern to match string interpolations: ${expression} and $var
+    // Supports: ${var}, ${obj.prop}, ${func()}, ${arr[0]}, $var, etc.
+    private static final Pattern BRACE_INTERPOLATION_PATTERN = Pattern.compile("\\$\\{([^}]+)\\}");
+    private static final Pattern SIMPLE_INTERPOLATION_PATTERN = Pattern.compile("\\$([a-zA-Z_][a-zA-Z0-9_]*)");
 
     @Override
     public void annotate(@NotNull PsiElement element, @NotNull AnnotationHolder holder) {
@@ -164,17 +165,25 @@ public class KiteAnnotator implements Annotator {
 
     /**
      * Annotates string interpolations within a STRING token.
-     * Highlights ${...} patterns with special colors for delimiters and variable content.
+     * Highlights ${...} and $var patterns with special colors.
      */
     private void annotateStringInterpolations(@NotNull PsiElement element, @NotNull AnnotationHolder holder) {
         String text = element.getText();
         int startOffset = element.getTextRange().getStartOffset();
 
-        Matcher matcher = INTERPOLATION_PATTERN.matcher(text);
-        while (matcher.find()) {
-            int matchStart = matcher.start();
-            int matchEnd = matcher.end();
-            String content = matcher.group(1);  // The content inside ${}
+        // Track which positions are already highlighted (to avoid double-highlighting)
+        java.util.Set<Integer> highlightedPositions = new java.util.HashSet<>();
+
+        // First, handle ${expression} patterns
+        Matcher braceMatcher = BRACE_INTERPOLATION_PATTERN.matcher(text);
+        while (braceMatcher.find()) {
+            int matchStart = braceMatcher.start();
+            int matchEnd = braceMatcher.end();
+
+            // Mark these positions as highlighted
+            for (int i = matchStart; i < matchEnd; i++) {
+                highlightedPositions.add(i);
+            }
 
             // Highlight ${ - opening delimiter
             TextRange openDelimRange = new TextRange(startOffset + matchStart, startOffset + matchStart + 2);
@@ -195,6 +204,33 @@ public class KiteAnnotator implements Annotator {
             holder.newSilentAnnotation(HighlightSeverity.INFORMATION)
                     .range(closeDelimRange)
                     .textAttributes(KiteSyntaxHighlighter.INTERPOLATION_DELIM)
+                    .create();
+        }
+
+        // Then, handle $var patterns (but skip if already part of ${...})
+        Matcher simpleMatcher = SIMPLE_INTERPOLATION_PATTERN.matcher(text);
+        while (simpleMatcher.find()) {
+            int matchStart = simpleMatcher.start();
+
+            // Skip if this position was already highlighted by ${...} pattern
+            if (highlightedPositions.contains(matchStart)) {
+                continue;
+            }
+
+            int matchEnd = simpleMatcher.end();
+
+            // Highlight $ - delimiter
+            TextRange delimRange = new TextRange(startOffset + matchStart, startOffset + matchStart + 1);
+            holder.newSilentAnnotation(HighlightSeverity.INFORMATION)
+                    .range(delimRange)
+                    .textAttributes(KiteSyntaxHighlighter.INTERPOLATION_DELIM)
+                    .create();
+
+            // Highlight the variable name
+            TextRange varRange = new TextRange(startOffset + matchStart + 1, startOffset + matchEnd);
+            holder.newSilentAnnotation(HighlightSeverity.INFORMATION)
+                    .range(varRange)
+                    .textAttributes(KiteSyntaxHighlighter.INTERPOLATION_VAR)
                     .create();
         }
     }

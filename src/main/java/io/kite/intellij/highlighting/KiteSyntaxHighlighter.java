@@ -62,9 +62,7 @@ public class KiteSyntaxHighlighter extends SyntaxHighlighterBase {
                             null, null, null, Font.BOLD));
 
     public static final TextAttributesKey INTERPOLATION_VAR =
-            createTextAttributesKey("KITE_INTERPOLATION_VAR",
-                    new TextAttributes(JBColor.namedColor("Kite.interpolationVar", new Color(0xBBBBBB)),
-                            null, null, null, Font.PLAIN));
+            createTextAttributesKey("KITE_INTERPOLATION_VAR", DefaultLanguageHighlighterColors.IDENTIFIER);
 
     private static final TextAttributesKey[] EMPTY_KEYS = new TextAttributesKey[0];
     private static final TextAttributesKey[] KEYWORD_KEYS = new TextAttributesKey[]{KEYWORD};
