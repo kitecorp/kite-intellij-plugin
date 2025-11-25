@@ -787,6 +787,11 @@ public class KiteBlock extends AbstractBlock {
                 }
             }
 
+            // Comments also separate alignment groups (they indicate logical sections)
+            if (childType == KiteTokenTypes.LINE_COMMENT || childType == KiteTokenTypes.BLOCK_COMMENT) {
+                hasBlankLineSinceLastDecl = true;
+            }
+
             // Case 1: Declaration elements (INPUT_DECLARATION, etc.)
             if (childType == KiteElementTypes.INPUT_DECLARATION ||
                 childType == KiteElementTypes.OUTPUT_DECLARATION ||

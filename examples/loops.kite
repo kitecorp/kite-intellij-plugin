@@ -8,7 +8,7 @@ var filtered = [for x in numbers: if x > 10 { x }]
 // Form 2: Resource generation
 [for env in environments]
 resource S3.Bucket data {
-  name = "data-${env}"
+  name       = "data-${env}"
   versioning = true
 }
 
