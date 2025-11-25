@@ -61,13 +61,12 @@ public class KiteBlock extends AbstractBlock {
             // Will use default block building below
         }
 
-        // Align equals in resource/component blocks
+        // Align equals in resource/component/schema blocks
         if (nodeType == KiteElementTypes.RESOURCE_DECLARATION ||
-            nodeType == KiteElementTypes.COMPONENT_DECLARATION) {
+            nodeType == KiteElementTypes.COMPONENT_DECLARATION ||
+            nodeType == KiteElementTypes.SCHEMA_DECLARATION) {
             return buildAlignedChildren(KiteTokenTypes.ASSIGN);
         }
-
-        // Schema declarations use default buildChildren with brace tracking
 
         // FILE level: handle both decorator colons and declaration equals
         if (nodeType == KiteParserDefinition.FILE) {
@@ -217,6 +216,7 @@ public class KiteBlock extends AbstractBlock {
         // Second pass: build blocks with appropriate padding
         ASTNode child = myNode.getFirstChildNode();
         ASTNode previousIdentifier = null;
+        ASTNode previousTypeIdentifier = null;  // For schema properties: the type before the property name
         int braceDepth = 0;  // Track nesting depth instead of boolean
         boolean insideParens = false;
         boolean insideBrackets = false;  // Track array brackets separately
@@ -255,6 +255,14 @@ public class KiteBlock extends AbstractBlock {
                     if (childType == KiteTokenTypes.IDENTIFIER) {
                         ASTNode nextToken = findNextToken(child, alignToken);
                         if (nextToken != null) {
+                            // This identifier is followed by align token (e.g., property name before "=")
+                            // For schemas, the previous identifier was the type
+                            if (myNode.getElementType() == KiteElementTypes.SCHEMA_DECLARATION) {
+                                previousTypeIdentifier = previousIdentifier;
+                            }
+                            previousIdentifier = child;
+                        } else {
+                            // Not followed by align token - might be a type identifier in schema
                             previousIdentifier = child;
                         }
                     }
@@ -265,12 +273,19 @@ public class KiteBlock extends AbstractBlock {
                         // Find which group this identifier belongs to
                         AlignmentGroup group = findGroupForIdentifier(groups, previousIdentifier);
                         if (group != null) {
-                            int keyLength = previousIdentifier.getTextLength();
+                            int keyLength;
+                            if (myNode.getElementType() == KiteElementTypes.SCHEMA_DECLARATION && previousTypeIdentifier != null) {
+                                // For schemas: key length is type + space + propName
+                                keyLength = previousTypeIdentifier.getTextLength() + 1 + previousIdentifier.getTextLength();
+                            } else {
+                                keyLength = previousIdentifier.getTextLength();
+                            }
                             // For ASSIGN, always have at least 1 space; for COLON, longest key has 0 spaces
                             int extraSpace = (alignToken == KiteTokenTypes.ASSIGN) ? 1 : 0;
                             padding = group.maxKeyLength - keyLength + extraSpace;
                         }
                         previousIdentifier = null;
+                        previousTypeIdentifier = null;
                     }
 
                     blocks.add(new KiteBlock(
