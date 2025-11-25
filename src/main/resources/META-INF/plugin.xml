@@ -133,5 +133,8 @@
         <!-- Icon provider for navigation popups -->
         <iconProvider implementation="io.kite.intellij.navigation.KiteNavigationIconProvider"/>
 
+        <!-- Highlight usages handler for identifier highlighting -->
+        <highlightUsagesHandlerFactory implementation="io.kite.intellij.highlighting.KiteHighlightUsagesHandlerFactory"/>
+
     </extensions>
 </idea-plugin>

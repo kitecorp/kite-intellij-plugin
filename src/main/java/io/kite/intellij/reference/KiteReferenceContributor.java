@@ -24,6 +24,10 @@ import java.util.regex.Pattern;
 public class KiteReferenceContributor extends PsiReferenceContributor {
     private static final Logger LOG = Logger.getInstance(KiteReferenceContributor.class);
 
+    // Patterns for string interpolation
+    private static final Pattern BRACE_INTERPOLATION_PATTERN = Pattern.compile("\\$\\{([^}]+)\\}");
+    private static final Pattern SIMPLE_INTERPOLATION_PATTERN = Pattern.compile("\\$([a-zA-Z_][a-zA-Z0-9_]*)");
+
     @Override
     public void registerReferenceProviders(@NotNull PsiReferenceRegistrar registrar) {
         LOG.info("[KiteRefContrib] Registering reference providers");
@@ -43,8 +47,19 @@ public class KiteReferenceContributor extends PsiReferenceContributor {
                             return PsiReference.EMPTY_ARRAY;
                         }
 
+                        if (element.getNode() == null) {
+                            return PsiReference.EMPTY_ARRAY;
+                        }
+
+                        IElementType elementType = element.getNode().getElementType();
+
+                        // Handle STRING tokens with interpolations
+                        if (elementType == KiteTokenTypes.STRING) {
+                            return getStringInterpolationReferences(element);
+                        }
+
                         // Only provide references for IDENTIFIER tokens
-                        if (element.getNode() == null || element.getNode().getElementType() != KiteTokenTypes.IDENTIFIER) {
+                        if (elementType != KiteTokenTypes.IDENTIFIER) {
                             return PsiReference.EMPTY_ARRAY;
                         }
 
@@ -63,6 +78,83 @@ public class KiteReferenceContributor extends PsiReferenceContributor {
                     }
                 }
         );
+    }
+
+    /**
+     * Get references for string interpolation expressions like ${var} or $var.
+     * Each interpolation variable gets its own reference with precise text range.
+     */
+    private static PsiReference[] getStringInterpolationReferences(@NotNull PsiElement element) {
+        String text = element.getText();
+        List<PsiReference> references = new ArrayList<>();
+
+        // Handle ${expression} patterns
+        Matcher braceMatcher = BRACE_INTERPOLATION_PATTERN.matcher(text);
+        while (braceMatcher.find()) {
+            int contentStart = braceMatcher.start(1);  // Start of content inside ${}
+            int contentEnd = braceMatcher.end(1);      // End of content inside ${}
+            String content = braceMatcher.group(1);
+
+            // Extract the first identifier from the expression
+            String varName = extractFirstIdentifier(content);
+            if (varName != null) {
+                // Create a reference that covers just the variable name portion
+                TextRange range = new TextRange(contentStart, contentStart + varName.length());
+                references.add(new KiteStringInterpolationReference(element, range, varName));
+            }
+        }
+
+        // Handle $var patterns (but skip if already part of ${...})
+        Matcher simpleMatcher = SIMPLE_INTERPOLATION_PATTERN.matcher(text);
+        while (simpleMatcher.find()) {
+            int matchStart = simpleMatcher.start();
+
+            // Skip if this $ is immediately followed by { (part of ${} syntax)
+            if (matchStart + 1 < text.length() && text.charAt(matchStart + 1) == '{') {
+                continue;
+            }
+
+            int varStart = simpleMatcher.start(1);  // Start of variable name (after $)
+            int varEnd = simpleMatcher.end(1);      // End of variable name
+            String varName = simpleMatcher.group(1);
+
+            // Create a reference that covers just the variable name
+            TextRange range = new TextRange(varStart, varEnd);
+            references.add(new KiteStringInterpolationReference(element, range, varName));
+        }
+
+        return references.toArray(new PsiReference[0]);
+    }
+
+    /**
+     * Extract the first identifier from an expression.
+     * For "obj.prop" returns "obj", for "func()" returns "func", etc.
+     */
+    @Nullable
+    private static String extractFirstIdentifier(String expression) {
+        if (expression == null || expression.isEmpty()) {
+            return null;
+        }
+
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < expression.length(); i++) {
+            char c = expression.charAt(i);
+            if (i == 0) {
+                if (Character.isJavaIdentifierStart(c)) {
+                    sb.append(c);
+                } else {
+                    return null;
+                }
+            } else {
+                if (Character.isJavaIdentifierPart(c)) {
+                    sb.append(c);
+                } else {
+                    break;
+                }
+            }
+        }
+
+        return sb.length() > 0 ? sb.toString() : null;
     }
 
     /**

@@ -10,7 +10,7 @@ component WebServer api {
     console.log("Processing environment: ${port}")
     console.log("Processing environment: $port")
     console.log("Processing environment: $size")
-  } // should be 2 spaces
+  }
 
   resource VM.Instance server {
     size = size

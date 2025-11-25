@@ -19,9 +19,13 @@ import java.util.regex.Pattern;
 /**
  * Handler for "Go to Declaration" (Cmd+Click) in Kite files.
  * Uses direct PSI traversal to resolve identifiers to their declarations.
+ *
+ * For STRING tokens with interpolations:
+ * - This handler provides navigation targets (finding the declaration)
+ * - KiteReferenceContributor provides HighlightedReference for precise highlighting
+ * - Together they enable Cmd+Click navigation with only the variable name underlined
  */
 public class KiteGotoDeclarationHandler implements GotoDeclarationHandler {
-
     // Patterns for string interpolation
     private static final Pattern BRACE_INTERPOLATION_PATTERN = Pattern.compile("\\$\\{([^}]+)\\}");
     private static final Pattern SIMPLE_INTERPOLATION_PATTERN = Pattern.compile("\\$([a-zA-Z_][a-zA-Z0-9_]*)");
@@ -40,7 +44,9 @@ public class KiteGotoDeclarationHandler implements GotoDeclarationHandler {
 
         IElementType elementType = sourceElement.getNode().getElementType();
 
-        // Handle STRING tokens - check if clicking on an interpolation variable
+        // Handle STRING tokens with interpolations
+        // Navigation targets are provided here, but highlighting range comes from
+        // KiteStringInterpolationReference (which implements HighlightedReference)
         if (elementType == KiteTokenTypes.STRING) {
             return handleStringInterpolation(sourceElement, offset, file);
         }
@@ -395,19 +401,15 @@ public class KiteGotoDeclarationHandler implements GotoDeclarationHandler {
     }
 
     /**
-     * Handle navigation within string interpolations.
-     * Extracts the variable name from ${var} or $var and resolves it.
+     * Handle string interpolation navigation.
+     * Finds the interpolation variable at the click position and resolves it to a declaration.
+     * Supports both ${var} and $var syntax, including multiple interpolations in one string.
      */
     @Nullable
     private PsiElement[] handleStringInterpolation(PsiElement stringElement, int offset, PsiFile file) {
         String text = stringElement.getText();
-        int stringStart = stringElement.getTextRange().getStartOffset();
-        int posInString = offset - stringStart;
-
-        // Check if click is within the string bounds
-        if (posInString < 0 || posInString >= text.length()) {
-            return null;
-        }
+        int elementStart = stringElement.getTextRange().getStartOffset();
+        int relativeOffset = offset - elementStart;
 
         // Check ${expression} patterns first
         Matcher braceMatcher = BRACE_INTERPOLATION_PATTERN.matcher(text);
@@ -415,37 +417,44 @@ public class KiteGotoDeclarationHandler implements GotoDeclarationHandler {
             int contentStart = braceMatcher.start(1);  // Start of content inside ${}
             int contentEnd = braceMatcher.end(1);      // End of content inside ${}
 
-            // Check if click is within the content part (between ${ and })
-            if (posInString >= contentStart && posInString < contentEnd) {
+            // Check if click is within this interpolation
+            if (relativeOffset >= contentStart && relativeOffset <= contentEnd) {
                 String content = braceMatcher.group(1);
-                // Extract the first identifier from the expression (handles obj.prop, func(), etc.)
                 String varName = extractFirstIdentifier(content);
                 if (varName != null) {
-                    // Resolve using the existing declaration finder
-                    PsiElement declaration = findDeclaration(file, varName, stringElement);
-                    if (declaration != null) {
-                        return new PsiElement[]{declaration};
+                    // Check if click is within the variable name portion
+                    int varEndInContent = varName.length();
+                    int varEndAbsolute = contentStart + varEndInContent;
+                    if (relativeOffset >= contentStart && relativeOffset <= varEndAbsolute) {
+                        PsiElement declaration = findDeclaration(file, varName, stringElement);
+                        if (declaration != null) {
+                            return new PsiElement[]{declaration};
+                        }
                     }
                 }
-                return null;
             }
         }
 
         // Check $var patterns
         Matcher simpleMatcher = SIMPLE_INTERPOLATION_PATTERN.matcher(text);
         while (simpleMatcher.find()) {
+            int matchStart = simpleMatcher.start();
+
+            // Skip if this $ is immediately followed by { (part of ${} syntax)
+            if (matchStart + 1 < text.length() && text.charAt(matchStart + 1) == '{') {
+                continue;
+            }
+
             int varStart = simpleMatcher.start(1);  // Start of variable name (after $)
             int varEnd = simpleMatcher.end(1);      // End of variable name
 
-            // Check if click is on the variable name
-            if (posInString >= varStart && posInString < varEnd) {
+            // Check if click is within this variable name
+            if (relativeOffset >= varStart && relativeOffset <= varEnd) {
                 String varName = simpleMatcher.group(1);
-                // Resolve using the existing declaration finder
                 PsiElement declaration = findDeclaration(file, varName, stringElement);
                 if (declaration != null) {
                     return new PsiElement[]{declaration};
                 }
-                return null;
             }
         }
 
@@ -462,7 +471,6 @@ public class KiteGotoDeclarationHandler implements GotoDeclarationHandler {
             return null;
         }
 
-        // Extract leading identifier characters
         StringBuilder sb = new StringBuilder();
         for (int i = 0; i < expression.length(); i++) {
             char c = expression.charAt(i);
