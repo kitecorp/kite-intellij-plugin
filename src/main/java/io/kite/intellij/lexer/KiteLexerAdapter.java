@@ -256,6 +256,7 @@ public class KiteLexerAdapter extends LexerBase {
             case KiteLexer.INTERP_START -> KiteTokenTypes.INTERP_START;   // ${ (pushes DEFAULT_MODE)
             case KiteLexer.INTERP_END -> KiteTokenTypes.INTERP_END;       // } closing interpolation
             case KiteLexer.STRING_DOLLAR -> KiteTokenTypes.STRING_DOLLAR; // Lone $ not followed by {
+            case KiteLexer.INTERP_SIMPLE -> KiteTokenTypes.INTERP_SIMPLE;   // $identifier (simple interpolation)
             // Note: Inside ${...}, we get regular DEFAULT_MODE tokens (IDENTIFIER, DOT, etc.)
             // The closing } is just RBRACE (already mapped above)
 

@@ -122,6 +122,12 @@ public class KiteSyntaxHighlighter extends SyntaxHighlighterBase {
             return INTERP_DELIM_KEYS;
         }
 
+        // Simple interpolation ($identifier) - entire token includes $ and variable name
+        // We highlight it as an identifier since it represents a variable reference
+        if (tokenType == KiteTokenTypes.INTERP_SIMPLE) {
+            return IDENTIFIER_KEYS;
+        }
+
         // Note: With split grammar and lexer modes, inside ${...} we get regular
         // DEFAULT_MODE tokens (IDENTIFIER, DOT, LBRACK, RBRACE, etc.)
         // The closing } is just RBRACE which exits STRING_MODE automatically

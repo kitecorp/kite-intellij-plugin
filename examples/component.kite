@@ -6,9 +6,9 @@ component WebServer api {
   var yp = 2
 
   for env in environments {
-    console.log("Processing environment: ${port}")
-    console.log("Processing environment: $port ${size}")
-    console.log("Processing environment: $size")
+    println("Processing environment: ${port}")
+    println("Processing environment: $port ${size}")
+    println("Processing environment: $size")
   }
 
   resource VM.Instance server {
