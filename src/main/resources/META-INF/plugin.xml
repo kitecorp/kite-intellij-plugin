@@ -121,6 +121,10 @@
         <annotator language="Kite"
                    implementationClass="io.kite.intellij.highlighting.KiteAnnotator"/>
 
+        <!-- Annotator for duplicate declaration detection -->
+        <annotator language="Kite"
+                   implementationClass="io.kite.intellij.highlighting.KiteDuplicateDeclarationAnnotator"/>
+
         <!-- Structure view -->
         <lang.psiStructureViewFactory language="Kite"
                                        implementationClass="io.kite.intellij.structure.KiteStructureViewBuilderFactory"/>
