@@ -1,44 +1,40 @@
-component WebServer api {
-  input number port = 8080
-  input string size = "t2.micro"
+component WebServer {
+  input string instanceType = "t2.micro"
+  input number port         = 8080
 
   var x = 1
   var y = 2
 
-  for env in environments {
-    println("Processing environment: ${port} $size" )
-  }
-
   resource VM.Instance server {
-    size = size
-    tag  = {
+    size        = instanceType
+    tag         = {
       Environment: "production",
       Name       : "web-server",
       New        : {
         a: "b"
       }
     }
+    private_ips = ["172.16.10.100"]
   }
 
-  resource SecurityGroup firewall {
-    ingress = [
-      { port: port, protocol: "tcp" }
-    ]
-  }
-
-  output string endpoint   = server.size
-  output string instanceId = server.id
-  output string tag        = server.tag.
+  output string endpoint = server.size
+  output string tag      = server.tag.Name
 }
 
-var WebServer x
+component WebServer serviceA {
+  instanceType = "t4g.normal"
+}
 
-input number port = 8080
-input string siz  = "t2.micro"
+component WebServer serviceB {
+  instanceType = "m6g.normal"
+}
 
-output number port = 8080
-output string siz  = "t2.micro"
+input number port         = 8080
+input string instanceType = "t2.micro"
 
-var number port = 8080
-var string siz  = "t2.micro"
-var string size = api.endpoint
+output number port         = 8080
+output string instanceType = "t2.micro"
+
+var number port         = 8080
+var string instanceType = "t2.micro"
+var string size         = api.endpoint
