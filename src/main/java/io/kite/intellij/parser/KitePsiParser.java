@@ -50,6 +50,10 @@ public class KitePsiParser implements PsiParser {
                 parseDeclaration(builder, KiteElementTypes.TYPE_DECLARATION);
             } else if (tokenType == KiteTokenTypes.VAR) {
                 parseDeclaration(builder, KiteElementTypes.VARIABLE_DECLARATION);
+            } else if (tokenType == KiteTokenTypes.INPUT) {
+                parseDeclaration(builder, KiteElementTypes.INPUT_DECLARATION);
+            } else if (tokenType == KiteTokenTypes.OUTPUT) {
+                parseDeclaration(builder, KiteElementTypes.OUTPUT_DECLARATION);
             } else if (tokenType == KiteTokenTypes.IMPORT) {
                 parseDeclaration(builder, KiteElementTypes.IMPORT_STATEMENT);
             } else if (tokenType == KiteTokenTypes.FOR) {

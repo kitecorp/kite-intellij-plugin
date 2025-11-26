@@ -107,18 +107,24 @@ public class KiteGotoDeclarationHandler implements GotoDeclarationHandler {
 
         // Check if this is a property access (identifier after a DOT)
         PsiElement objectElement = getPropertyAccessObject(sourceElement);
+        LOG.info("[KiteGotoDecl] objectElement: " + (objectElement != null ? objectElement.getText() : "null"));
 
         if (objectElement != null) {
             // Property access: resolve within the object's declaration scope
+            LOG.info("[KiteGotoDecl] Resolving property access: " + objectElement.getText() + "." + name);
             return resolvePropertyAccess(file, objectElement.getText(), name, sourceElement);
         } else {
             // Simple identifier: search declarations in file scope
+            LOG.info("[KiteGotoDecl] Searching for declaration of: " + name);
             PsiElement declaration = findDeclaration(file, name, sourceElement);
+            LOG.info("[KiteGotoDecl] findDeclaration returned: " + (declaration != null ? declaration.getText() + " at " + declaration.getTextRange() : "null"));
             if (declaration != null) {
+                LOG.info("[KiteGotoDecl] Returning declaration target: " + declaration.getText());
                 return new PsiElement[]{declaration};
             }
         }
 
+        LOG.info("[KiteGotoDecl] No targets found, returning null");
         return null;
     }
 
@@ -269,10 +275,14 @@ public class KiteGotoDeclarationHandler implements GotoDeclarationHandler {
     @Nullable
     private PsiElement findDeclaration(PsiElement element, String targetName, PsiElement sourceElement) {
         IElementType type = element.getNode().getElementType();
+        LOG.info("[findDeclaration] Searching in element type: " + type + " for: " + targetName);
 
         if (isDeclarationType(type)) {
+            LOG.info("[findDeclaration] Found declaration type: " + type);
             PsiElement nameElement = findNameInDeclaration(element, type);
+            LOG.info("[findDeclaration] Declaration name element: " + (nameElement != null ? nameElement.getText() : "null"));
             if (nameElement != null && targetName.equals(nameElement.getText()) && nameElement != sourceElement) {
+                LOG.info("[findDeclaration] MATCH FOUND: " + nameElement.getText() + " at " + nameElement.getTextRange());
                 return nameElement;
             }
         }
@@ -487,10 +497,27 @@ public class KiteGotoDeclarationHandler implements GotoDeclarationHandler {
      * - The last identifier before = or { in input/output/var/resource/component/schema/function/type declarations
      * - The identifier after "for" keyword in for loops
      * - Property names in object literals (identifier before : or =)
+     *
+     * NOTE: Identifiers that come AFTER = are VALUES (references), not declaration names.
+     * Example: in "instanceType = instanceTypes", instanceType is a property name (not navigable),
+     * but instanceTypes is a value/reference (should be navigable).
      */
     private boolean isDeclarationName(PsiElement element) {
+        LOG.info("[isDeclarationName] Checking: '" + element.getText() + "'");
+
+        // First, check if this identifier comes AFTER an equals sign
+        // If so, it's a value (reference), not a declaration name - it SHOULD be navigable
+        PsiElement prev = skipWhitespaceBackward(element.getPrevSibling());
+        LOG.info("[isDeclarationName] prev element: " + (prev != null ? prev.getText() + " (" + prev.getNode().getElementType() + ")" : "null"));
+        if (prev != null && prev.getNode().getElementType() == KiteTokenTypes.ASSIGN) {
+            // This identifier comes after =, so it's a value, not a declaration name
+            LOG.info("[isDeclarationName] '" + element.getText() + "' comes after ASSIGN -> returning false (is reference)");
+            return false;
+        }
+
         // Check if this identifier is followed by = or { or += or : (declaration/property pattern)
         PsiElement next = skipWhitespaceForward(element.getNextSibling());
+        LOG.info("[isDeclarationName] next element: " + (next != null ? next.getText() + " (" + next.getNode().getElementType() + ")" : "null"));
         if (next != null) {
             IElementType nextType = next.getNode().getElementType();
             if (nextType == KiteTokenTypes.ASSIGN ||
@@ -498,13 +525,15 @@ public class KiteGotoDeclarationHandler implements GotoDeclarationHandler {
                 nextType == KiteTokenTypes.PLUS_ASSIGN ||
                 nextType == KiteTokenTypes.COLON) {
                 // This identifier is followed by = or { or : - it's a declaration/property name
+                LOG.info("[isDeclarationName] '" + element.getText() + "' followed by " + nextType + " -> returning true");
                 return true;
             }
         }
 
         // Check if this is a for loop variable (identifier after "for" keyword)
-        PsiElement prev = skipWhitespaceBackward(element.getPrevSibling());
+        // Note: We already have 'prev' from the ASSIGN check above
         if (prev != null && prev.getNode().getElementType() == KiteTokenTypes.FOR) {
+            LOG.info("[isDeclarationName] '" + element.getText() + "' follows FOR -> returning true");
             return true;
         }
 

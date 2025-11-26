@@ -198,8 +198,11 @@ public class KiteReferenceContributor extends PsiReferenceContributor {
         // First, check if this identifier comes AFTER an equals sign
         // If so, it's a value (reference), not a declaration name - it SHOULD be navigable
         PsiElement prev = skipWhitespaceBackward(element.getPrevSibling());
+        LOG.info("[isDeclarationName] Checking: '" + element.getText() + "', prev=" +
+                 (prev != null ? prev.getText() + " (" + prev.getNode().getElementType() + ")" : "null"));
         if (prev != null && prev.getNode().getElementType() == KiteTokenTypes.ASSIGN) {
             // This identifier comes after =, so it's a value, not a declaration name
+            LOG.info("[isDeclarationName] '" + element.getText() + "' comes after ASSIGN -> returning false (is reference)");
             return false;
         }
 
@@ -217,7 +220,8 @@ public class KiteReferenceContributor extends PsiReferenceContributor {
         }
 
         // Check if this is a for loop variable (identifier after "for" keyword)
-        PsiElement prev = skipWhitespaceBackward(element.getPrevSibling());
+        // Note: We already have 'prev' from earlier check, but it's valid here since
+        // we only reach this point if prev wasn't ASSIGN
         if (prev != null && prev.getNode().getElementType() == KiteTokenTypes.FOR) {
             return true;
         }
@@ -230,11 +234,13 @@ public class KiteReferenceContributor extends PsiReferenceContributor {
                 // Find the name element in this declaration
                 PsiElement nameElement = findNameInDeclaration(parent, parentType);
                 if (nameElement == element) {
+                    LOG.info("[isDeclarationName] '" + element.getText() + "' is declaration name in parent -> returning true");
                     return true;
                 }
             }
         }
 
+        LOG.info("[isDeclarationName] '" + element.getText() + "' -> returning false (is reference)");
         return false;
     }
 
