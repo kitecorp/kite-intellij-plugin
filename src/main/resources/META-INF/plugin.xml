@@ -28,6 +28,7 @@
         <ul>
           <li>Simple identifiers: click <code>server</code> to jump to <code>resource VM.Instance server { }</code></li>
           <li>Property access: click <code>size</code> in <code>server.size</code> to jump to the <code>size = ...</code> property inside the server declaration</li>
+          <li>String interpolation: click <code>port</code> in <code>"${port}"</code> or <code>"$port"</code> to jump to the declaration (only the variable is underlined, not the entire string)</li>
         </ul>
       </li>
       <li><b>Find Usages</b> - Cmd+Click on a declaration name shows a dropdown of all usages with:
@@ -48,6 +49,16 @@
 
     <!-- Short summary of new features and bugfixes in the latest version -->
     <change-notes><![CDATA[
+    <b>0.4.0</b>
+    <ul>
+      <li><b>Simple String Interpolation</b> - Navigate from <code>$variable</code> (without braces) to declarations
+        <ul>
+          <li>Both <code>${var}</code> and <code>$var</code> syntax now fully supported</li>
+          <li>Cmd+Click on <code>$port</code> navigates to the port declaration</li>
+        </ul>
+      </li>
+      <li><b>Code Completion</b> - Component references now show only output properties (not inputs)</li>
+    </ul>
     <b>0.3.0</b>
     <ul>
       <li><b>String Interpolation Support</b> - Navigate from variables inside <code>${variable}</code> to their declarations

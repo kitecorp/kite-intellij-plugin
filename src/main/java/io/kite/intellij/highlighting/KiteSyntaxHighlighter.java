@@ -64,6 +64,12 @@ public class KiteSyntaxHighlighter extends SyntaxHighlighterBase {
     public static final TextAttributesKey INTERPOLATION_VAR =
             createTextAttributesKey("KITE_INTERPOLATION_VAR", DefaultLanguageHighlighterColors.IDENTIFIER);
 
+    // Function name - cyan color
+    public static final TextAttributesKey FUNCTION_NAME =
+            createTextAttributesKey("KITE_FUNCTION_NAME",
+                    new TextAttributes(JBColor.namedColor("Kite.functionName", new Color(0x00BCD4)),
+                            null, null, null, Font.PLAIN));
+
     private static final TextAttributesKey[] EMPTY_KEYS = new TextAttributesKey[0];
     private static final TextAttributesKey[] KEYWORD_KEYS = new TextAttributesKey[]{KEYWORD};
     private static final TextAttributesKey[] STRING_KEYS = new TextAttributesKey[]{STRING};

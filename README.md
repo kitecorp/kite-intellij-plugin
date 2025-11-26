@@ -8,13 +8,13 @@ IntelliJ IDEA plugin for the Kite Infrastructure as Code language.
 - Full lexical and semantic highlighting for `.kite` files
 - Type-aware coloring (types shown in blue, other identifiers use default theme color)
 - Support for keywords, strings, numbers, comments, decorators, and operators
-- **String interpolation**: `${variable}` delimiters highlighted in orange, variable names retain their standard color
+- **String interpolation**: Both `${variable}` and `$variable` syntax supported with orange delimiters
 
 ### Go to Declaration (Cmd+Click)
 - Navigate from identifier usages to their declarations
 - **Simple identifiers**: Click `server` to jump to `resource VM.Instance server { }`
 - **Property access**: Click `size` in `server.size` to jump to the `size = ...` property inside the server declaration
-- **String interpolation**: Click `port` in `"${port}"` to jump to the `port` declaration (only the variable is underlined, not the entire string)
+- **String interpolation**: Click `port` in `"${port}"` or `"$port"` to jump to the `port` declaration (only the variable is underlined, not the entire string)
 - **Find usages**: Cmd+Click on a declaration name shows a dropdown of all usages with:
   - Context-aware icons (Resource, Component, Function, etc.)
   - Full line of code preview
@@ -90,10 +90,6 @@ src/main/
     ├── META-INF/plugin.xml            # Plugin configuration
     └── icons/kite-file.svg            # File icon
 ```
-
-## Known Issues
-
-- **Simple interpolation (`$var`)**: Navigation for simple interpolation syntax (without braces) is not yet supported. Use `${var}` instead for full navigation support.
 
 ## Development
 

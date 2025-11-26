@@ -65,6 +65,27 @@ public class KiteAnnotator implements Annotator {
             return;
         }
 
+        // Check if this identifier is a function declaration name (comes after 'fun ')
+        if (beforeElement.matches(".*(^|\\s)fun\\s+$")) {
+            holder.newSilentAnnotation(HighlightSeverity.INFORMATION)
+                    .range(element)
+                    .textAttributes(KiteSyntaxHighlighter.FUNCTION_NAME)
+                    .create();
+            return;
+        }
+
+        // Check if this identifier is a function call (followed by '(')
+        if (afterElement.matches("^\\s*\\(.*")) {
+            // But NOT if it's right after 'fun ' (which would be a declaration, handled above)
+            if (!beforeElement.matches(".*(^|\\s)fun\\s+$")) {
+                holder.newSilentAnnotation(HighlightSeverity.INFORMATION)
+                        .range(element)
+                        .textAttributes(KiteSyntaxHighlighter.FUNCTION_NAME)
+                        .create();
+                return;
+            }
+        }
+
         // Check if this identifier is a type
         boolean isType = false;
 
