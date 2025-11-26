@@ -1324,6 +1324,25 @@ public class KiteBlock extends AbstractBlock {
     public @Nullable Spacing getSpacing(@Nullable Block child1, @NotNull Block child2) {
         IElementType parentType = myNode.getElementType();
 
+        // Force line breaks between declaration keywords inside block elements
+        // This is critical because we skip NL tokens when building blocks, so we need to
+        // explicitly add line breaks between statements/declarations
+        if (isBlockElement(parentType) && child1 instanceof KiteBlock && child2 instanceof KiteBlock) {
+            IElementType type2 = ((KiteBlock) child2).myNode.getElementType();
+            IElementType type1 = ((KiteBlock) child1).myNode.getElementType();
+
+            // If child2 starts a new declaration (INPUT, OUTPUT, VAR, etc.), force a line break
+            if (isDeclarationKeyword(type2)) {
+                // minSpaces=0, maxSpaces=0, minLineFeeds=1, keepLineBreaks=true, keepBlankLines=1
+                return Spacing.createSpacing(0, 0, 1, true, 1);
+            }
+
+            // After closing brace, if followed by anything other than closing brace, force line break
+            if (type1 == KiteTokenTypes.RBRACE && type2 != KiteTokenTypes.RBRACE) {
+                return Spacing.createSpacing(0, 0, 1, true, 1);
+            }
+        }
+
         // Special handling for multi-line object and array literals to ensure proper indentation
         // Only force line breaks for multi-line literals; single-line literals stay inline
         if (parentType == KiteElementTypes.OBJECT_LITERAL || parentType == KiteElementTypes.ARRAY_LITERAL) {
@@ -1354,6 +1373,24 @@ public class KiteBlock extends AbstractBlock {
         }
 
         return spacingBuilder.getSpacing(this, child1, child2);
+    }
+
+    /**
+     * Checks if the token type is a declaration keyword that starts a new statement.
+     */
+    private boolean isDeclarationKeyword(IElementType type) {
+        return type == KiteTokenTypes.INPUT ||
+               type == KiteTokenTypes.OUTPUT ||
+               type == KiteTokenTypes.VAR ||
+               type == KiteTokenTypes.RESOURCE ||
+               type == KiteTokenTypes.COMPONENT ||
+               type == KiteTokenTypes.SCHEMA ||
+               type == KiteTokenTypes.FUN ||
+               type == KiteTokenTypes.TYPE ||
+               type == KiteTokenTypes.IF ||
+               type == KiteTokenTypes.FOR ||
+               type == KiteTokenTypes.WHILE ||
+               type == KiteTokenTypes.RETURN;
     }
 
     @Override

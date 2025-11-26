@@ -106,42 +106,30 @@ public class KiteSyntaxHighlighter extends SyntaxHighlighterBase {
         }
 
         // Strings (single-quoted and double-quoted content)
+        // With split grammar, string tokens are: DQUOTE, STRING_DQUOTE, STRING_TEXT, STRING_ESCAPE, STRING_DOLLAR
         if (tokenType == KiteTokenTypes.STRING ||
-                tokenType == KiteTokenTypes.SIMPLE_STRING ||
-                tokenType == KiteTokenTypes.DQUOTE_OPEN ||
-                tokenType == KiteTokenTypes.DQUOTE_CLOSE ||
-                tokenType == KiteTokenTypes.DSTRING_TEXT ||
-                tokenType == KiteTokenTypes.DSTRING_ESCAPE ||
-                tokenType == KiteTokenTypes.DOLLAR_LITERAL ||
-                tokenType == KiteTokenTypes.INTERP_STRING) {
+                tokenType == KiteTokenTypes.SINGLE_STRING ||
+                tokenType == KiteTokenTypes.DQUOTE ||
+                tokenType == KiteTokenTypes.STRING_DQUOTE ||
+                tokenType == KiteTokenTypes.STRING_TEXT ||
+                tokenType == KiteTokenTypes.STRING_ESCAPE ||
+                tokenType == KiteTokenTypes.STRING_DOLLAR) {
             return STRING_KEYS;
         }
 
-        // Interpolation delimiters (${, }, and $var)
-        if (tokenType == KiteTokenTypes.INTERP_OPEN ||
-                tokenType == KiteTokenTypes.INTERP_CLOSE) {
+        // Interpolation delimiters (${ and } - styled distinctly in orange)
+        if (tokenType == KiteTokenTypes.INTERP_START || tokenType == KiteTokenTypes.INTERP_END) {
             return INTERP_DELIM_KEYS;
         }
 
-        // Interpolation variables (the identifier in ${var} or $var)
-        if (tokenType == KiteTokenTypes.INTERP_SIMPLE ||
-                tokenType == KiteTokenTypes.INTERP_IDENTIFIER) {
-            return INTERP_VAR_KEYS;
-        }
+        // Note: With split grammar and lexer modes, inside ${...} we get regular
+        // DEFAULT_MODE tokens (IDENTIFIER, DOT, LBRACK, RBRACE, etc.)
+        // The closing } is just RBRACE which exits STRING_MODE automatically
+        // Identifiers inside ${...} are regular IDENTIFIER tokens, so they get
+        // IDENTIFIER_KEYS highlighting like any other identifier - this is correct!
 
-        // Other interpolation tokens (use operator style)
-        if (tokenType == KiteTokenTypes.INTERP_DOT ||
-                tokenType == KiteTokenTypes.INTERP_LBRACK ||
-                tokenType == KiteTokenTypes.INTERP_RBRACK ||
-                tokenType == KiteTokenTypes.INTERP_LPAREN ||
-                tokenType == KiteTokenTypes.INTERP_RPAREN ||
-                tokenType == KiteTokenTypes.INTERP_COMMA) {
-            return OPERATOR_KEYS;
-        }
-
-        // Numbers (including numbers inside interpolation)
-        if (tokenType == KiteTokenTypes.NUMBER ||
-                tokenType == KiteTokenTypes.INTERP_NUMBER) {
+        // Numbers
+        if (tokenType == KiteTokenTypes.NUMBER) {
             return NUMBER_KEYS;
         }
 

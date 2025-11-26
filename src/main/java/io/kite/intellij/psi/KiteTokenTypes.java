@@ -54,21 +54,32 @@ public class KiteTokenTypes {
     public static final IElementType NULL = new KiteTokenType("NULL");
     public static final IElementType NUMBER = new KiteTokenType("NUMBER");
     public static final IElementType STRING = new KiteTokenType("STRING");  // Legacy - kept for compatibility
-    public static final IElementType SIMPLE_STRING = new KiteTokenType("SIMPLE_STRING");  // Single-quoted strings
+    public static final IElementType SINGLE_STRING = new KiteTokenType("SINGLE_STRING");  // Single-quoted strings 'text'
     public static final IElementType IDENTIFIER = new KiteTokenType("IDENTIFIER");
 
-    // String interpolation tokens (double-quoted strings with ${} or $var)
-    public static final IElementType DQUOTE_OPEN = new KiteTokenType("DQUOTE_OPEN");       // Opening "
-    public static final IElementType DQUOTE_CLOSE = new KiteTokenType("DQUOTE_CLOSE");     // Closing "
-    public static final IElementType DSTRING_TEXT = new KiteTokenType("DSTRING_TEXT");     // Text content inside "..."
-    public static final IElementType DSTRING_ESCAPE = new KiteTokenType("DSTRING_ESCAPE"); // Escape sequences like \n
-    public static final IElementType INTERP_OPEN = new KiteTokenType("INTERP_OPEN");       // ${
-    public static final IElementType INTERP_CLOSE = new KiteTokenType("INTERP_CLOSE");     // }
-    public static final IElementType INTERP_SIMPLE = new KiteTokenType("INTERP_SIMPLE");   // $identifier
-    public static final IElementType DOLLAR_LITERAL = new KiteTokenType("DOLLAR_LITERAL"); // Lone $ not followed by { or identifier
+    // String interpolation tokens (double-quoted strings with ${} syntax)
+    // These match the split grammar (KiteLexer.g4) with lexer modes
+    public static final IElementType DQUOTE = new KiteTokenType("DQUOTE");             // Opening " (enters STRING_MODE)
+    public static final IElementType STRING_DQUOTE = new KiteTokenType("STRING_DQUOTE"); // Closing " (exits STRING_MODE)
+    public static final IElementType STRING_TEXT = new KiteTokenType("STRING_TEXT");     // Text content inside "..."
+    public static final IElementType STRING_ESCAPE = new KiteTokenType("STRING_ESCAPE"); // Escape sequences like \n
+    public static final IElementType INTERP_START = new KiteTokenType("INTERP_START");   // ${ (pushes DEFAULT_MODE)
+    public static final IElementType INTERP_END = new KiteTokenType("INTERP_END");       // } closing interpolation (pops mode)
+    public static final IElementType STRING_DOLLAR = new KiteTokenType("STRING_DOLLAR"); // Lone $ not followed by {
 
-    // Tokens inside ${...} interpolation
+    // Legacy tokens for backwards compatibility (can be removed after migration)
+    public static final IElementType DQUOTE_OPEN = DQUOTE;       // Alias
+    public static final IElementType DQUOTE_CLOSE = STRING_DQUOTE; // Alias
+    public static final IElementType DSTRING_TEXT = STRING_TEXT;   // Alias
+    public static final IElementType DSTRING_ESCAPE = STRING_ESCAPE; // Alias
+    public static final IElementType INTERP_OPEN = INTERP_START;   // Alias
+    public static final IElementType DOLLAR_LITERAL = STRING_DOLLAR; // Alias
+
+    // Note: With split grammar and lexer modes, inside ${...} we get regular
+    // DEFAULT_MODE tokens (IDENTIFIER, DOT, LBRACK, etc.) - no special INTERP_* tokens needed.
+    // The following are kept for reference but may not be used:
     public static final IElementType INTERP_IDENTIFIER = new KiteTokenType("INTERP_IDENTIFIER");
+    public static final IElementType INTERP_SIMPLE = new KiteTokenType("INTERP_SIMPLE");
     public static final IElementType INTERP_DOT = new KiteTokenType("INTERP_DOT");
     public static final IElementType INTERP_LBRACK = new KiteTokenType("INTERP_LBRACK");
     public static final IElementType INTERP_RBRACK = new KiteTokenType("INTERP_RBRACK");
@@ -77,6 +88,7 @@ public class KiteTokenTypes {
     public static final IElementType INTERP_COMMA = new KiteTokenType("INTERP_COMMA");
     public static final IElementType INTERP_NUMBER = new KiteTokenType("INTERP_NUMBER");
     public static final IElementType INTERP_STRING = new KiteTokenType("INTERP_STRING");
+    public static final IElementType INTERP_CLOSE = new KiteTokenType("INTERP_CLOSE");
 
     // Operators - Arithmetic
     public static final IElementType PLUS = new KiteTokenType("PLUS");
