@@ -1,7 +1,6 @@
-// Component example with inputs and outputs
 component WebServer api {
   input number port = 8080
-  input string size  = "t2.micro"
+  input string size = "t2.micro"
 
   var x  = 1
   var yp = 2
@@ -31,6 +30,7 @@ component WebServer api {
 
   output string endpoint   = server.size
   output string instanceId = server.id
+  output string tag = server.tag.
 }
 
 var WebServer x
@@ -43,4 +43,4 @@ output string siz  = "t2.micro"
 
 var number port = 8080
 var string siz  = "t2.micro"
-var string size  = api.endpoint
+var string size = api.endpoint
