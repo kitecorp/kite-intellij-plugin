@@ -1,9 +1,9 @@
 component WebServer {
+  @allowed(["dev","prod"])
+  input number environment  = "dev"
   input string instanceType = "t2.micro"
-  input number port         = 8080
 
-  var x = 1
-  var y = 2
+  var client = "myClient"
 
   resource VM.Instance server {
     size        = instanceType
@@ -26,11 +26,11 @@ component WebServer serviceA {
 }
 
 component WebServer serviceB {
-  instanceType = "m6g.normal"
+  instanceType = instanceTypes
 }
 
-input number port         = 8080
-input string instanceType = "t2.micro"
+input number port          = 8080
+input string instanceTypes = "t2.micro"
 
 output number port         = 8080
 output string instanceType = "t2.micro"

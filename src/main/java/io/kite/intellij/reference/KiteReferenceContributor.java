@@ -189,8 +189,20 @@ public class KiteReferenceContributor extends PsiReferenceContributor {
      * - The last identifier before = or { in input/output/var/resource/component/schema/function/type declarations
      * - The identifier after "for" keyword in for loops
      * - Property names in object literals (identifier before : or =)
+     *
+     * NOTE: Identifiers that come AFTER = are VALUES (references), not declaration names.
+     * Example: in "instanceType = instanceTypes", instanceType is a property name (not navigable),
+     * but instanceTypes is a value/reference (should be navigable).
      */
     private static boolean isDeclarationName(@NotNull PsiElement element) {
+        // First, check if this identifier comes AFTER an equals sign
+        // If so, it's a value (reference), not a declaration name - it SHOULD be navigable
+        PsiElement prev = skipWhitespaceBackward(element.getPrevSibling());
+        if (prev != null && prev.getNode().getElementType() == KiteTokenTypes.ASSIGN) {
+            // This identifier comes after =, so it's a value, not a declaration name
+            return false;
+        }
+
         // Check if this identifier is followed by = or { or += (declaration pattern)
         PsiElement next = skipWhitespaceForward(element.getNextSibling());
         if (next != null) {
