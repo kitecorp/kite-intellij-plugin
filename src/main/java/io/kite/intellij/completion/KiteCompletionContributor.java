@@ -222,11 +222,28 @@ public class KiteCompletionContributor extends CompletionContributor {
 
         // Start with the first element (should be a declaration)
         String rootName = chain.get(0);
-        PsiElement currentContext = findDeclaration(file, rootName);
+        PsiElement declaration = findDeclaration(file, rootName);
 
-        if (currentContext == null) return;
+        if (declaration == null) return;
 
-        // Navigate through the chain
+        // Check if this is a component instantiation (e.g., "component WebServer serviceA { ... }")
+        // If so, we need to get outputs from the component TYPE declaration, not the instance
+        PsiElement currentContext = declaration;
+        if (declaration.getNode().getElementType() == KiteElementTypes.COMPONENT_DECLARATION) {
+            if (isComponentInstantiation(declaration)) {
+                // Get the component type name (e.g., "WebServer" from "component WebServer serviceA")
+                String componentTypeName = getComponentTypeName(declaration);
+                if (componentTypeName != null) {
+                    // Find the component TYPE declaration (e.g., "component WebServer { ... }")
+                    PsiElement componentDeclaration = findComponentDeclaration(file, componentTypeName);
+                    if (componentDeclaration != null) {
+                        currentContext = componentDeclaration;
+                    }
+                }
+            }
+        }
+
+        // Navigate through the chain for nested properties
         for (int i = 1; i < chain.size(); i++) {
             String propertyName = chain.get(i);
             currentContext = findPropertyValue(currentContext, propertyName);
@@ -241,6 +258,71 @@ public class KiteCompletionContributor extends CompletionContributor {
                     .withIcon(KiteStructureViewIcons.PROPERTY)
             );
         });
+    }
+
+    /**
+     * Check if a component declaration is an instantiation (has both type and instance name)
+     * e.g., "component WebServer serviceA { ... }" is an instantiation
+     * e.g., "component WebServer { ... }" is a declaration (defines the component)
+     */
+    private boolean isComponentInstantiation(PsiElement componentDecl) {
+        // Count identifiers before the opening brace
+        int identifierCount = 0;
+        PsiElement child = componentDecl.getFirstChild();
+        while (child != null) {
+            IElementType type = child.getNode().getElementType();
+            if (type == KiteTokenTypes.IDENTIFIER) {
+                identifierCount++;
+            } else if (type == KiteTokenTypes.LBRACE) {
+                break;
+            }
+            child = child.getNextSibling();
+        }
+        // Instantiation has 2 identifiers: TypeName and instanceName
+        // Declaration has 1 identifier: TypeName
+        return identifierCount >= 2;
+    }
+
+    /**
+     * Get the component type name from a component instantiation
+     * e.g., "component WebServer serviceA { ... }" returns "WebServer"
+     */
+    private String getComponentTypeName(PsiElement componentDecl) {
+        // The first identifier after "component" keyword is the type name
+        boolean foundComponent = false;
+        PsiElement child = componentDecl.getFirstChild();
+        while (child != null) {
+            IElementType type = child.getNode().getElementType();
+            if (type == KiteTokenTypes.COMPONENT) {
+                foundComponent = true;
+            } else if (foundComponent && type == KiteTokenTypes.IDENTIFIER) {
+                return child.getText();
+            }
+            child = child.getNextSibling();
+        }
+        return null;
+    }
+
+    /**
+     * Find a component declaration (not instantiation) by type name
+     * e.g., find "component WebServer { ... }" (the declaration that defines WebServer)
+     */
+    private PsiElement findComponentDeclaration(PsiFile file, String typeName) {
+        final PsiElement[] result = {null};
+
+        collectDeclarations(file, (declName, declarationType, element) -> {
+            if (declarationType == KiteElementTypes.COMPONENT_DECLARATION) {
+                // Check if this is a declaration (not instantiation) with matching type name
+                if (!isComponentInstantiation(element)) {
+                    String componentTypeName = getComponentTypeName(element);
+                    if (typeName.equals(componentTypeName)) {
+                        result[0] = element;
+                    }
+                }
+            }
+        });
+
+        return result[0];
     }
 
     /**
