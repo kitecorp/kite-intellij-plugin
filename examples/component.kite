@@ -1,11 +1,24 @@
 component WebServer {
+  @allowed(["dev","prod"])
+  input number env  = "dev"
   input string instanceType = "t2.micro"
-  input string fromOutput   = "t2.micro"
+
+  var client = "myClient"
 
   resource VM.Instance server {
-    size = instanceType
+    size        = instanceType
+    tag         = {
+      Environment: "$env",
+      Name       : "web-server",
+      New        : {
+        a: "b"
+      }
+    }
+    private_ips = ["172.16.10.100"]
   }
-  output string fromOutputs = "t2.micro"
+
+  output string endpoint = server.size
+  output string tag      = server.tag.Name
 }
 
 component WebServer serviceA {
@@ -13,6 +26,15 @@ component WebServer serviceA {
 }
 
 component WebServer serviceB {
-  instanceType = instanceType
-  fromOutput   = serviceA.fromOutputs
+  instanceType = instanceTypes
 }
+
+input number port          = 8080
+input string instanceTypes = "t2.micro"
+
+output number port         = 8080
+output string instanceType = "t2.micro"
+
+var number port         = 8080
+var string instanceType = "t2.micro"
+var string size         = api.endpoint
