@@ -146,5 +146,9 @@
         <!-- Highlight usages handler for identifier highlighting -->
         <highlightUsagesHandlerFactory implementation="io.kite.intellij.highlighting.KiteHighlightUsagesHandlerFactory"/>
 
+        <!-- Code completion -->
+        <completion.contributor language="Kite"
+                                implementationClass="io.kite.intellij.completion.KiteCompletionContributor"/>
+
     </extensions>
 </idea-plugin>
