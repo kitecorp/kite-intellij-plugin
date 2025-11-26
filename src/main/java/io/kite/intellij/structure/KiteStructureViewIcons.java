@@ -23,6 +23,7 @@ public class KiteStructureViewIcons {
     public static final Icon INPUT = createIcon('I', new Color(255, 193, 7));
     public static final Icon OUTPUT = createIcon('O', new Color(255, 193, 7));
     public static final Icon IMPORT = createIcon('M', new Color(119, 78, 44));
+    public static final Icon PROPERTY = createIcon('P', new Color(100, 149, 237));  // Cornflower blue
 
     private static Icon createIcon(char letter, Color color) {
         return new Icon() {

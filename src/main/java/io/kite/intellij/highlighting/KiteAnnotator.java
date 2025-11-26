@@ -89,10 +89,16 @@ public class KiteAnnotator implements Annotator {
             }
         }
         // After opening paren or comma (function parameters), check if followed by identifier
+        // BUT exclude object literal property names (which are followed by colon)
         else if (beforeElement.matches(".*[\\(,]\\s*$")) {
-            // It's a type if followed by another identifier (not , or ))
-            if (afterElement.matches("^\\s+[a-zA-Z_][a-zA-Z0-9_]*.*") &&
-                !afterElement.matches("^\\s*[,\\)].*")) {
+            // Skip if this is an object literal property (followed by colon)
+            if (afterElement.matches("^\\s*:.*")) {
+                // This is an object property name, not a type
+                isType = false;
+            }
+            // It's a type if followed by another identifier (not , or ) or :)
+            else if (afterElement.matches("^\\s+[a-zA-Z_][a-zA-Z0-9_]*.*") &&
+                !afterElement.matches("^\\s*[,\\):].*")) {
                 isType = true;
             }
         }

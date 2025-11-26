@@ -14,7 +14,7 @@ component WebServer api {
   resource VM.Instance server {
     size = size
     tag  = {
-      Environment: "production"
+      Environment: "production",
       Name       : "web-server",
       New        : {
         a: "b"

@@ -15,8 +15,24 @@ import java.util.List;
 /**
  * Adapter to use ANTLR-generated KiteLexer with IntelliJ Platform.
  * This lexer ensures all characters are covered by tokens (no gaps).
+ *
+ * State encoding for incremental lexing:
+ * - Bits 0-7: current mode (0=DEFAULT_MODE, 1=STRING_MODE)
+ * - Bits 8-15: interpolation depth (0-255)
+ *
+ * This allows IntelliJ to properly resume lexing from any point in the file,
+ * especially important for string interpolation where the lexer needs to know
+ * whether it's inside a string and how deeply nested in interpolations.
  */
 public class KiteLexerAdapter extends LexerBase {
+    private static final int MODE_MASK = 0xFF;
+    private static final int DEPTH_SHIFT = 8;
+    private static final int DEPTH_MASK = 0xFF;
+
+    // Constants for modes (matching ANTLR generated mode numbers)
+    private static final int DEFAULT_MODE = 0;
+    private static final int STRING_MODE = 1;
+
     private CharSequence buffer;
     private int startOffset;
     private int endOffset;
@@ -27,11 +43,13 @@ public class KiteLexerAdapter extends LexerBase {
         final IElementType type;
         final int start;
         final int end;
+        final int state;  // Lexer state at the END of this token
 
-        TokenInfo(IElementType type, int start, int end) {
+        TokenInfo(IElementType type, int start, int end, int state) {
             this.type = type;
             this.start = start;
             this.end = end;
+            this.state = state;
         }
     }
 
@@ -43,31 +61,81 @@ public class KiteLexerAdapter extends LexerBase {
         this.tokens = new ArrayList<>();
         this.currentTokenIndex = 0;
 
-        // Lex the text and fill in gaps
+        // Decode initial state
+        int initialMode = initialState & MODE_MASK;
+        int initialDepth = (initialState >> DEPTH_SHIFT) & DEPTH_MASK;
+
+        // Get the text to lex
         String text = buffer.subSequence(startOffset, endOffset).toString();
         KiteLexer lexer = new KiteLexer(CharStreams.fromString(text));
+
+        // Restore lexer state if we're resuming from mid-file
+        if (initialState != 0) {
+            // Set the mode
+            if (initialMode == STRING_MODE) {
+                lexer.pushMode(KiteLexer.STRING_MODE);
+            }
+            // Set interpolation depth via reflection or by setting the field directly
+            // Note: KiteLexer has a public interpolationDepth field we can set
+            try {
+                var field = KiteLexer.class.getDeclaredField("interpolationDepth");
+                field.setAccessible(true);
+                field.setInt(lexer, initialDepth);
+            } catch (Exception e) {
+                // If we can't set the field, the lexer will work but may have issues
+                // with incremental lexing inside interpolations
+            }
+        }
 
         int currentPos = 0;
         Token token;
 
+        // Track current state after each token
+        int currentMode = initialMode;
+        int currentDepth = initialDepth;
+
         while ((token = lexer.nextToken()).getType() != Token.EOF) {
             int tokenStart = token.getStartIndex();
             int tokenEnd = token.getStopIndex() + 1;
+            int antlrType = token.getType();
 
             // Fill gap with whitespace if there's a gap
             if (tokenStart > currentPos) {
+                int gapState = encodeState(currentMode, currentDepth);
                 tokens.add(new TokenInfo(
                     KiteTokenTypes.WHITESPACE,
                     currentPos,
-                    tokenStart
+                    tokenStart,
+                    gapState
                 ));
             }
 
+            // Update mode/depth tracking based on token type
+            // This mirrors the logic in the lexer grammar
+            if (antlrType == KiteLexer.DQUOTE) {
+                // Entering string mode
+                currentMode = STRING_MODE;
+            } else if (antlrType == KiteLexer.STRING_DQUOTE) {
+                // Exiting string mode
+                currentMode = DEFAULT_MODE;
+            } else if (antlrType == KiteLexer.INTERP_START) {
+                // Starting interpolation: push to default mode, increment depth
+                currentMode = DEFAULT_MODE;
+                currentDepth++;
+            } else if (antlrType == KiteLexer.INTERP_END) {
+                // Ending interpolation: pop back to string mode, decrement depth
+                currentMode = STRING_MODE;
+                if (currentDepth > 0) currentDepth--;
+            }
+
+            int tokenState = encodeState(currentMode, currentDepth);
+
             // Add the actual token
             tokens.add(new TokenInfo(
-                convertTokenType(token.getType()),
+                convertTokenType(antlrType),
                 tokenStart,
-                tokenEnd
+                tokenEnd,
+                tokenState
             ));
 
             currentPos = tokenEnd;
@@ -75,17 +143,28 @@ public class KiteLexerAdapter extends LexerBase {
 
         // Fill any remaining gap at the end
         if (currentPos < text.length()) {
+            int finalState = encodeState(currentMode, currentDepth);
             tokens.add(new TokenInfo(
                 KiteTokenTypes.WHITESPACE,
                 currentPos,
-                text.length()
+                text.length(),
+                finalState
             ));
         }
     }
 
+    private int encodeState(int mode, int depth) {
+        return (mode & MODE_MASK) | ((depth & DEPTH_MASK) << DEPTH_SHIFT);
+    }
+
     @Override
     public int getState() {
-        return 0;
+        // Return the state at the END of the current token
+        // This is what IntelliJ will pass to start() when resuming from this position
+        if (currentTokenIndex >= tokens.size()) {
+            return 0;
+        }
+        return tokens.get(currentTokenIndex).state;
     }
 
     @Nullable
