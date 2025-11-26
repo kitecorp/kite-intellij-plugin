@@ -1,9 +1,9 @@
 parser grammar KiteParser;
 
-options { tokenVocab=KiteLexer; }
+options { tokenVocab = KiteLexer; }
 
 // ============================================================================
-// PARSER RULES (lowercase)
+// PARSER RULES
 // ============================================================================
 
 // Entry point
@@ -17,7 +17,7 @@ statementList
 
 statementTerminator
     : NL
-    | SEMICOLON
+    | ';'
     ;
 
 nonEmptyStatement
@@ -41,10 +41,8 @@ emptyStatement
 
 // Import Statement
 importStatement
-    : IMPORT MULTIPLY FROM stringLiteral
+    : IMPORT '*' FROM stringLiteral
     ;
-
-
 
 // Declarations
 declaration
@@ -59,15 +57,15 @@ declaration
     ;
 
 functionDeclaration
-    : FUN identifier LPAREN parameterList? RPAREN typeIdentifier? blockExpression
+    : FUN identifier '(' parameterList? ')' typeIdentifier? blockExpression
     ;
 
 typeDeclaration
-    : TYPE identifier ASSIGN typeParams
+    : TYPE identifier '=' typeParams
     ;
 
 typeParams
-    : unionTypeParam (UNION unionTypeParam)*
+    : unionTypeParam ('|' unionTypeParam)*
     ;
 
 unionTypeParam
@@ -84,7 +82,7 @@ typeKeyword
     ;
 
 schemaDeclaration
-    : SCHEMA identifier LBRACE statementTerminator* schemaPropertyList? statementTerminator* RBRACE
+    : SCHEMA identifier '{' statementTerminator* schemaPropertyList? statementTerminator* '}'
     ;
 
 schemaPropertyList
@@ -96,7 +94,7 @@ schemaProperty
     ;
 
 propertyInitializer
-    : ASSIGN expression
+    : '=' expression
     ;
 
 resourceDeclaration
@@ -118,11 +116,11 @@ componentType
     ;
 
 inputDeclaration
-    : INPUT typeIdentifier identifier (ASSIGN expression)?
+    : INPUT typeIdentifier identifier ('=' expression)?
     ;
 
 outputDeclaration
-    : OUTPUT typeIdentifier identifier (ASSIGN expression)?
+    : OUTPUT typeIdentifier identifier ('=' expression)?
     ;
 
 varDeclaration
@@ -130,7 +128,7 @@ varDeclaration
     ;
 
 varDeclarationList
-    : varDeclarator (COMMA varDeclarator)*
+    : varDeclarator (',' varDeclarator)*
     ;
 
 varDeclarator
@@ -138,12 +136,12 @@ varDeclarator
     ;
 
 varInitializer
-    : (ASSIGN | PLUS_ASSIGN) expression
+    : ('=' | '+=') expression
     ;
 
 // Statements
 ifStatement
-    : IF LPAREN NL* expression NL* RPAREN NL* blockExpression elseStatement?
+    : IF '(' NL* expression NL* ')' NL* blockExpression elseStatement?
     | IF expression NL* blockExpression elseStatement?
     ;
 
@@ -157,16 +155,16 @@ iterationStatement
     ;
 
 whileStatement
-    : WHILE LPAREN NL* expression NL* RPAREN NL* blockExpression
+    : WHILE '(' NL* expression NL* ')' NL* blockExpression
     | WHILE expression NL* blockExpression
     ;
 
 rangeExpression
-    : NUMBER RANGE NUMBER
+    : NUMBER '..' NUMBER
     ;
 
 initStatement
-    : INIT LPAREN parameterList? RPAREN blockExpression
+    : INIT '(' parameterList? ')' blockExpression
     ;
 
 returnStatement
@@ -183,16 +181,16 @@ decoratorList
     ;
 
 decorator
-    : AT identifier (LPAREN NL* decoratorArgs? NL* RPAREN)?
+    : '@' identifier ('(' NL* decoratorArgs? NL* ')')?
     ;
 
 decoratorArgs
     : decoratorArg                      // Single positional: @provider("aws")
-    | namedArg (NL* COMMA NL* namedArg)* (NL* COMMA)? NL*  // Named args: @provider(first="aws", second="gcp")
+    | namedArg (NL* ',' NL* namedArg)* (NL* ',')? NL*  // Named args: @provider(first="aws", second="gcp")
     ;
 
 namedArg
-    : identifier ASSIGN expression
+    : identifier '=' expression
     ;
 
 decoratorArg
@@ -201,7 +199,7 @@ decoratorArg
     | callMemberExpression
     | identifier
     | literal
-    | MINUS NUMBER
+    | '-' NUMBER
     ;
 
 // Expressions (precedence from lowest to highest)
@@ -212,40 +210,40 @@ expression
     ;
 
 assignmentExpression
-    : orExpression ((ASSIGN | PLUS_ASSIGN) expression)?
+    : orExpression (('=' | '+=') expression)?
     ;
 
 orExpression
-    : andExpression (OR andExpression)*
+    : andExpression ('||' andExpression)*
     ;
 
 andExpression
-    : equalityExpression (AND equalityExpression)*
+    : equalityExpression ('&&' equalityExpression)*
     ;
 
 equalityExpression
-    : relationalExpression ((EQ | NE) relationalExpression)*
+    : relationalExpression (('==' | '!=') relationalExpression)*
     ;
 
 relationalExpression
-    : additiveExpression ((LT | GT | LE | GE) additiveExpression)*
+    : additiveExpression (('<' | '>' | '<=' | '>=') additiveExpression)*
     ;
 
 additiveExpression
-    : multiplicativeExpression ((PLUS | MINUS) multiplicativeExpression)*
+    : multiplicativeExpression (('+' | '-') multiplicativeExpression)*
     ;
 
 multiplicativeExpression
-    : unaryExpression ((MULTIPLY | DIVIDE | MODULO) unaryExpression)*
+    : unaryExpression (('*' | '/' | '%') unaryExpression)*
     ;
 
 unaryExpression
-    : (MINUS | INCREMENT | DECREMENT | NOT) unaryExpression  // Prefix: --x
+    : ('-' | '++' | '--' | '!') unaryExpression  // Prefix: --x
     | postfixExpression
     ;
 
 postfixExpression
-    : leftHandSideExpression (INCREMENT | DECREMENT)?      // Postfix: x++
+    : leftHandSideExpression ('++' | '--')?      // Postfix: x++
     ;
 
 leftHandSideExpression
@@ -257,13 +255,13 @@ callMemberExpression
     ;
 
 callOrMemberAccess
-    : LPAREN argumentList? RPAREN
-    | DOT identifier
-    | LBRACK expression RBRACK
+    : '(' argumentList? ')'
+    | '.' identifier
+    | '[' expression ']'
     ;
 
 primaryExpression
-    : LPAREN expression RPAREN
+    : '(' expression ')'
     | lambdaExpression
     | literal
     | identifier
@@ -275,7 +273,7 @@ thisExpression
     ;
 
 lambdaExpression
-    : LPAREN parameterList? RPAREN typeIdentifier? ARROW lambdaBody
+    : '(' parameterList? ')' typeIdentifier? '->' lambdaBody
     ;
 
 lambdaBody
@@ -284,7 +282,7 @@ lambdaBody
     ;
 
 blockExpression
-    : LBRACE statementTerminator* statementList? statementTerminator* RBRACE
+    : '{' statementTerminator* statementList? statementTerminator* '}'
     ;
 
 objectExpression
@@ -292,12 +290,12 @@ objectExpression
     ;
 
 objectDeclaration
-    : OBJECT LPAREN NL* (LBRACE NL* objectPropertyList? NL* RBRACE)? NL* RPAREN  // object() or object({ key: value })
-    | LBRACE NL* objectPropertyList? NL* RBRACE                             // { key: value }
+    : OBJECT '(' NL* ('{' NL* objectPropertyList? NL* '}')? NL* ')'  // object() or object({ key: value })
+    | '{' NL* objectPropertyList? NL* '}'                             // { key: value }
     ;
 
 objectPropertyList
-    : objectProperty (NL* COMMA NL* objectProperty)* (NL* COMMA)? NL*
+    : objectProperty (NL* ',' NL* objectProperty)* (NL* ',')? NL*
     ;
 
 objectProperty
@@ -320,24 +318,24 @@ keyword
     ;
 
 objectInitializer
-    : COLON expression
+    : ':' expression
     ;
 
 arrayExpression
-    : LBRACK NL* FOR identifier (COMMA identifier)? IN (rangeExpression | arrayExpression | identifier) COLON compactBody NL* RBRACK  // Form 1: [for ...: body]
-    | LBRACK NL* FOR identifier (COMMA identifier)? IN (rangeExpression | arrayExpression | identifier) RBRACK NL* forBody         // Form 2: [for ...] body
-    | LBRACK NL* arrayItems? NL* RBRACK                                                                                            // Form 3: literal array
+    : '[' NL* FOR identifier (',' identifier)? IN (rangeExpression | arrayExpression | identifier) ':' compactBody NL* ']'  // Form 1: [for ...: body]
+    | '[' NL* FOR identifier (',' identifier)? IN (rangeExpression | arrayExpression | identifier) ']' NL* forBody         // Form 2: [for ...] body
+    | '[' NL* arrayItems? NL* ']'                                                                                            // Form 3: literal array
     ;
 
 compactBody
-    : IF LPAREN expression RPAREN expression (ELSE expression)?  // Inline if
+    : IF '(' expression ')' expression (ELSE expression)?  // Inline if
     | IF expression expression (ELSE expression)?          // Inline if without parens
     | ifStatement                                          // Block if
     | expression
     ;
 
 forStatement
-    : FOR identifier (COMMA identifier)? IN (rangeExpression | arrayExpression | identifier) NL* forBody             // Form 2: for ... body
+    : FOR identifier (',' identifier)? IN (rangeExpression | arrayExpression | identifier) NL* forBody             // Form 2: for ... body
     ;
 forBody
     : blockExpression
@@ -347,7 +345,7 @@ forBody
     | emptyStatement
     ;
 arrayItems
-    : arrayItem (NL* COMMA NL* arrayItem)* (NL* COMMA)?  NL*  // Add NL* around commas, support trailing comma
+    : arrayItem (NL* ',' NL* arrayItem)* (NL* ',')?  NL*  // Add NL* around commas, support trailing comma
     ;
 
 arrayItem
@@ -360,22 +358,22 @@ arrayItem
 
 // Type System
 typeIdentifier
-    : functionType (LBRACK NUMBER? RBRACK)*
-    | (complexTypeIdentifier | OBJECT | ANY) (LBRACK NUMBER? RBRACK)*
+    : functionType ('[' NUMBER? ']')*
+    | (complexTypeIdentifier | OBJECT | ANY) ('[' NUMBER? ']')*
     ;
 functionType
-    : LPAREN functionTypeParams? RPAREN ARROW typeIdentifier
+    : '(' functionTypeParams? ')' '->' typeIdentifier
     ;
 functionTypeParams
-    : typeIdentifier (COMMA typeIdentifier)*
+    : typeIdentifier (',' typeIdentifier)*
     ;
 complexTypeIdentifier
-    : IDENTIFIER (DOT IDENTIFIER)*
+    : IDENTIFIER ('.' IDENTIFIER)*
     ;
 
 // Parameters
 parameterList
-    : parameter (COMMA parameter)*
+    : parameter (',' parameter)*
     ;
 
 parameter
@@ -384,7 +382,7 @@ parameter
 
 // Arguments
 argumentList
-    : expression (COMMA expression)*
+    : expression (',' expression)*
     ;
 
 // Identifiers
@@ -393,51 +391,33 @@ identifier
     | IDENTIFIER
     ;
 
-// String literal (simple or interpolated)
+// ============================================================================
+// STRING LITERALS WITH INTERPOLATION
+// ============================================================================
+
+// String literal - can be interpolated or simple
 stringLiteral
-    : SIMPLE_STRING
-    | interpolatedString
+    : interpolatedString
+    | SINGLE_STRING
     ;
 
-// Interpolated string (double-quoted with ${} or $var)
+// Interpolated string: "text ${expr} more text"
 interpolatedString
-    : DQUOTE_OPEN interpolatedStringContent* DQUOTE_CLOSE
+    : DQUOTE stringPart* STRING_DQUOTE
     ;
 
-// Content inside an interpolated string
-interpolatedStringContent
-    : DSTRING_TEXT
-    | DSTRING_ESCAPE
-    | DOLLAR_LITERAL
-    | braceInterpolation
-    | simpleInterpolation
+// Parts of an interpolated string
+stringPart
+    : STRING_TEXT                           // Regular text
+    | STRING_ESCAPE                         // Escaped character
+    | STRING_DOLLAR                         // Lone $ not followed by {
+    | INTERP_START expression RBRACE        // ${expression}
     ;
 
-// ${expression} interpolation
-braceInterpolation
-    : INTERP_OPEN interpolationExpression INTERP_CLOSE
-    ;
+// ============================================================================
+// OTHER LITERALS
+// ============================================================================
 
-// $identifier interpolation
-simpleInterpolation
-    : INTERP_SIMPLE
-    ;
-
-// Expression inside ${...}
-interpolationExpression
-    : INTERP_IDENTIFIER (INTERP_DOT INTERP_IDENTIFIER)*
-    | INTERP_IDENTIFIER INTERP_LBRACK (INTERP_NUMBER | INTERP_STRING | INTERP_IDENTIFIER) INTERP_RBRACK
-    | INTERP_IDENTIFIER INTERP_LPAREN (interpolationArg (INTERP_COMMA interpolationArg)*)? INTERP_RPAREN
-    ;
-
-// Arguments in interpolation function calls
-interpolationArg
-    : INTERP_IDENTIFIER
-    | INTERP_NUMBER
-    | INTERP_STRING
-    ;
-
-// Literals
 literal
     : NUMBER
     | stringLiteral

@@ -1,7 +1,7 @@
 lexer grammar KiteLexer;
 
 // ============================================================================
-// DEFAULT MODE TOKENS
+// DEFAULT MODE - Normal Kite code
 // ============================================================================
 
 // Keywords - IaC specific
@@ -89,19 +89,24 @@ NUMBER
     : [0-9]+ ('.' [0-9]+)?
     ;
 
-// Simple strings (single quotes - no interpolation)
-SIMPLE_STRING
+// Double-quoted string - enter string mode
+DQUOTE      : '"' -> pushMode(STRING_MODE) ;
+
+// Single-quoted string (no interpolation)
+SINGLE_STRING
     : '\'' SingleStringCharacter* '\''
     ;
 
 fragment
 SingleStringCharacter
     : ~['\\\r\n]
-    | '\\' .
+    | EscapeSequence
     ;
 
-// Double-quoted strings with interpolation support - use lexer modes
-DQUOTE_OPEN : '"' -> pushMode(DSTRING_MODE);
+fragment
+EscapeSequence
+    : '\\' .
+    ;
 
 IDENTIFIER
     : [a-zA-Z_][a-zA-Z0-9_]*
@@ -117,70 +122,29 @@ NL
     ;
 
 LINE_COMMENT
-    : '//' ~[\r\n]*
+    : '//' ~[\r\n]* -> skip
     ;
 
 BLOCK_COMMENT
-    : '/*' .*? '*/'
+    : '/*' .*? '*/' -> skip
     ;
 
 // ============================================================================
-// LEXER MODE: Double-quoted string with interpolation
+// STRING_MODE - Inside double-quoted string
 // ============================================================================
-mode DSTRING_MODE;
+mode STRING_MODE;
 
-// Text content (anything except ", $, \, or newline)
-DSTRING_TEXT : (~["$\\\r\n])+ ;
+// End of string
+STRING_DQUOTE   : '"' -> popMode ;
 
-// Escape sequences
-DSTRING_ESCAPE : '\\' . ;
+// Start of interpolation ${...} - push back to default mode for expression
+INTERP_START    : '${' -> pushMode(DEFAULT_MODE) ;
 
-// Start of brace interpolation ${
-INTERP_OPEN : '${' -> pushMode(INTERP_MODE) ;
+// Escaped characters
+STRING_ESCAPE   : '\\' . ;
 
-// Simple interpolation $identifier (no braces)
-INTERP_SIMPLE : '$' [a-zA-Z_][a-zA-Z0-9_]* ;
+// Regular text (anything except ", \, ${ )
+STRING_TEXT     : (~["\\$] | '$' ~'{')+ ;
 
-// Lone $ that's not followed by { or identifier - treat as text
-DOLLAR_LITERAL : '$' ;
-
-// Closing quote
-DQUOTE_CLOSE : '"' -> popMode ;
-
-// ============================================================================
-// LEXER MODE: Inside ${...} interpolation
-// ============================================================================
-mode INTERP_MODE;
-
-// Whitespace inside interpolation
-INTERP_WS : [ \t\r\n]+ -> skip ;
-
-// Identifier inside interpolation
-INTERP_IDENTIFIER : [a-zA-Z_][a-zA-Z0-9_]* ;
-
-// Dot for member access inside interpolation
-INTERP_DOT : '.' ;
-
-// Opening bracket for array access
-INTERP_LBRACK : '[' ;
-
-// Closing bracket
-INTERP_RBRACK : ']' ;
-
-// Opening paren for function calls
-INTERP_LPAREN : '(' ;
-
-// Closing paren
-INTERP_RPAREN : ')' ;
-
-// Comma
-INTERP_COMMA : ',' ;
-
-// Numbers inside interpolation
-INTERP_NUMBER : [0-9]+ ('.' [0-9]+)? ;
-
-// Nested string inside interpolation
-INTERP_STRING : '\'' (~['\\\r\n] | '\\' .)* '\'' ;
-
-// End of interpolation
-INTERP_CLOSE : '}' -> popMode ;
+// Lone $ followed by non-{ (handled as text)
+STRING_DOLLAR   : '$' ;
