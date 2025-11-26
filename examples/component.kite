@@ -1,6 +1,6 @@
 component WebServer {
   @allowed(["dev","prod"])
-  input number env  = "dev"
+  input number env          = "dev"
   input string instanceType = "t2.micro"
 
   var client = "myClient"
@@ -19,6 +19,7 @@ component WebServer {
 
   output string endpoint = server.size
   output string tag      = server.tag.Name
+  output string tagNameA = server.tag.New.a
 }
 
 component WebServer serviceA {

@@ -37,12 +37,12 @@ public class KiteReference extends PsiReferenceBase<PsiElement> implements PsiPo
         System.err.println("[KiteRef] multiResolve called for: '" + name + "'");
 
         // Check if this is a property access (identifier after a DOT)
-        PsiElement objectElement = getPropertyAccessObject();
+        List<String> propertyChain = getPropertyAccessChain();
 
-        if (objectElement != null) {
-            System.err.println("[KiteRef] Property access detected, object: '" + objectElement.getText() + "'");
+        if (propertyChain != null) {
+            System.err.println("[KiteRef] Property access detected, chain: " + propertyChain + ", property: '" + name + "'");
             // This is property access: resolve within the object's declaration scope
-            resolvePropertyAccess(objectElement, results);
+            resolvePropertyAccessChain(propertyChain, results);
         } else {
             System.err.println("[KiteRef] Simple identifier, searching declarations");
             // Simple identifier: search declarations in file scope
@@ -69,7 +69,37 @@ public class KiteReference extends PsiReferenceBase<PsiElement> implements PsiPo
 
     /**
      * Check if this identifier is part of a property access expression (after a DOT).
-     * Returns the object identifier element if this is a property access, null otherwise.
+     * Returns the property chain as a list of identifiers (e.g., for "server.tag.Name", returns ["server", "tag"]).
+     * Returns null if this is not a property access.
+     */
+    @Nullable
+    private List<String> getPropertyAccessChain() {
+        List<String> chain = new ArrayList<>();
+        PsiElement current = myElement;
+
+        // Walk backward through the chain: identifier <- DOT <- identifier <- DOT <- ...
+        while (true) {
+            PsiElement prev = skipWhitespaceBackward(current.getPrevSibling());
+
+            if (prev != null && prev.getNode().getElementType() == KiteTokenTypes.DOT) {
+                // Found DOT before us, get the identifier before the DOT
+                PsiElement objectElement = skipWhitespaceBackward(prev.getPrevSibling());
+                if (objectElement != null && objectElement.getNode().getElementType() == KiteTokenTypes.IDENTIFIER) {
+                    chain.add(0, objectElement.getText()); // Add at beginning to maintain order
+                    current = objectElement;
+                } else {
+                    break;
+                }
+            } else {
+                break;
+            }
+        }
+
+        return chain.isEmpty() ? null : chain;
+    }
+
+    /**
+     * Legacy method for backward compatibility - returns the immediate object element.
      */
     @Nullable
     private PsiElement getPropertyAccessObject() {
@@ -83,6 +113,207 @@ public class KiteReference extends PsiReferenceBase<PsiElement> implements PsiPo
             }
         }
         return null;
+    }
+
+    /**
+     * Resolve property access chain: navigate through nested object literals.
+     * For "server.tag.Name", chain = ["server", "tag"], name = "Name"
+     * Steps:
+     *   1. Find declaration of "server" (the resource)
+     *   2. Find "tag" property inside server's block → get its OBJECT_LITERAL value
+     *   3. Find "Name" property inside that object literal
+     */
+    private void resolvePropertyAccessChain(List<String> chain, List<ResolveResult> results) {
+        PsiFile file = myElement.getContainingFile();
+
+        System.err.println("[KiteRef] ============================================");
+        System.err.println("[KiteRef] resolvePropertyAccessChain: chain=" + chain + ", target='" + name + "'");
+
+        // Start with the first element in the chain (e.g., "server")
+        String rootName = chain.get(0);
+        PsiElement currentScope = findDeclarationElement(file, rootName);
+
+        if (currentScope == null) {
+            System.err.println("[KiteRef] Root declaration not found: " + rootName);
+            return;
+        }
+
+        System.err.println("[KiteRef] Found root declaration: " + currentScope.getNode().getElementType());
+        System.err.println("[KiteRef] Root declaration text preview: " + currentScope.getText().substring(0, Math.min(100, currentScope.getText().length())) + "...");
+
+        // Navigate through the rest of the chain (e.g., ["tag"] for server.tag.Name)
+        for (int i = 1; i < chain.size(); i++) {
+            String propertyName = chain.get(i);
+            System.err.println("[KiteRef] ---- Step " + i + ": Looking for property '" + propertyName + "' ----");
+            System.err.println("[KiteRef] Current scope type: " + currentScope.getNode().getElementType());
+
+            // Find the property and get its value (should be an object literal)
+            PsiElement propertyValue = findPropertyValue(currentScope, propertyName);
+
+            if (propertyValue == null) {
+                System.err.println("[KiteRef] FAIL: Property '" + propertyName + "' not found in scope!");
+                System.err.println("[KiteRef] Dumping scope children:");
+                dumpPsiChildren(currentScope, 0);
+                return;
+            }
+
+            System.err.println("[KiteRef] Found property value type: " + propertyValue.getNode().getElementType());
+            System.err.println("[KiteRef] Property value text: " + propertyValue.getText().substring(0, Math.min(80, propertyValue.getText().length())));
+
+            // The value should be an object literal to continue traversing
+            if (propertyValue.getNode().getElementType() == KiteElementTypes.OBJECT_LITERAL) {
+                currentScope = propertyValue;
+                System.err.println("[KiteRef] SUCCESS: Advanced to nested OBJECT_LITERAL");
+            } else {
+                System.err.println("[KiteRef] Property value is not OBJECT_LITERAL, can't traverse deeper");
+                return;
+            }
+        }
+
+        // Now find the target property (e.g., "Name") in the final scope
+        System.err.println("[KiteRef] ---- Final step: Finding target '" + name + "' in final scope ----");
+        System.err.println("[KiteRef] Final scope type: " + currentScope.getNode().getElementType());
+        findPropertyInScope(currentScope, name, results);
+        System.err.println("[KiteRef] Results count: " + results.size());
+        System.err.println("[KiteRef] ============================================");
+    }
+
+    /**
+     * Debug helper: dump PSI children of an element
+     */
+    private void dumpPsiChildren(PsiElement element, int depth) {
+        String indent = "  ".repeat(depth);
+        for (PsiElement child = element.getFirstChild(); child != null; child = child.getNextSibling()) {
+            IElementType type = child.getNode().getElementType();
+            String text = child.getText();
+            if (text.length() > 40) text = text.substring(0, 40) + "...";
+            text = text.replace("\n", "\\n");
+            System.err.println("[KiteRef] " + indent + type + ": \"" + text + "\"");
+            if (depth < 3 && child.getFirstChild() != null) {
+                dumpPsiChildren(child, depth + 1);
+            }
+        }
+    }
+
+    /**
+     * Find a property's value (the expression after = or :) within a declaration or object literal.
+     */
+    @Nullable
+    private PsiElement findPropertyValue(PsiElement scope, String propertyName) {
+        // If scope is already an OBJECT_LITERAL, we're conceptually "inside braces"
+        boolean startInsideBraces = (scope.getNode().getElementType() == KiteElementTypes.OBJECT_LITERAL);
+        System.err.println("[KiteRef] findPropertyValue: scope=" + scope.getNode().getElementType() + ", startInsideBraces=" + startInsideBraces);
+        return findPropertyValueRecursive(scope, propertyName, startInsideBraces);
+    }
+
+    @Nullable
+    private PsiElement findPropertyValueRecursive(PsiElement element, String propertyName, boolean insideBraces) {
+        PsiElement child = element.getFirstChild();
+        boolean currentInsideBraces = insideBraces;
+
+        System.err.println("[KiteRef] findPropertyValueRecursive: looking for '" + propertyName + "', insideBraces=" + insideBraces + ", element=" + element.getNode().getElementType());
+
+        while (child != null) {
+            IElementType childType = child.getNode().getElementType();
+
+            // Track brace state
+            if (childType == KiteTokenTypes.LBRACE) {
+                currentInsideBraces = true;
+                System.err.println("[KiteRef]   -> LBRACE: now inside braces");
+            } else if (childType == KiteTokenTypes.RBRACE) {
+                currentInsideBraces = false;
+                System.err.println("[KiteRef]   -> RBRACE: now outside braces");
+            }
+
+            // Look for property assignments
+            if (currentInsideBraces && childType == KiteTokenTypes.IDENTIFIER) {
+                String identText = child.getText();
+                System.err.println("[KiteRef]   -> IDENTIFIER '" + identText + "' (looking for '" + propertyName + "')");
+                if (propertyName.equals(identText)) {
+                    // Check if followed by = or :
+                    PsiElement next = skipWhitespaceForward(child.getNextSibling());
+                    if (next != null) {
+                        IElementType nextType = next.getNode().getElementType();
+                        System.err.println("[KiteRef]   -> next token: " + nextType);
+                        if (nextType == KiteTokenTypes.ASSIGN || nextType == KiteTokenTypes.COLON) {
+                            // Get the value after = or :
+                            PsiElement value = skipWhitespaceForward(next.getNextSibling());
+                            if (value != null) {
+                                System.err.println("[KiteRef]   -> FOUND! Value type: " + value.getNode().getElementType());
+                                return value;
+                            }
+                        }
+                    }
+                }
+            }
+
+            // DON'T recurse into nested OBJECT_LITERALs - we only want direct children
+            // This is the KEY FIX: we should NOT descend into nested objects when searching
+            // for properties at the current level
+            if (childType == KiteElementTypes.OBJECT_LITERAL) {
+                System.err.println("[KiteRef]   -> Skipping nested OBJECT_LITERAL (not recursing)");
+            } else if (child.getFirstChild() != null && !isDeclarationType(childType)) {
+                System.err.println("[KiteRef]   -> Recursing into: " + childType);
+                PsiElement result = findPropertyValueRecursive(child, propertyName, currentInsideBraces);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            child = child.getNextSibling();
+        }
+
+        System.err.println("[KiteRef] findPropertyValueRecursive: property '" + propertyName + "' NOT FOUND");
+        return null;
+    }
+
+    /**
+     * Find property definitions in a scope (object literal or declaration body).
+     */
+    private void findPropertyInScope(PsiElement scope, String propertyName, List<ResolveResult> results) {
+        IElementType scopeType = scope.getNode().getElementType();
+
+        if (scopeType == KiteElementTypes.OBJECT_LITERAL) {
+            // For object literals, search directly inside
+            findPropertyInObjectLiteral(scope, propertyName, results);
+        } else {
+            // For declarations, use the existing recursive search
+            findPropertyInDeclaration(scope, propertyName, results);
+        }
+    }
+
+    /**
+     * Find property in an object literal (simpler case - already inside braces).
+     */
+    private void findPropertyInObjectLiteral(PsiElement objectLiteral, String propertyName, List<ResolveResult> results) {
+        PsiElement child = objectLiteral.getFirstChild();
+
+        while (child != null) {
+            IElementType childType = child.getNode().getElementType();
+
+            if (childType == KiteTokenTypes.IDENTIFIER) {
+                String identText = child.getText();
+                if (propertyName.equals(identText)) {
+                    // Check if followed by : (object literal property)
+                    PsiElement next = skipWhitespaceForward(child.getNextSibling());
+                    if (next != null && next.getNode().getElementType() == KiteTokenTypes.COLON) {
+                        if (child != myElement) {
+                            System.err.println("[KiteRef] MATCH in object literal: '" + identText + "'");
+                            results.add(new PsiElementResolveResult(child));
+                        }
+                    }
+                }
+            }
+
+            // Recurse into nested object literals
+            if (childType == KiteElementTypes.OBJECT_LITERAL) {
+                // Don't recurse - nested literals have their own properties
+            } else if (child.getFirstChild() != null) {
+                findPropertyInObjectLiteral(child, propertyName, results);
+            }
+
+            child = child.getNextSibling();
+        }
     }
 
     /**

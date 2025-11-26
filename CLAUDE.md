@@ -29,6 +29,10 @@ When implementing new features or fixing bugs, follow these principles to avoid 
    - Look at similar working code
    - Ask: "What's the simplest change that could work?"
    - Consider that you might be solving the wrong problem
+7. **How to update CLAUDE.md**
+   - don't add implementation details to the top of the file - keep it short and focused on the problem
+   - add a new section for each new feature or change
+   - use the same format as the existing sections 
 
 ### Testing
 - Use the `examples/` directory for test files (e.g., `test_*.kite`)
@@ -96,12 +100,6 @@ Support for toggling line and block comments using standard IDE keyboard shortcu
 - Works on single lines or multiple selected lines
 - Automatically handles indentation
 
-### Implementation Details
-Implements the `com.intellij.lang.Commenter` interface with:
-- `getLineCommentPrefix()` - Returns "//"
-- `getBlockCommentPrefix()` - Returns "/*"
-- `getBlockCommentSuffix()` - Returns "*/"
-
 ## Code Folding
 
 ### Overview
@@ -145,122 +143,11 @@ Automatic code formatting with the 'Reformat Code' action (Cmd+Alt+L on Mac, Ctr
 
 ### Formatting Rules
 
-#### Spacing
-- **Space before opening brace**: `resource Type name {` (1 space before `{`)
-- **Space after keywords**: All keywords (resource, component, schema, fun, var, if, etc.) followed by 1 space
-- **Assignment operators**: Space around `=`, `+=`, `-=`, `*=`, `/=`
-- **Arithmetic operators**: Space around `+`, `-`, `*`, `/`, `%`
-- **Relational operators**: Space around `<`, `>`, `<=`, `>=`, `==`, `!=`
-- **Logical operators**: Space around `&&`, `||`; no space before `!`
-- **Other operators**:
-  - Arrow (`->`) has 1 space on each side
-  - Range (`..`) has no spaces
-  - Union (`|`) has 1 space on each side
-- **Brackets**: No spaces inside `[]` brackets
-- **Parentheses**: No spaces inside `()` parentheses
-- **Comma**: Space after `,`, no space before
-- **Colon**: Space after `:`, no space before (for property assignments)
-- **Semicolon**: Space after `;`
-- **No space after `@`**: Decorators use `@decorator` (no space between `@` and name)
-- **No space around dots**: Member access uses `object.property` (no spaces)
-
-#### Indentation
-- **Block elements** indent their content with normal indentation (4 spaces by default)
-- **Indented elements**:
-  - Content inside resource/component/schema declarations
-  - Content inside function bodies
-  - Content inside for/while loop bodies
-  - Content inside object literals
-  - Content inside array literals
-- **Braces** (`{` and `}`) remain at the parent indentation level
-- **Continuation indentation** for wrapped function parameters
-
-#### Alignment
-- **Object literals**: Colons in object property assignments are vertically aligned
-  ```kite
-  @tags({
-    Environment : "production",
-    ManagedBy   : "kite",
-    CostCenter  : "engineering"
-  })
-  ```
-- **Decorator arguments**: Colons in named decorator arguments are vertically aligned
-  ```kite
-  @validate(
-    regex : "^[a-z0-9-]+$",
-    flag  : 'i'
-  )
-  ```
-- **Resource/Component/Schema blocks**: Assignment operators (`=`) are vertically aligned within groups
-  ```kite
-  component WebServer api {
-    input number port = 8080
-    input string size = "t2.micro"
-
-    var x  = 1
-    var yp = 2
-
-    output string endpoint = server.publicIp
-  }
-  ```
-- **Grouping logic**: Consecutive lines of the same type align together
-  - Consecutive `input` declarations align with each other
-  - Consecutive `output` declarations align with each other
-  - Consecutive `var` declarations align with each other
-  - Groups are separated by blank lines or different statement types
-- **How it works**: The formatter identifies groups of similar consecutive declarations, finds the longest property name in each group, and adds padding so alignment happens within each group independently
-- This makes all structured code more readable and easier to scan while respecting logical separation
 
 ### Key Files
 1. `KiteFormattingModelBuilder.java` - Main formatter entry point, defines spacing rules via `SpacingBuilder`
 2. `KiteBlock.java` - Represents hierarchical formatting blocks, manages indentation and child block creation
 
-### Implementation Details: Indentation
-
-#### Critical Discovery: Newline Token Handling
-The formatter must **skip creating blocks for newline tokens** (`NL` and `NEWLINE`). IntelliJ's formatter handles newlines internally to apply indentation. If you create blocks for newline tokens, indentation will not work.
-
-**Implementation:**
-```java
-private boolean shouldSkipToken(IElementType type) {
-    return type == TokenType.WHITE_SPACE ||
-           type == KiteTokenTypes.NL ||
-           type == KiteTokenTypes.NEWLINE;
-}
-```
-
-#### Brace Tracking for Block Indentation
-Only content **between `{` and `}`** should be indented. Track brace state while building child blocks:
-
-1. Initialize `boolean insideBraces = false`
-2. Create blocks for each child token
-3. **After** creating the block, update state:
-   - If token is `LBRACE`: set `insideBraces = true`
-   - If token is `RBRACE`: set `insideBraces = false`
-4. Pass `insideBraces` to `getChildIndent(childType, insideBraces)`
-
-**Why update AFTER?** The brace itself shouldn't be indented, but everything following it should be.
-
-#### Code Style Settings Provider
-Required for IntelliJ to know the indent size. Create `KiteLanguageCodeStyleSettingsProvider` and register in `plugin.xml`:
-
-```java
-@Override
-public void customizeDefaults(@NotNull CommonCodeStyleSettings commonSettings,
-                              @NotNull CommonCodeStyleSettings.IndentOptions indentOptions) {
-    indentOptions.INDENT_SIZE = 4;
-    indentOptions.CONTINUATION_INDENT_SIZE = 8;
-    indentOptions.TAB_SIZE = 4;
-    indentOptions.USE_TAB_CHARACTER = false;
-}
-```
-
-#### What Didn't Work (Save Time Debugging)
-- ❌ Using `Indent.getNormalIndent()` without code style provider (no indent size)
-- ❌ Creating blocks for newline tokens (prevents indentation entirely)
-- ❌ Tracking braces BEFORE creating blocks (indents the wrong elements)
-- ❌ Using different `Language.INSTANCE` for SpacingBuilder vs FormattingModel
-- ✅ **Solution**: Skip newlines + track braces AFTER + use `Indent.getSpaceIndent(4)`
 
 #### Understanding IntelliJ's Indent Types: A Deep Dive
 
@@ -285,108 +172,6 @@ IntelliJ Platform provides three distinct indent types, each working differently
    - Uses `CONTINUATION_INDENT_SIZE` from code style settings (4 spaces in Kite)
    - Example: If parent is at 4 spaces, child with `getContinuationIndent()` will be at 8 spaces (4 + 4)
    - **Use case**: Wrapped parameters, nested literals, deeper nesting that needs visual distinction
-
-**Current Kite Settings:**
-```java
-indentOptions.INDENT_SIZE = 2;
-indentOptions.CONTINUATION_INDENT_SIZE = 4;
-indentOptions.TAB_SIZE = 2;
-```
-
-#### Case Study: Object Literal Indentation Fix
-
-**Problem:** Object literal properties were not getting proper indentation when "Reformat Code" was executed.
-
-**Expected behavior:**
-```kite
-  resource VM.Instance server {
-    tag = {
-      Name       : "web-server",  // <- 6 spaces (4 for resource + 2 for literal content)
-      Environment: "production"   // <- 6 spaces
-    }                            // <- 4 spaces (aligned with property)
-  }
-```
-
-**Debugging Journey:**
-
-1. **First Failed Attempt - Using `getSpaceIndent(2)`:**
-   ```java
-   // WRONG - creates absolute 2 spaces from column 0
-   if (parentType == KiteElementTypes.OBJECT_LITERAL) {
-       return Indent.getSpaceIndent(2);
-   }
-   ```
-   **Result:** Properties appeared at column 2 instead of column 6
-   **Why it failed:** `getSpaceIndent()` ignores parent indentation entirely
-
-2. **Second Failed Attempt - Using `getNormalIndent()`:**
-   ```java
-   // DIDN'T WORK - added only 2 spaces but wasn't enough visual nesting
-   if (parentType == KiteElementTypes.OBJECT_LITERAL) {
-       return Indent.getNormalIndent();
-   }
-   ```
-   **Result:** Code compiled and ran but indentation didn't change visually
-   **Why it failed:** `getNormalIndent()` only adds INDENT_SIZE (2 spaces), which wasn't sufficient for the visual nesting needed in object literals. The formatter needed continuation indent for proper visual hierarchy.
-
-3. **Final Working Solution - Using `getContinuationIndent()`:**
-   ```java
-   // CORRECT - adds 4 spaces relative to parent (CONTINUATION_INDENT_SIZE)
-   if (parentType == KiteElementTypes.OBJECT_LITERAL || parentType == KiteElementTypes.ARRAY_LITERAL) {
-       // Opening braces don't get indented
-       if (childType == KiteTokenTypes.LBRACE || childType == KiteTokenTypes.LBRACK) {
-           return Indent.getNoneIndent();
-       }
-       // Closing braces get normal indent to align with the property
-       if (childType == KiteTokenTypes.RBRACE || childType == KiteTokenTypes.RBRACK) {
-           return Indent.getNormalIndent();
-       }
-       // All content (identifiers, colons, values) gets continuation indent
-       return Indent.getContinuationIndent();
-   }
-   ```
-   **Result:** Properties correctly indented at 6 spaces (4 parent + 4 continuation), closing brace at 4 spaces
-   **Why it worked:** `getContinuationIndent()` provides the deeper nesting visual that object/array literal content needs
-
-**Key Insight:** Object literals and array literals need **continuation indent** for their content, not normal indent. This creates proper visual hierarchy:
-- Resource/component body uses normal indent (2 spaces) → 4 total
-- Property value (object literal) content uses continuation indent (4 spaces) → 8 total (but 6 in practice due to property already being at 2)
-
-**Implementation in KiteBlock.java (lines 956-988):**
-```java
-// OBJECT_LITERAL as a block element itself needs proper indent when inside braces
-if (elementType == KiteElementTypes.OBJECT_LITERAL) {
-    System.err.println("[KiteBlock.getChildIndent] Block element is OBJECT_LITERAL, insideBraces=" + insideBraces);
-    if (insideBraces) {
-        System.err.println("[KiteBlock.getChildIndent] --> Returning getNormalIndent() for OBJECT_LITERAL block inside braces");
-        return Indent.getNormalIndent();
-    }
-    return Indent.getNoneIndent();
-}
-
-// Special case: for object/array literals, content (except braces) gets indented
-// This check must come FIRST to ensure it takes precedence
-if (parentType == KiteElementTypes.OBJECT_LITERAL || parentType == KiteElementTypes.ARRAY_LITERAL) {
-    System.err.println("[KiteBlock.getChildIndent] *** OBJECT/ARRAY LITERAL PARENT DETECTED ***");
-    // The opening braces/brackets themselves don't get indented
-    if (childType == KiteTokenTypes.LBRACE || childType == KiteTokenTypes.LBRACK) {
-        System.err.println("[KiteBlock.getChildIndent] --> Returning getNoneIndent() for opening brace/bracket");
-        return Indent.getNoneIndent();
-    }
-    // Closing braces should align with the opening of the literal (normal indent from parent)
-    if (childType == KiteTokenTypes.RBRACE) {
-        System.err.println("[KiteBlock.getChildIndent] --> Returning getNormalIndent() for closing brace");
-        return Indent.getNormalIndent();
-    }
-    if (childType == KiteTokenTypes.RBRACK) {
-        System.err.println("[KiteBlock.getChildIndent] --> Returning getNormalIndent() for closing bracket");
-        return Indent.getNormalIndent();
-    }
-    // Everything else (identifiers, colons, strings, etc.) gets continuation indent for deeper nesting
-    System.err.println("[KiteBlock.getChildIndent] --> Returning getContinuationIndent() for content");
-    return Indent.getContinuationIndent();
-}
-```
 
 #### Debugging Tips for Formatter Issues
 
@@ -433,56 +218,6 @@ if (parentType == KiteElementTypes.OBJECT_LITERAL || parentType == KiteElementTy
 
 **Problem:** Nested object literals were not being indented correctly because the parser was creating flat token structures instead of hierarchical PSI elements.
 
-**Root Cause:** The `parseObjectLiteral()` method in `KitePsiParser.java` was counting braces but not recursively creating nested `OBJECT_LITERAL` elements:
-```java
-// OLD CODE - just counted braces, no nesting
-int braceDepth = 1;
-while (!builder.eof() && braceDepth > 0) {
-    if (tokenType == KiteTokenTypes.LBRACE) braceDepth++;
-    else if (tokenType == KiteTokenTypes.RBRACE) braceDepth--;
-    builder.advanceLexer();
-}
-```
-
-**Solution:** Two changes were needed:
-
-1. **Parser Fix** (`KitePsiParser.java`): Recursively create nested `OBJECT_LITERAL` and `ARRAY_LITERAL` elements:
-```java
-private void parseObjectLiteral(PsiBuilder builder) {
-    PsiBuilder.Marker marker = builder.mark();
-    builder.advanceLexer();  // Consume opening brace
-
-    while (!builder.eof()) {
-        IElementType tokenType = builder.getTokenType();
-        if (tokenType == KiteTokenTypes.LBRACE) {
-            parseObjectLiteral(builder);  // Recurse for nested objects
-        } else if (tokenType == KiteTokenTypes.LBRACK) {
-            parseArrayLiteral(builder);   // Recurse for nested arrays
-        } else if (tokenType == KiteTokenTypes.RBRACE) {
-            builder.advanceLexer();
-            break;
-        } else {
-            builder.advanceLexer();
-        }
-    }
-    marker.done(KiteElementTypes.OBJECT_LITERAL);
-}
-```
-
-2. **Formatter Fix** (`KiteBlock.java`): Reorder checks in `getChildIndent()` so `OBJECT_LITERAL` parent handling runs BEFORE the generic literal handling, and give nested literals `getNormalIndent()`:
-```java
-// Handle OBJECT_LITERAL parents FIRST
-if (parentType == KiteElementTypes.OBJECT_LITERAL) {
-    if (childType == KiteTokenTypes.LBRACE) return Indent.getNoneIndent();
-    if (childType == KiteTokenTypes.RBRACE) return Indent.getNoneIndent();
-    // Nested literals get normal indent for proper nesting levels
-    if (childType == KiteElementTypes.OBJECT_LITERAL ||
-        childType == KiteElementTypes.ARRAY_LITERAL) {
-        return Indent.getNormalIndent();
-    }
-    return Indent.getNormalIndent();
-}
-```
 
 **Expected behavior (2 spaces per nesting level):**
 ```kite
@@ -551,34 +286,6 @@ var yp = 2     // Group 1 (aligns with x)
 var a = 3      // Group 2 (fresh alignment, no padding)
 ```
 
-#### Schema Property Alignment with Type + Name
-
-**Problem:** Schema properties have format `type propName = value` and alignment was only using `propName` length, causing incorrect spacing.
-
-**Solution:** Track `previousTypeIdentifier` and calculate combined length:
-```java
-ASTNode previousIdentifier = null;
-ASTNode previousTypeIdentifier = null;  // For schema properties
-
-// When calculating key length for alignment:
-if (myNode.getElementType() == KiteElementTypes.SCHEMA_DECLARATION && previousTypeIdentifier != null) {
-    // Schema properties: combine type + space + propName
-    keyLength = previousTypeIdentifier.getTextLength() + 1 + previousIdentifier.getTextLength();
-} else {
-    // Normal properties: just propName
-    keyLength = previousIdentifier.getTextLength();
-}
-```
-
-**Result:**
-```kite
-schema DatabaseConfig {
-  string  host        // "string" (6) + 1 + "host" (4) = 11
-  number  port = 5432 // "number" (6) + 1 + "port" (4) = 11
-  boolean ssl  = true // "boolean" (7) + 1 + "ssl" (3) = 11
-}
-```
-
 ### Features
 - Format entire file with Cmd+Alt+L (Mac) or Ctrl+Alt+L (Windows/Linux)
 - Format selected text only by selecting code first, then using the reformat shortcut
@@ -633,20 +340,6 @@ Custom SVG icon for `.kite` files displayed in the IDE file tree.
 
 #### Why NOT PsiReferenceContributor (Failed Approach)
 
-Initially attempted the "idiomatic" IntelliJ approach using `PsiReferenceContributor`:
-
-```java
-// KiteReferenceContributor.java - DIDN'T WORK
-registrar.registerReferenceProvider(
-    PlatformPatterns.psiElement(),
-    new PsiReferenceProvider() {
-        @Override
-        public PsiReference[] getReferencesByElement(PsiElement element, ProcessingContext context) {
-            // Create KiteReference for identifiers
-        }
-    }
-);
-```
 
 **Problems encountered:**
 - `PsiReferenceContributor` was never called by IntelliJ (no log output from inside the provider)
