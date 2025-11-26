@@ -106,13 +106,14 @@ public class KiteGotoDeclarationHandler implements GotoDeclarationHandler {
         }
 
         // Check if this is a property access (identifier after a DOT)
-        PsiElement objectElement = getPropertyAccessObject(sourceElement);
-        LOG.info("[KiteGotoDecl] objectElement: " + (objectElement != null ? objectElement.getText() : "null"));
+        // Use full chain resolution for nested property access like server.tag.New
+        List<String> propertyChain = getPropertyAccessChain(sourceElement);
+        LOG.info("[KiteGotoDecl] propertyChain: " + (propertyChain != null ? propertyChain : "null"));
 
-        if (objectElement != null) {
-            // Property access: resolve within the object's declaration scope
-            LOG.info("[KiteGotoDecl] Resolving property access: " + objectElement.getText() + "." + name);
-            return resolvePropertyAccess(file, objectElement.getText(), name, sourceElement);
+        if (propertyChain != null) {
+            // Property access chain: resolve step by step through nested objects
+            LOG.info("[KiteGotoDecl] Resolving property chain: " + propertyChain + "." + name);
+            return resolvePropertyAccessChain(file, propertyChain, name, sourceElement);
         } else {
             // Simple identifier: search declarations in file scope
             LOG.info("[KiteGotoDecl] Searching for declaration of: " + name);
@@ -172,6 +173,7 @@ public class KiteGotoDeclarationHandler implements GotoDeclarationHandler {
 
     /**
      * Check if this identifier is part of a property access expression (after a DOT).
+     * Returns only the immediate object element (not the full chain).
      */
     @Nullable
     private PsiElement getPropertyAccessObject(PsiElement element) {
@@ -186,7 +188,210 @@ public class KiteGotoDeclarationHandler implements GotoDeclarationHandler {
     }
 
     /**
+     * Get the full property access chain for an identifier.
+     * For "server.tag.New", returns ["server", "tag"] when called for "New".
+     * Returns null if this is not a property access.
+     */
+    @Nullable
+    private List<String> getPropertyAccessChain(PsiElement element) {
+        List<String> chain = new ArrayList<>();
+        PsiElement current = element;
+
+        // Walk backward through the chain: identifier <- DOT <- identifier <- DOT <- ...
+        while (true) {
+            PsiElement prev = skipWhitespaceBackward(current.getPrevSibling());
+
+            if (prev != null && prev.getNode().getElementType() == KiteTokenTypes.DOT) {
+                // Found DOT before us, get the identifier before the DOT
+                PsiElement objectElement = skipWhitespaceBackward(prev.getPrevSibling());
+                if (objectElement != null && objectElement.getNode().getElementType() == KiteTokenTypes.IDENTIFIER) {
+                    chain.add(0, objectElement.getText()); // Add at beginning to maintain order
+                    current = objectElement;
+                } else {
+                    break;
+                }
+            } else {
+                break;
+            }
+        }
+
+        return chain.isEmpty() ? null : chain;
+    }
+
+    /**
+     * Resolve property access chain: navigate through nested object literals.
+     * For "server.tag.New", chain = ["server", "tag"], propertyName = "New"
+     * Steps:
+     *   1. Find declaration of "server" (the resource)
+     *   2. Find "tag" property inside server's block → get its OBJECT_LITERAL value
+     *   3. Find "New" property inside that object literal
+     */
+    @Nullable
+    private PsiElement[] resolvePropertyAccessChain(PsiFile file, List<String> chain, String propertyName, PsiElement sourceElement) {
+        LOG.info("[KiteGotoDecl] resolvePropertyAccessChain: chain=" + chain + ", target='" + propertyName + "'");
+
+        // Start with the first element in the chain (e.g., "server")
+        String rootName = chain.get(0);
+        PsiElement currentScope = findDeclarationElement(file, rootName);
+
+        if (currentScope == null) {
+            LOG.info("[KiteGotoDecl] Root declaration not found: " + rootName);
+            return null;
+        }
+
+        LOG.info("[KiteGotoDecl] Found root declaration: " + currentScope.getNode().getElementType());
+
+        // Navigate through the rest of the chain (e.g., ["tag"] for server.tag.New)
+        for (int i = 1; i < chain.size(); i++) {
+            String chainPropertyName = chain.get(i);
+            LOG.info("[KiteGotoDecl] Step " + i + ": Looking for property '" + chainPropertyName + "'");
+
+            // Find the property and get its value (should be an object literal)
+            PsiElement propertyValue = findPropertyValue(currentScope, chainPropertyName);
+
+            if (propertyValue == null) {
+                LOG.info("[KiteGotoDecl] Property '" + chainPropertyName + "' not found");
+                return null;
+            }
+
+            LOG.info("[KiteGotoDecl] Found property value type: " + propertyValue.getNode().getElementType());
+
+            // The value should be an object literal to continue traversing
+            if (propertyValue.getNode().getElementType() == KiteElementTypes.OBJECT_LITERAL) {
+                currentScope = propertyValue;
+                LOG.info("[KiteGotoDecl] Advanced to nested OBJECT_LITERAL");
+            } else {
+                LOG.info("[KiteGotoDecl] Property value is not OBJECT_LITERAL, can't traverse deeper");
+                return null;
+            }
+        }
+
+        // Now find the target property in the final scope
+        LOG.info("[KiteGotoDecl] Final step: Finding target '" + propertyName + "'");
+        PsiElement result = findPropertyInScope(currentScope, propertyName, sourceElement);
+        if (result != null) {
+            LOG.info("[KiteGotoDecl] FOUND target at " + result.getTextRange());
+            return new PsiElement[]{result};
+        }
+
+        LOG.info("[KiteGotoDecl] Target property not found");
+        return null;
+    }
+
+    /**
+     * Find a property's value (the expression after = or :) within a declaration or object literal.
+     */
+    @Nullable
+    private PsiElement findPropertyValue(PsiElement scope, String propertyName) {
+        // If scope is already an OBJECT_LITERAL, we're conceptually "inside braces"
+        boolean startInsideBraces = (scope.getNode().getElementType() == KiteElementTypes.OBJECT_LITERAL);
+        return findPropertyValueRecursive(scope, propertyName, startInsideBraces);
+    }
+
+    @Nullable
+    private PsiElement findPropertyValueRecursive(PsiElement element, String propertyName, boolean insideBraces) {
+        PsiElement child = element.getFirstChild();
+        boolean currentInsideBraces = insideBraces;
+
+        while (child != null) {
+            IElementType childType = child.getNode().getElementType();
+
+            // Track brace state
+            if (childType == KiteTokenTypes.LBRACE) {
+                currentInsideBraces = true;
+            } else if (childType == KiteTokenTypes.RBRACE) {
+                currentInsideBraces = false;
+            }
+
+            // Look for property assignments
+            if (currentInsideBraces && childType == KiteTokenTypes.IDENTIFIER) {
+                String identText = child.getText();
+                if (propertyName.equals(identText)) {
+                    // Check if followed by = or :
+                    PsiElement next = skipWhitespaceForward(child.getNextSibling());
+                    if (next != null) {
+                        IElementType nextType = next.getNode().getElementType();
+                        if (nextType == KiteTokenTypes.ASSIGN || nextType == KiteTokenTypes.COLON) {
+                            // Get the value after = or :
+                            PsiElement value = skipWhitespaceForward(next.getNextSibling());
+                            if (value != null) {
+                                return value;
+                            }
+                        }
+                    }
+                }
+            }
+
+            // DON'T recurse into nested OBJECT_LITERALs - we only want direct children
+            if (childType == KiteElementTypes.OBJECT_LITERAL) {
+                // Skip nested objects when searching at current level
+            } else if (child.getFirstChild() != null && !isDeclarationType(childType)) {
+                PsiElement result = findPropertyValueRecursive(child, propertyName, currentInsideBraces);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            child = child.getNextSibling();
+        }
+
+        return null;
+    }
+
+    /**
+     * Find property in scope (object literal or declaration).
+     */
+    @Nullable
+    private PsiElement findPropertyInScope(PsiElement scope, String propertyName, PsiElement sourceElement) {
+        IElementType scopeType = scope.getNode().getElementType();
+
+        if (scopeType == KiteElementTypes.OBJECT_LITERAL) {
+            // For object literals, search directly inside
+            return findPropertyInObjectLiteral(scope, propertyName, sourceElement);
+        } else {
+            // For declarations, use the existing recursive search
+            return findPropertyInDeclaration(scope, propertyName, sourceElement);
+        }
+    }
+
+    /**
+     * Find property in an object literal.
+     */
+    @Nullable
+    private PsiElement findPropertyInObjectLiteral(PsiElement objectLiteral, String propertyName, PsiElement sourceElement) {
+        PsiElement child = objectLiteral.getFirstChild();
+
+        while (child != null) {
+            IElementType childType = child.getNode().getElementType();
+
+            if (childType == KiteTokenTypes.IDENTIFIER) {
+                String identText = child.getText();
+                if (propertyName.equals(identText) && child != sourceElement) {
+                    // Check if followed by : (object literal property)
+                    PsiElement next = skipWhitespaceForward(child.getNextSibling());
+                    if (next != null && next.getNode().getElementType() == KiteTokenTypes.COLON) {
+                        return child;
+                    }
+                }
+            }
+
+            // Don't recurse into nested object literals
+            if (childType != KiteElementTypes.OBJECT_LITERAL && child.getFirstChild() != null) {
+                PsiElement result = findPropertyInObjectLiteral(child, propertyName, sourceElement);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            child = child.getNextSibling();
+        }
+
+        return null;
+    }
+
+    /**
      * Resolve property access: find the property within the object's declaration scope.
+     * (Legacy method - kept for backwards compatibility)
      */
     @Nullable
     private PsiElement[] resolvePropertyAccess(PsiFile file, String objectName, String propertyName, PsiElement sourceElement) {
