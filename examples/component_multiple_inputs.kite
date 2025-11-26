@@ -1,10 +1,11 @@
 component WebServer {
   input string instanceType = "t2.micro"
+  input string fromOutput   = "t2.micro"
 
   resource VM.Instance server {
-    size        = instanceType
+    size = instanceType
   }
-
+  output string fromOutputs = "t2.micro"
 }
 
 component WebServer serviceA {
@@ -13,13 +14,13 @@ component WebServer serviceA {
 
 component WebServer serviceB {
   instanceType = instanceType
+  fromOutput   = serviceA.fromOutputs
 }
 
-input number port          = 8080
+input number port         = 8080
 input string instanceType = "t2.micro"
 
-output number port         = 8080
-output string instanceType = "t2.micro"
+output number port        = 8080
 
 var number port         = 8080
 var string instanceType = "t2.micro"
