@@ -33,7 +33,9 @@ component WebServer api {
   output string instanceId = server.id
 }
 
-var WebServer xinput number port = 8080
+var WebServer x
+
+input number port = 8080
 input string siz  = "t2.micro"
 
 output number port = 8080

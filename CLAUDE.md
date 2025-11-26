@@ -1041,3 +1041,230 @@ private boolean isDeclarationName(PsiElement element) {
 ```
 
 When `isDeclarationName()` returns `true`, the handler finds all usages and wraps them for the popup display.
+
+## String Interpolation Support
+
+### Overview
+String interpolation allows embedding expressions inside double-quoted strings using `${expression}` syntax. The plugin provides:
+- Syntax highlighting with orange `${` and `}` delimiters
+- Cmd+Click navigation from variables inside interpolations to their declarations
+- Precise underlining of just the variable name (not the entire string)
+
+### Grammar Implementation (Split Grammar Approach)
+
+String interpolation required a **split grammar** with separate lexer and parser files because ANTLR lexer modes are needed to handle the state transitions between string content and interpolated expressions.
+
+**Files:**
+- `src/main/antlr/io/kite/intellij/parser/KiteLexer.g4` - Lexer with modes
+- `src/main/antlr/io/kite/intellij/parser/KiteParser.g4` - Parser rules
+
+#### Lexer Modes
+
+The lexer uses two modes to handle string interpolation:
+
+```antlr
+// DEFAULT_MODE - normal code
+DQUOTE: '"' -> pushMode(STRING_MODE);
+SINGLE_STRING: '\'' (~['\\\r\n] | '\\' .)* '\'';
+
+// STRING_MODE - inside double-quoted strings
+mode STRING_MODE;
+STRING_DQUOTE: '"' -> popMode;           // End of string
+INTERP_START: '${' -> pushMode(DEFAULT_MODE);  // Start interpolation
+STRING_DOLLAR: '$';                       // Lone $ (not followed by {)
+STRING_ESCAPE: '\\' .;                    // Escaped character
+STRING_TEXT: ~["\\$]+;                    // Regular text
+```
+
+#### Interpolation Depth Tracking
+
+For nested interpolations like `"${obj.get("${key}")}"`, the lexer tracks depth:
+
+```antlr
+@members {
+    private int interpolationDepth = 0;
+}
+
+// In DEFAULT_MODE:
+LBRACE: '{' { if (interpolationDepth > 0) interpolationDepth++; };
+RBRACE: '}' {
+    if (interpolationDepth > 0) {
+        interpolationDepth--;
+        if (interpolationDepth == 0) {
+            setType(INTERP_END);  // Mark as interpolation end
+            popMode();            // Return to STRING_MODE
+        }
+    }
+};
+
+// When entering interpolation:
+INTERP_START: '${' { interpolationDepth = 1; } -> pushMode(DEFAULT_MODE);
+```
+
+#### Parser Rules for Interpolated Strings
+
+```antlr
+stringLiteral
+    : interpolatedString
+    | SINGLE_STRING
+    ;
+
+interpolatedString
+    : DQUOTE stringPart* STRING_DQUOTE
+    ;
+
+stringPart
+    : STRING_TEXT                           // Regular text
+    | STRING_ESCAPE                         // Escaped character
+    | STRING_DOLLAR                         // Lone $ not followed by {
+    | INTERP_START expression INTERP_END    // ${expression}
+    ;
+```
+
+### Syntax Highlighting
+
+#### Token Colors
+
+| Token | Color | Description |
+|-------|-------|-------------|
+| `INTERP_START` (`${`) | Orange | Opens interpolation |
+| `INTERP_END` (`}`) | Orange | Closes interpolation |
+| `STRING_TEXT` | String color | Regular string content |
+| `STRING_ESCAPE` | String escape color | Escaped characters |
+| Identifier inside `${}` | Default text | Variable name |
+
+**Implementation in `KiteSyntaxHighlighter.java`:**
+```java
+// Map interpolation delimiters to orange color
+INTERP_DELIM_KEYS = new TextAttributesKey[]{INTERP_DELIM};
+// ...
+if (tokenType == KiteTokenTypes.INTERP_START || tokenType == KiteTokenTypes.INTERP_END) {
+    return INTERP_DELIM_KEYS;
+}
+```
+
+**INTERP_END Token Fix:**
+The closing `}` inside interpolations is colored orange by using `setType(INTERP_END)` in the lexer when the brace closes an interpolation context (tracked via `interpolationDepth`).
+
+### Navigation from Interpolated Variables
+
+#### Reference Contributor
+
+`KiteReferenceContributor` registers references for identifiers inside interpolations:
+
+```java
+@Override
+public void registerReferenceProviders(@NotNull PsiReferenceRegistrar registrar) {
+    // Register for IDENTIFIER tokens (handles regular identifiers AND interpolation)
+    registrar.registerReferenceProvider(
+        PlatformPatterns.psiElement(),
+        new KiteReferenceProvider()
+    );
+}
+```
+
+The `KiteReference` class resolves the identifier to its declaration by searching the file's PSI tree.
+
+#### Precise TextRange for Underlining
+
+The key to underlining only the variable (not the entire string) is providing a precise `TextRange` in the reference:
+
+```java
+public class KiteReference extends PsiPolyVariantReferenceBase<PsiElement> {
+    @Override
+    public @NotNull TextRange getRangeInElement() {
+        // Return range covering just the identifier text
+        return new TextRange(0, myElement.getTextLength());
+    }
+}
+```
+
+Since each token (including identifiers inside interpolations) is its own PSI element, the range naturally covers just that token.
+
+### Known Limitations
+
+#### Simple Interpolation (`$var`) Not Supported
+
+Navigation for simple interpolation syntax (without braces) is **not yet implemented**:
+
+```kite
+// Works - brace interpolation
+console.log("Port: ${port}")   // Cmd+Click on 'port' navigates to declaration
+
+// Not yet working - simple interpolation
+console.log("Port: $port")     // Cmd+Click does nothing
+```
+
+**Why:** The lexer currently emits `STRING_DOLLAR` + remaining text as separate tokens, but doesn't create a navigable identifier token for the variable name after `$`.
+
+**Future fix:** Would require lexer changes to recognize `$identifier` pattern and emit proper tokens.
+
+## Formatter: Line Break Preservation
+
+### Problem
+After implementing string interpolation, the formatter was collapsing declarations onto single lines:
+
+**Input:**
+```kite
+var WebServer x
+
+input number port = 8080
+input string siz = "t2.micro"
+```
+
+**Incorrect Output:**
+```kite
+var WebServer xinput number port = 8080input string siz = "t2.micro"
+```
+
+### Root Cause
+The formatter skips `NL` (newline) tokens in `shouldSkipToken()` to let IntelliJ handle indentation. However, this meant no spacing rules were forcing line breaks between declarations.
+
+### Solution
+Add explicit line break rules in `KiteBlock.getSpacing()` for declaration keywords:
+
+```java
+@Override
+public @Nullable Spacing getSpacing(@Nullable Block child1, @NotNull Block child2) {
+    IElementType parentType = myNode.getElementType();
+
+    // Force line breaks between declaration keywords inside block elements
+    if (isBlockElement(parentType) && child1 instanceof KiteBlock && child2 instanceof KiteBlock) {
+        IElementType type2 = ((KiteBlock) child2).myNode.getElementType();
+        IElementType type1 = ((KiteBlock) child1).myNode.getElementType();
+
+        // If child2 starts a new declaration, force a line break
+        if (isDeclarationKeyword(type2)) {
+            return Spacing.createSpacing(0, 0, 1, true, 1);
+        }
+
+        // After closing brace, if followed by anything other than closing brace, force line break
+        if (type1 == KiteTokenTypes.RBRACE && type2 != KiteTokenTypes.RBRACE) {
+            return Spacing.createSpacing(0, 0, 1, true, 1);
+        }
+    }
+    // ... rest of method
+}
+
+private boolean isDeclarationKeyword(IElementType type) {
+    return type == KiteTokenTypes.INPUT ||
+           type == KiteTokenTypes.OUTPUT ||
+           type == KiteTokenTypes.VAR ||
+           type == KiteTokenTypes.RESOURCE ||
+           type == KiteTokenTypes.COMPONENT ||
+           type == KiteTokenTypes.SCHEMA ||
+           type == KiteTokenTypes.FUN ||
+           type == KiteTokenTypes.TYPE ||
+           type == KiteTokenTypes.IF ||
+           type == KiteTokenTypes.FOR ||
+           type == KiteTokenTypes.WHILE ||
+           type == KiteTokenTypes.RETURN;
+}
+```
+
+### Key Insight
+The `Spacing.createSpacing(0, 0, 1, true, 1)` parameters mean:
+- `minSpaces=0`, `maxSpaces=0` - no horizontal spacing
+- `minLineFeeds=1` - at least one line break required
+- `keepLineBreaks=true` - preserve existing line breaks
+- `keepBlankLines=1` - preserve up to 1 blank line

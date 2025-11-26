@@ -48,6 +48,16 @@
 
     <!-- Short summary of new features and bugfixes in the latest version -->
     <change-notes><![CDATA[
+    <b>0.3.0</b>
+    <ul>
+      <li><b>String Interpolation Support</b> - Navigate from variables inside <code>${variable}</code> to their declarations
+        <ul>
+          <li>Only the variable name is underlined, not the entire string</li>
+          <li><code>${</code> and <code>}</code> delimiters highlighted in orange</li>
+        </ul>
+      </li>
+      <li><b>Formatter Fix</b> - Code formatter now preserves line breaks between declarations (var, input, output, etc.)</li>
+    </ul>
     <b>0.2.0</b>
     <ul>
       <li><b>Go to Declaration</b> - Cmd+Click navigation to jump from identifier usages to their declarations</li>
