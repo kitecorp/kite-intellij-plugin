@@ -218,9 +218,9 @@ Created 4 comprehensive test files demonstrating all language features:
   - "Kite Component File" with component template
   - "Kite Schema File" with schema template
 
-- [ ] **Smart Enter**: Enhanced Enter key behavior
-  - Auto-insert closing brace after `{`
-  - Auto-indent continuation lines
+- [x] **Smart Enter**: Enhanced Enter key behavior ✅
+  - Auto-insert closing brace when typing `{` (via BraceMatcher + IntelliJ's TypedHandler)
+  - Auto-indent when pressing Enter inside blocks (via IntelliJ's standard indentation)
 
 - [ ] **Inlay Hints**: Show inline type hints
   - Display inferred types for variables without explicit type annotation
