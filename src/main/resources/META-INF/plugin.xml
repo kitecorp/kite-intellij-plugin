@@ -43,12 +43,23 @@
       <li><b>Code Formatting</b> - Automatic code formatting with 'Reformat Code' action (Cmd+Alt+L / Ctrl+Alt+L) including vertical alignment of object properties and declarations</li>
       <li><b>Comment/Uncomment</b> - Toggle line and block comments with keyboard shortcuts (Cmd+/ or Ctrl+/)</li>
       <li><b>Brace Matching</b> - Automatic highlighting of matching braces, brackets, and parentheses</li>
+      <li><b>Breadcrumbs</b> - Navigation path showing current location (e.g., component > resource > property) at top/bottom of editor</li>
       <li><b>Custom Color Scheme</b> - Configurable syntax colors for keywords, types, literals, comments, and more via Settings > Editor > Color Scheme > Kite</li>
     </ul>
   ]]></description>
 
     <!-- Short summary of new features and bugfixes in the latest version -->
     <change-notes><![CDATA[
+    <b>0.5.0</b>
+    <ul>
+      <li><b>Breadcrumbs Navigation</b> - Navigation path showing current location at top/bottom of editor
+        <ul>
+          <li>Shows hierarchical path: component > resource > property</li>
+          <li>Object literals display their property names (e.g., <code>tag</code>, <code>New</code>)</li>
+          <li>Supports all Kite declarations: components, resources, schemas, functions, types, variables</li>
+        </ul>
+      </li>
+    </ul>
     <b>0.4.0</b>
     <ul>
       <li><b>Simple String Interpolation</b> - Navigate from <code>$variable</code> (without braces) to declarations
@@ -164,6 +175,9 @@
         <!-- Code completion -->
         <completion.contributor language="Kite"
                                 implementationClass="io.kite.intellij.completion.KiteCompletionContributor"/>
+
+        <!-- Breadcrumbs navigation -->
+        <breadcrumbsInfoProvider implementation="io.kite.intellij.KiteBreadcrumbsProvider"/>
 
     </extensions>
 </idea-plugin>

@@ -967,3 +967,82 @@ The `Spacing.createSpacing(0, 0, 1, true, 1)` parameters mean:
 - `minLineFeeds=1` - at least one line break required
 - `keepLineBreaks=true` - preserve existing line breaks
 - `keepBlankLines=1` - preserve up to 1 blank line
+
+## Breadcrumbs Navigation
+
+### Overview
+Breadcrumbs show the navigation path at the top/bottom of the editor (e.g., `component > resource > property`), helping users understand their current location in the code hierarchy.
+
+### Implementation
+- **File**: `src/main/java/io/kite/intellij/KiteBreadcrumbsProvider.java`
+- **Registration**: Registered in `plugin.xml` as `breadcrumbsInfoProvider` extension
+
+### Supported Elements
+Breadcrumbs are shown for these Kite constructs:
+- Component declarations (`component WebServer api { }`)
+- Resource declarations (`resource VM.Instance server { }`)
+- Schema declarations (`schema DatabaseConfig { }`)
+- Function declarations (`fun calculateCost() { }`)
+- Type declarations (`type UserRole = ...`)
+- Variable declarations (`var x = 1`)
+- Input declarations (`input string name = ...`)
+- Output declarations (`output string endpoint = ...`)
+- For statements (`for item in collection`)
+- While statements (`while condition`)
+- Object literals (`{ key: value }`)
+
+### Features
+- Shows meaningful names instead of generic labels:
+  - `component WebServer api` → "WebServer api"
+  - `resource VM.Instance server` → "server"
+  - `fun calculateCost()` → "calculateCost()"
+  - Object literals show their property name (e.g., `tag` for `tag = { ... }`)
+- Tooltips show the full first line of each element
+- Enable via View > Appearance > Breadcrumbs
+
+### Key Implementation: Object Literal Labels
+
+**Problem:** Object literals initially showed `{...}` instead of their property name (e.g., `tag`).
+
+**Solution:** Walk backwards through PSI siblings to find the identifier before the colon/assign:
+
+```java
+private String getObjectLiteralLabel(PsiElement element) {
+    PsiElement sibling = element.getPrevSibling();
+    while (sibling != null) {
+        IElementType sibType = sibling.getNode().getElementType();
+        
+        // Skip whitespace - IMPORTANT: use TokenType.WHITE_SPACE (IntelliJ platform type)
+        // not KiteTokenTypes.WHITESPACE
+        if (sibType == KiteTokenTypes.WHITESPACE ||
+            sibType == KiteTokenTypes.NL ||
+            sibType == TokenType.WHITE_SPACE) {
+            sibling = sibling.getPrevSibling();
+            continue;
+        }
+        
+        // Found an identifier - this is the property name
+        if (sibType == KiteTokenTypes.IDENTIFIER) {
+            return sibling.getText();
+        }
+        
+        // Continue past colon/assign to find identifier
+        if (sibType == KiteTokenTypes.COLON || sibType == KiteTokenTypes.ASSIGN) {
+            sibling = sibling.getPrevSibling();
+            continue;
+        }
+        
+        break;
+    }
+    return "{...}";
+}
+```
+
+**Critical Bug Fix:** The code initially checked for `KiteTokenTypes.WHITESPACE` but IntelliJ's PSI returns `TokenType.WHITE_SPACE` (the platform built-in type). Adding `TokenType.WHITE_SPACE` to the check fixed the bug where whitespace wasn't being skipped properly.
+
+### Interface Methods
+Implements `com.intellij.ui.breadcrumbs.BreadcrumbsProvider`:
+- `getLanguages()` - Returns `KiteLanguage.INSTANCE`
+- `acceptElement()` - Returns true for structural elements
+- `getElementInfo()` - Extracts display name from element
+- `getElementTooltip()` - Shows full first line (truncated at 100 chars)
