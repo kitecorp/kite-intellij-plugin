@@ -203,9 +203,8 @@ public class KiteDocumentationProvider extends AbstractDocumentationProvider {
         // Get preceding comment (if any)
         String comment = getPrecedingComment(declaration);
 
-        // Add a wrapper div with minimum width to encourage larger popup size
-        // The popup auto-sizes to content, so we provide a minimum width hint
-        sb.append("<div style=\"min-width: 400px;\">");
+        // Add a wrapper div with no text wrapping - content stays on single lines with horizontal scroll
+        sb.append("<div style=\"white-space: nowrap;\">");
 
         // Build documentation HTML
         sb.append(DocumentationMarkup.DEFINITION_START);
@@ -289,31 +288,110 @@ public class KiteDocumentationProvider extends AbstractDocumentationProvider {
 
     /**
      * Get any preceding comment for the declaration.
+     * Supports both line comments ({@code //}) and block comments ({@code /* ... *&#47;}).
+     * Can collect multiple consecutive line comments into a single documentation block.
      */
     @Nullable
     private String getPrecedingComment(PsiElement declaration) {
         PsiElement prev = declaration.getPrevSibling();
 
         // Skip whitespace
-        while (prev instanceof PsiWhiteSpace) {
+        while (prev != null && isWhitespaceElement(prev)) {
             prev = prev.getPrevSibling();
         }
 
-        // Check for comment
-        if (prev instanceof PsiComment) {
+        if (prev == null) {
+            return null;
+        }
+
+        // Check if it's a comment by token type (for Kite language elements)
+        IElementType prevType = prev.getNode() != null ? prev.getNode().getElementType() : null;
+
+        // Handle block comments
+        if (prevType == KiteTokenTypes.BLOCK_COMMENT || prev instanceof PsiComment) {
             String commentText = prev.getText();
-            // Remove comment markers
-            if (commentText.startsWith("//")) {
+            if (commentText.startsWith("/*") && commentText.endsWith("*/")) {
+                // Remove /* and */ and clean up the content
+                String content = commentText.substring(2, commentText.length() - 2);
+                return cleanBlockCommentContent(content);
+            } else if (commentText.startsWith("//")) {
                 return commentText.substring(2).trim();
-            } else if (commentText.startsWith("/*") && commentText.endsWith("*/")) {
-                return commentText.substring(2, commentText.length() - 2).trim();
+            }
+            return commentText.trim();
+        }
+
+        // Handle line comments - collect consecutive line comments
+        if (prevType == KiteTokenTypes.LINE_COMMENT) {
+            StringBuilder commentBuilder = new StringBuilder();
+            java.util.List<String> lines = new java.util.ArrayList<>();
+
+            // Collect all consecutive line comments
+            while (prev != null) {
+                prevType = prev.getNode() != null ? prev.getNode().getElementType() : null;
+
+                if (prevType == KiteTokenTypes.LINE_COMMENT) {
+                    String line = prev.getText();
+                    if (line.startsWith("//")) {
+                        line = line.substring(2).trim();
+                    }
+                    lines.add(0, line); // Add at beginning since we're going backwards
+                } else if (isWhitespaceElement(prev)) {
+                    // Continue through whitespace
+                } else {
+                    // Stop at non-comment, non-whitespace
+                    break;
+                }
+                prev = prev.getPrevSibling();
+            }
+
+            if (!lines.isEmpty()) {
+                return String.join("\n", lines);
             }
         }
 
-        // Also check for comment on the same line (looking at previous tokens)
-        // This handles cases like: // comment above\nvar x = 1
-
         return null;
+    }
+
+    /**
+     * Check if an element is whitespace.
+     */
+    private boolean isWhitespaceElement(PsiElement element) {
+        if (element instanceof PsiWhiteSpace) {
+            return true;
+        }
+        if (element.getNode() != null) {
+            IElementType type = element.getNode().getElementType();
+            return type == KiteTokenTypes.WHITESPACE ||
+                   type == KiteTokenTypes.NL ||
+                   type == KiteTokenTypes.NEWLINE ||
+                   type == com.intellij.psi.TokenType.WHITE_SPACE;
+        }
+        return false;
+    }
+
+    /**
+     * Clean up block comment content by removing leading asterisks and normalizing indentation.
+     */
+    @NotNull
+    private String cleanBlockCommentContent(String content) {
+        String[] lines = content.split("\n");
+        StringBuilder result = new StringBuilder();
+
+        for (int i = 0; i < lines.length; i++) {
+            String line = lines[i].trim();
+            // Remove leading asterisks (common in multi-line comments)
+            if (line.startsWith("*")) {
+                line = line.substring(1).trim();
+            }
+            if (!line.isEmpty()) {
+                if (result.length() > 0) {
+                    result.append("\n");
+                }
+                result.append(line);
+            }
+        }
+
+        return result.toString();
     }
 
     /**
