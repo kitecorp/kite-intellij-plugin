@@ -48,6 +48,10 @@ var number port         = 8080
 var string instanceType = "t2.micro"
 var string size         = serviceA.endpoint
 
+var portInlay           = 8080
+var portInlayString     = "str"
+var inlaySingleString   = 'str'
+var inlayBoolean        = false
 fun greet(string name) {
   println(name)
 }
