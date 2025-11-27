@@ -191,5 +191,8 @@
         <lang.elementManipulator forClass="com.intellij.psi.impl.source.tree.LeafPsiElement"
                                   implementationClass="io.kite.intellij.refactoring.KiteIdentifierManipulator"/>
 
+        <!-- Custom rename handler for Kite identifiers -->
+        <renameHandler implementation="io.kite.intellij.refactoring.KiteRenameHandler"/>
+
     </extensions>
 </idea-plugin>
