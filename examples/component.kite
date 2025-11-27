@@ -1,7 +1,7 @@
 // asd
 component WebServer {
-  // environment
   @allowed(["dev", "prod"])
+  @unique
   input number env          = "dev"
   input string instanceType = "t2.micro"
 

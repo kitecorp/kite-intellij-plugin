@@ -224,6 +224,22 @@ public class KiteDocumentationProvider extends AbstractDocumentationProvider {
             sb.append("</div>");
         }
 
+        // Add decorators section (if any)
+        java.util.List<String> decorators = extractDecorators(declaration);
+        if (!decorators.isEmpty()) {
+            sb.append("<div style=\"margin-bottom: 8px; background-color: ").append(getSectionBackgroundColor()).append("; padding: 8px; border-radius: 4px;\">");
+            sb.append("<span style=\"color: #808080;\">Decorators:</span>");
+            sb.append("<pre style=\"margin: 4px 0 0 0; padding: 0; font-family: monospace; background: transparent;\">");
+            for (int i = 0; i < decorators.size(); i++) {
+                if (i > 0) {
+                    sb.append("\n");
+                }
+                sb.append(colorizeDecoratorNoBreaks(decorators.get(i)));
+            }
+            sb.append("</pre>");
+            sb.append("</div>");
+        }
+
         // Add type-specific information (plain HTML without background)
         String typeInfo = getTypeSpecificInfo(declaration, type);
         if (typeInfo != null && !typeInfo.isEmpty()) {
@@ -289,6 +305,7 @@ public class KiteDocumentationProvider extends AbstractDocumentationProvider {
      * Get any preceding comment for the declaration.
      * Supports both line comments ({@code //}) and block comments ({@code /* ... *&#47;}).
      * Can collect multiple consecutive line comments into a single documentation block.
+     * Skips over decorators (like @allowed([...])) to find comments above them.
      */
     @Nullable
     private String getPrecedingComment(PsiElement declaration) {
@@ -298,6 +315,9 @@ public class KiteDocumentationProvider extends AbstractDocumentationProvider {
         while (prev != null && isWhitespaceElement(prev)) {
             prev = prev.getPrevSibling();
         }
+
+        // Skip over decorators to find comments above them
+        prev = skipOverDecorators(prev);
 
         if (prev == null) {
             return null;
@@ -349,6 +369,228 @@ public class KiteDocumentationProvider extends AbstractDocumentationProvider {
         }
 
         return null;
+    }
+
+    /**
+     * Skip over decorators to find what's before them.
+     * Decorators are token sequences starting with @ followed by identifier and optional parentheses.
+     */
+    @Nullable
+    private PsiElement skipOverDecorators(PsiElement element) {
+        if (element == null) return null;
+
+        IElementType type = element.getNode() != null ? element.getNode().getElementType() : null;
+
+        // If we're at a closing paren, we might be at the end of a decorator
+        while (element != null) {
+            type = element.getNode() != null ? element.getNode().getElementType() : null;
+
+            // Check if this looks like the end of a decorator (closing paren or identifier after @)
+            if (type == KiteTokenTypes.RPAREN) {
+                // Skip back through the decorator arguments to find @
+                element = skipToAtSymbol(element);
+                if (element == null) return null;
+                // Now element is at @, skip whitespace before it
+                element = element.getPrevSibling();
+                while (element != null && isWhitespaceElement(element)) {
+                    element = element.getPrevSibling();
+                }
+            } else if (type == KiteTokenTypes.IDENTIFIER) {
+                // Check if there's an @ immediately before this identifier (no-arg decorator)
+                PsiElement beforeIdent = element.getPrevSibling();
+                while (beforeIdent != null && isWhitespaceElement(beforeIdent)) {
+                    beforeIdent = beforeIdent.getPrevSibling();
+                }
+                if (beforeIdent != null && beforeIdent.getNode() != null &&
+                    beforeIdent.getNode().getElementType() == KiteTokenTypes.AT) {
+                    // This is a no-arg decorator like @deprecated, skip it
+                    element = beforeIdent.getPrevSibling();
+                    while (element != null && isWhitespaceElement(element)) {
+                        element = element.getPrevSibling();
+                    }
+                } else {
+                    // Not a decorator, we're done
+                    break;
+                }
+            } else if (type == KiteTokenTypes.AT) {
+                // At an @ symbol, skip to before it
+                element = element.getPrevSibling();
+                while (element != null && isWhitespaceElement(element)) {
+                    element = element.getPrevSibling();
+                }
+            } else {
+                // Not part of a decorator
+                break;
+            }
+        }
+
+        return element;
+    }
+
+    /**
+     * Skip backwards from a closing paren to find the @ symbol of a decorator.
+     */
+    @Nullable
+    private PsiElement skipToAtSymbol(PsiElement closeParen) {
+        int parenDepth = 1;
+        PsiElement current = closeParen.getPrevSibling();
+
+        // Skip through to find the opening paren
+        while (current != null && parenDepth > 0) {
+            IElementType type = current.getNode() != null ? current.getNode().getElementType() : null;
+            if (type == KiteTokenTypes.RPAREN) {
+                parenDepth++;
+            } else if (type == KiteTokenTypes.LPAREN) {
+                parenDepth--;
+            }
+            if (parenDepth > 0) {
+                current = current.getPrevSibling();
+            }
+        }
+
+        if (current == null) return null;
+
+        // current is at LPAREN, skip to identifier
+        current = current.getPrevSibling();
+        while (current != null && isWhitespaceElement(current)) {
+            current = current.getPrevSibling();
+        }
+
+        if (current == null) return null;
+        IElementType type = current.getNode() != null ? current.getNode().getElementType() : null;
+        if (type != KiteTokenTypes.IDENTIFIER) return null;
+
+        // Skip to @
+        current = current.getPrevSibling();
+        while (current != null && isWhitespaceElement(current)) {
+            current = current.getPrevSibling();
+        }
+
+        if (current != null && current.getNode() != null &&
+            current.getNode().getElementType() == KiteTokenTypes.AT) {
+            return current;
+        }
+
+        return null;
+    }
+
+    /**
+     * Extract decorators from before a declaration.
+     * Returns a list of decorator strings like "@allowed([\"dev\", \"prod\"])".
+     */
+    @NotNull
+    private java.util.List<String> extractDecorators(PsiElement declaration) {
+        java.util.List<String> decorators = new java.util.ArrayList<>();
+        PsiElement prev = declaration.getPrevSibling();
+
+        // Skip whitespace
+        while (prev != null && isWhitespaceElement(prev)) {
+            prev = prev.getPrevSibling();
+        }
+
+        // Collect decorators (walking backwards)
+        while (prev != null) {
+            IElementType type = prev.getNode() != null ? prev.getNode().getElementType() : null;
+
+            // Check if this is the end of a decorator (closing paren or identifier after @)
+            if (type == KiteTokenTypes.RPAREN) {
+                // Decorator with arguments: @name(...)
+                String decorator = collectDecoratorWithArgs(prev);
+                if (decorator != null) {
+                    decorators.add(0, decorator); // Add at beginning since we're going backwards
+                    prev = skipToAtSymbol(prev);
+                    if (prev != null) {
+                        prev = prev.getPrevSibling();
+                        while (prev != null && isWhitespaceElement(prev)) {
+                            prev = prev.getPrevSibling();
+                        }
+                    }
+                } else {
+                    break;
+                }
+            } else if (type == KiteTokenTypes.IDENTIFIER) {
+                // Check if there's an @ immediately before this identifier (no-arg decorator)
+                PsiElement beforeIdent = prev.getPrevSibling();
+                while (beforeIdent != null && isWhitespaceElement(beforeIdent)) {
+                    beforeIdent = beforeIdent.getPrevSibling();
+                }
+                if (beforeIdent != null && beforeIdent.getNode() != null &&
+                    beforeIdent.getNode().getElementType() == KiteTokenTypes.AT) {
+                    // This is a no-arg decorator like @deprecated
+                    decorators.add(0, "@" + prev.getText());
+                    prev = beforeIdent.getPrevSibling();
+                    while (prev != null && isWhitespaceElement(prev)) {
+                        prev = prev.getPrevSibling();
+                    }
+                } else {
+                    // Not a decorator
+                    break;
+                }
+            } else {
+                // Not part of a decorator
+                break;
+            }
+        }
+
+        return decorators;
+    }
+
+    /**
+     * Collect a decorator with arguments, starting from the closing paren.
+     * Returns the full decorator string like "@allowed([\"dev\", \"prod\"])".
+     */
+    @Nullable
+    private String collectDecoratorWithArgs(PsiElement closeParen) {
+        StringBuilder sb = new StringBuilder();
+        java.util.List<String> tokens = new java.util.ArrayList<>();
+        int parenDepth = 1;
+
+        tokens.add(0, ")");
+        PsiElement current = closeParen.getPrevSibling();
+
+        // Collect tokens back to opening paren
+        while (current != null && parenDepth > 0) {
+            IElementType type = current.getNode() != null ? current.getNode().getElementType() : null;
+            if (type == KiteTokenTypes.RPAREN) {
+                parenDepth++;
+                tokens.add(0, ")");
+            } else if (type == KiteTokenTypes.LPAREN) {
+                parenDepth--;
+                tokens.add(0, "(");
+            } else if (!isWhitespaceElement(current)) {
+                tokens.add(0, current.getText());
+            }
+            current = current.getPrevSibling();
+        }
+
+        if (parenDepth != 0) return null;
+
+        // Get identifier
+        while (current != null && isWhitespaceElement(current)) {
+            current = current.getPrevSibling();
+        }
+        if (current == null) return null;
+        IElementType type = current.getNode() != null ? current.getNode().getElementType() : null;
+        if (type != KiteTokenTypes.IDENTIFIER) return null;
+        tokens.add(0, current.getText());
+
+        // Get @
+        current = current.getPrevSibling();
+        while (current != null && isWhitespaceElement(current)) {
+            current = current.getPrevSibling();
+        }
+        if (current == null || current.getNode() == null ||
+            current.getNode().getElementType() != KiteTokenTypes.AT) {
+            return null;
+        }
+        tokens.add(0, "@");
+
+        // Build the decorator string
+        for (String token : tokens) {
+            sb.append(token);
+        }
+
+        return sb.toString();
     }
 
     /**
@@ -1063,6 +1305,49 @@ public class KiteDocumentationProvider extends AbstractDocumentationProvider {
 
         return result.toString();
     }
+
+    /**
+     * Colorize decorator text with syntax highlighting.
+     * The @ symbol and decorator name get special coloring, arguments get colorized like code.
+     */
+    @NotNull
+    private String colorizeDecoratorNoBreaks(String text) {
+        if (text == null || text.isEmpty()) {
+            return "";
+        }
+
+        StringBuilder result = new StringBuilder();
+        int i = 0;
+        int len = text.length();
+
+        // Handle @ symbol
+        if (i < len && text.charAt(i) == '@') {
+            result.append("<span style=\"color: ").append(COLOR_DECORATOR).append(";\">@</span>");
+            i++;
+        }
+
+        // Handle decorator name (identifier after @)
+        if (i < len && (Character.isLetter(text.charAt(i)) || text.charAt(i) == '_')) {
+            int start = i;
+            while (i < len && (Character.isLetterOrDigit(text.charAt(i)) || text.charAt(i) == '_')) {
+                i++;
+            }
+            String decoratorName = text.substring(start, i);
+            result.append("<span style=\"color: ").append(COLOR_DECORATOR).append(";\">")
+                  .append(escapeHtmlNoBreaks(decoratorName)).append("</span>");
+        }
+
+        // Handle arguments (everything after decorator name) - colorize like code
+        if (i < len) {
+            String args = text.substring(i);
+            result.append(colorizeCodeNoBreaks(args));
+        }
+
+        return result.toString();
+    }
+
+    // Decorator color - orange to match editor
+    private static final String COLOR_DECORATOR = "#CC7832";
 
     /**
      * Gets a theme-aware section background color.
