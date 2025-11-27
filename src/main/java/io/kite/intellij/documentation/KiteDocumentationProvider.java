@@ -7,7 +7,9 @@ import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiFile;
 import com.intellij.psi.PsiWhiteSpace;
 import com.intellij.psi.tree.IElementType;
+import com.intellij.ui.JBColor;
 import io.kite.intellij.KiteLanguage;
+import java.awt.Color;
 import io.kite.intellij.psi.KiteElementTypes;
 import io.kite.intellij.psi.KiteTokenTypes;
 import org.jetbrains.annotations.NotNull;
@@ -418,9 +420,9 @@ public class KiteDocumentationProvider extends AbstractDocumentationProvider {
             // Extract inputs
             java.util.List<String[]> inputs = extractComponentMembersWithParts(declaration, KiteElementTypes.INPUT_DECLARATION);
             if (!inputs.isEmpty()) {
-                sb.append("<div style=\"margin-bottom: 8px;\">");
+                sb.append("<div style=\"margin-bottom: 8px; background-color: " + getSectionBackgroundColor() + "; padding: 8px; border-radius: 4px;\">");
                 sb.append("<span style=\"color: #808080;\">Inputs:</span>");
-                sb.append("<pre style=\"margin: 4px 0 0 0; padding: 0; font-family: monospace;\">");
+                sb.append("<pre style=\"margin: 4px 0 0 0; padding: 0; font-family: monospace; background: transparent;\">");
                 sb.append(formatAlignedMembersPlain(inputs));
                 sb.append("</pre>");
                 sb.append("</div>");
@@ -429,9 +431,9 @@ public class KiteDocumentationProvider extends AbstractDocumentationProvider {
             // Extract outputs
             java.util.List<String[]> outputs = extractComponentMembersWithParts(declaration, KiteElementTypes.OUTPUT_DECLARATION);
             if (!outputs.isEmpty()) {
-                sb.append("<div style=\"margin-bottom: 8px;\">");
+                sb.append("<div style=\"margin-bottom: 8px; background-color: " + getSectionBackgroundColor() + "; padding: 8px; border-radius: 4px;\">");
                 sb.append("<span style=\"color: #808080;\">Outputs:</span>");
-                sb.append("<pre style=\"margin: 4px 0 0 0; padding: 0; font-family: monospace;\">");
+                sb.append("<pre style=\"margin: 4px 0 0 0; padding: 0; font-family: monospace; background: transparent;\">");
                 sb.append(formatAlignedMembersPlain(outputs));
                 sb.append("</pre>");
                 sb.append("</div>");
@@ -1038,5 +1040,21 @@ public class KiteDocumentationProvider extends AbstractDocumentationProvider {
         }
 
         return result.toString();
+    }
+
+    /**
+     * Gets a theme-aware section background color.
+     * In light theme: slightly darker than background (like a subtle card)
+     * In dark theme: slightly lighter than background (like a subtle card)
+     * @return hex color string like "#e8e8e8" for light theme or "#3c3f41" for dark theme
+     */
+    private static String getSectionBackgroundColor() {
+        // JBColor automatically picks the right color based on current theme
+        // First value is for light theme, second is for dark theme
+        Color bgColor = new JBColor(
+            new Color(0xe8, 0xe8, 0xe8),  // Light theme: light gray
+            new Color(0x3c, 0x3f, 0x41)   // Dark theme: slightly lighter than default dark bg
+        );
+        return String.format("#%02x%02x%02x", bgColor.getRed(), bgColor.getGreen(), bgColor.getBlue());
     }
 }
