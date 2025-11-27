@@ -1146,7 +1146,7 @@ public class KiteDocumentationProvider extends AbstractDocumentationProvider {
     private static final String COLOR_KEYWORD = "#AB5FDB";   // Purple - keywords (matches KiteSyntaxHighlighter.KEYWORD)
     private static final String COLOR_TYPE = "#498BF6";      // Blue - type names (matches KiteAnnotator.TYPE_NAME)
     private static final String COLOR_STRING = "#6A9955";    // Green - string literals (matches KiteSyntaxHighlighter.STRING)
-    private static final String COLOR_NUMBER = "#1750EB";    // Blue - number literals
+    private static final String COLOR_NUMBER = "#6897BB";    // Blue - number literals (matches IntelliJ Darcula)
 
     // Keywords that should be colored
     private static final java.util.Set<String> KEYWORDS = new java.util.HashSet<>(java.util.Arrays.asList(
