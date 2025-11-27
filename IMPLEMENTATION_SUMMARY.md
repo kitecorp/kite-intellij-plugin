@@ -174,19 +174,62 @@ Created 4 comprehensive test files demonstrating all language features:
 
 ## 🔮 Future Enhancements (Not Implemented Yet)
 
-These features can be added incrementally:
+### High Value, Moderate Complexity
 
-- [ ] **Code Completion**: Context-aware autocomplete
-- [ ] **Code Folding**: Collapse resource/component/function bodies
-- [ ] **Structure View**: Outline showing resources, components, schemas
-- [ ] **Formatter**: Auto-format Kite code
-- [ ] **Error Annotations**: Real-time error highlighting
-- [ ] **Go to Definition**: Navigate to resource/function declarations
-- [ ] **Find Usages**: Find where resources are referenced
-- [ ] **Rename Refactoring**: Rename resources/variables safely
-- [ ] **Live Templates**: Code snippets (e.g., `res` → resource template)
-- [ ] **Breadcrumbs**: Show current location in file structure
-- [ ] **Documentation Provider**: Hover over elements for docs
+- [ ] **Quick Documentation (Ctrl+Q)**: Show popup documentation for declarations when hovering or pressing Ctrl+Q
+  - Display declaration type, signature, and any comments above the declaration
+  - Show inferred types for variables
+
+- [ ] **Parameter Info (Ctrl+P)**: Show function parameter hints while typing function calls
+  - Display parameter names, types, and default values
+  - Highlight current parameter being typed
+
+- [ ] **Live Templates/Snippets**: Code snippets that expand to common patterns
+  - `res` → `resource Type name { }`
+  - `comp` → `component Name { input ... output ... }`
+  - `sch` → `schema Name { }`
+  - `fun` → `fun name() { }`
+
+- [ ] **Type Checking/Error Highlighting**: Real-time type analysis
+  - Highlight type mismatches
+  - Warn about undefined references
+  - Check decorator argument types
+
+### Medium Value, Lower Complexity
+
+- [ ] **TODO/FIXME Highlighting**: Highlight TODO, FIXME, HACK comments in a distinct color
+  - Register with IntelliJ's TODO tool window
+
+- [ ] **File Templates**: New file templates
+  - "Kite Resource File" with basic resource skeleton
+  - "Kite Component File" with component template
+  - "Kite Schema File" with schema template
+
+- [ ] **Smart Enter**: Enhanced Enter key behavior
+  - Auto-insert closing brace after `{`
+  - Auto-indent continuation lines
+
+- [ ] **Inlay Hints**: Show inline type hints
+  - Display inferred types for variables without explicit type annotation
+  - Show parameter names in function calls
+
+### Future Enhancements (Advanced)
+
+- [ ] **Safe Delete**: Check for usages before deleting declarations
+  - Warn if declaration is still referenced
+
+- [ ] **Extract Variable/Function Refactoring**: Select code and extract to variable/function
+  - Extract repeated expressions to variables
+  - Extract code blocks to functions
+
+- [ ] **Cross-file Navigation**: Go to Declaration across files
+  - Follow imports to navigate to external declarations
+  - Support for multi-file projects
+
+- [ ] **Import Management**: Auto-import and organize imports
+  - Suggest imports for unresolved references
+  - Remove unused imports
+  - Sort imports alphabetically
 
 ## 📚 Documentation
 
