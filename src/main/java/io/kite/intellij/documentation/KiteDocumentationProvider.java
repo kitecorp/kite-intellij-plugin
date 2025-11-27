@@ -1,7 +1,6 @@
 package io.kite.intellij.documentation;
 
 import com.intellij.lang.documentation.AbstractDocumentationProvider;
-import com.intellij.lang.documentation.DocumentationMarkup;
 import com.intellij.openapi.editor.Editor;
 import com.intellij.psi.PsiComment;
 import com.intellij.psi.PsiElement;
@@ -207,38 +206,33 @@ public class KiteDocumentationProvider extends AbstractDocumentationProvider {
         // Use overflow-x: auto to enable horizontal scrolling, white-space: nowrap to prevent wrapping
         sb.append("<div style=\"white-space: nowrap; overflow-x: auto; max-width: 800px;\">");
 
-        // Build documentation HTML
-        sb.append(DocumentationMarkup.DEFINITION_START);
+        // Build documentation HTML (without background highlight)
+        sb.append("<div style=\"margin-bottom: 8px;\">");
         sb.append("<b>").append(kind).append("</b>");
         if (name != null) {
             sb.append(" ").append(name);
         }
-        sb.append(DocumentationMarkup.DEFINITION_END);
+        sb.append("</div>");
 
-        // Add signature section
+        // Add signature section (plain HTML without background)
         if (signature != null && !signature.isEmpty()) {
-            sb.append(DocumentationMarkup.SECTIONS_START);
-            sb.append(DocumentationMarkup.SECTION_HEADER_START);
-            sb.append("Declaration:");
-            sb.append(DocumentationMarkup.SECTION_SEPARATOR);
+            sb.append("<div style=\"margin-bottom: 4px;\">");
+            sb.append("<span style=\"color: #808080;\">Declaration:</span> ");
             sb.append("<code>").append(colorizeCode(signature)).append("</code>");
-            sb.append(DocumentationMarkup.SECTION_END);
-            sb.append(DocumentationMarkup.SECTIONS_END);
+            sb.append("</div>");
         }
 
-        // Add comment section
+        // Add comment section (plain HTML without background)
         if (comment != null && !comment.isEmpty()) {
-            sb.append(DocumentationMarkup.CONTENT_START);
+            sb.append("<div style=\"margin-top: 8px; margin-bottom: 4px; color: #808080; font-style: italic;\">");
             sb.append(escapeHtml(comment));
-            sb.append(DocumentationMarkup.CONTENT_END);
+            sb.append("</div>");
         }
 
-        // Add type-specific information
+        // Add type-specific information (plain HTML without background)
         String typeInfo = getTypeSpecificInfo(declaration, type);
         if (typeInfo != null && !typeInfo.isEmpty()) {
-            sb.append(DocumentationMarkup.SECTIONS_START);
             sb.append(typeInfo);
-            sb.append(DocumentationMarkup.SECTIONS_END);
         }
 
         // Close the wrapper div
@@ -406,45 +400,41 @@ public class KiteDocumentationProvider extends AbstractDocumentationProvider {
             // Extract resource type
             String resourceType = extractResourceType(declaration);
             if (resourceType != null) {
-                sb.append(DocumentationMarkup.SECTION_HEADER_START);
-                sb.append("Resource Type:");
-                sb.append(DocumentationMarkup.SECTION_SEPARATOR);
+                sb.append("<div style=\"margin-bottom: 4px;\">");
+                sb.append("<span style=\"color: #808080;\">Resource Type:</span> ");
                 sb.append("<code>").append(escapeHtml(resourceType)).append("</code>");
-                sb.append(DocumentationMarkup.SECTION_END);
+                sb.append("</div>");
             }
         } else if (type == KiteElementTypes.COMPONENT_DECLARATION) {
             // Extract component type
             String componentType = extractComponentType(declaration);
             if (componentType != null) {
-                sb.append(DocumentationMarkup.SECTION_HEADER_START);
-                sb.append("Component Type:");
-                sb.append(DocumentationMarkup.SECTION_SEPARATOR);
+                sb.append("<div style=\"margin-bottom: 4px;\">");
+                sb.append("<span style=\"color: #808080;\">Component Type:</span> ");
                 sb.append("<code>").append(escapeHtml(componentType)).append("</code>");
-                sb.append(DocumentationMarkup.SECTION_END);
+                sb.append("</div>");
             }
 
             // Extract inputs
             java.util.List<String[]> inputs = extractComponentMembersWithParts(declaration, KiteElementTypes.INPUT_DECLARATION);
             if (!inputs.isEmpty()) {
-                sb.append(DocumentationMarkup.SECTION_HEADER_START);
-                sb.append("Inputs:");
-                sb.append(DocumentationMarkup.SECTION_SEPARATOR);
-                sb.append("<code>");
-                sb.append(formatAlignedMembers(inputs));
-                sb.append("</code>");
-                sb.append(DocumentationMarkup.SECTION_END);
+                sb.append("<div style=\"margin-bottom: 8px;\">");
+                sb.append("<span style=\"color: #808080;\">Inputs:</span>");
+                sb.append("<pre style=\"margin: 4px 0 0 0; padding: 0; font-family: monospace;\">");
+                sb.append(formatAlignedMembersPlain(inputs));
+                sb.append("</pre>");
+                sb.append("</div>");
             }
 
             // Extract outputs
             java.util.List<String[]> outputs = extractComponentMembersWithParts(declaration, KiteElementTypes.OUTPUT_DECLARATION);
             if (!outputs.isEmpty()) {
-                sb.append(DocumentationMarkup.SECTION_HEADER_START);
-                sb.append("Outputs:");
-                sb.append(DocumentationMarkup.SECTION_SEPARATOR);
-                sb.append("<code>");
-                sb.append(formatAlignedMembers(outputs));
-                sb.append("</code>");
-                sb.append(DocumentationMarkup.SECTION_END);
+                sb.append("<div style=\"margin-bottom: 8px;\">");
+                sb.append("<span style=\"color: #808080;\">Outputs:</span>");
+                sb.append("<pre style=\"margin: 4px 0 0 0; padding: 0; font-family: monospace;\">");
+                sb.append(formatAlignedMembersPlain(outputs));
+                sb.append("</pre>");
+                sb.append("</div>");
             }
         } else if (type == KiteElementTypes.VARIABLE_DECLARATION ||
                    type == KiteElementTypes.INPUT_DECLARATION ||
@@ -452,31 +442,28 @@ public class KiteDocumentationProvider extends AbstractDocumentationProvider {
             // Extract variable type
             String varType = extractVariableType(declaration);
             if (varType != null) {
-                sb.append(DocumentationMarkup.SECTION_HEADER_START);
-                sb.append("Type:");
-                sb.append(DocumentationMarkup.SECTION_SEPARATOR);
+                sb.append("<div style=\"margin-bottom: 4px;\">");
+                sb.append("<span style=\"color: #808080;\">Type:</span> ");
                 sb.append("<code>").append(escapeHtml(varType)).append("</code>");
-                sb.append(DocumentationMarkup.SECTION_END);
+                sb.append("</div>");
             }
 
             // Extract default value
             String defaultValue = extractDefaultValue(declaration);
             if (defaultValue != null) {
-                sb.append(DocumentationMarkup.SECTION_HEADER_START);
-                sb.append("Default:");
-                sb.append(DocumentationMarkup.SECTION_SEPARATOR);
-                sb.append("<code>").append(escapeHtml(defaultValue)).append("</code>");
-                sb.append(DocumentationMarkup.SECTION_END);
+                sb.append("<div style=\"margin-bottom: 4px;\">");
+                sb.append("<span style=\"color: #808080;\">Default:</span> ");
+                sb.append("<code>").append(colorizeCode(defaultValue)).append("</code>");
+                sb.append("</div>");
             }
         } else if (type == KiteElementTypes.FUNCTION_DECLARATION) {
             // Extract parameters
             String params = extractFunctionParams(declaration);
             if (params != null) {
-                sb.append(DocumentationMarkup.SECTION_HEADER_START);
-                sb.append("Parameters:");
-                sb.append(DocumentationMarkup.SECTION_SEPARATOR);
+                sb.append("<div style=\"margin-bottom: 4px;\">");
+                sb.append("<span style=\"color: #808080;\">Parameters:</span> ");
                 sb.append("<code>").append(escapeHtml(params)).append("</code>");
-                sb.append(DocumentationMarkup.SECTION_END);
+                sb.append("</div>");
             }
         }
 
@@ -582,11 +569,14 @@ public class KiteDocumentationProvider extends AbstractDocumentationProvider {
 
     /**
      * Extract default value from a declaration.
+     * Object and array literals are replaced with {...} and [...] placeholders to avoid wrapping.
      */
     @Nullable
     private String extractDefaultValue(PsiElement declaration) {
         boolean foundAssign = false;
         StringBuilder value = new StringBuilder();
+        int braceDepth = 0;   // Track nested object literals
+        int bracketDepth = 0; // Track nested array literals
 
         PsiElement child = declaration.getFirstChild();
         while (child != null) {
@@ -595,13 +585,35 @@ public class KiteDocumentationProvider extends AbstractDocumentationProvider {
             if (childType == KiteTokenTypes.ASSIGN) {
                 foundAssign = true;
             } else if (foundAssign) {
-                String text = child.getText().trim();
-                if (!text.isEmpty() && childType != KiteTokenTypes.WHITESPACE &&
-                    childType != com.intellij.psi.TokenType.WHITE_SPACE) {
-                    if (value.length() > 0) {
-                        value.append(" ");
+                // Handle object literals - replace with {...}
+                if (childType == KiteTokenTypes.LBRACE) {
+                    braceDepth++;
+                    if (braceDepth == 1) {
+                        value.append("{...}");
                     }
-                    value.append(text);
+                } else if (childType == KiteTokenTypes.RBRACE) {
+                    braceDepth--;
+                }
+                // Handle array literals - replace with [...]
+                else if (childType == KiteTokenTypes.LBRACK) {
+                    bracketDepth++;
+                    if (bracketDepth == 1) {
+                        value.append("[...]");
+                    }
+                } else if (childType == KiteTokenTypes.RBRACK) {
+                    bracketDepth--;
+                }
+                // Only collect tokens when not inside a literal
+                else if (braceDepth == 0 && bracketDepth == 0 &&
+                         childType != KiteTokenTypes.WHITESPACE &&
+                         childType != com.intellij.psi.TokenType.WHITE_SPACE) {
+                    String text = child.getText().trim();
+                    if (!text.isEmpty()) {
+                        if (value.length() > 0) {
+                            value.append(" ");
+                        }
+                        value.append(text);
+                    }
                 }
             }
 
@@ -733,6 +745,59 @@ public class KiteDocumentationProvider extends AbstractDocumentationProvider {
     }
 
     /**
+     * Format members as plain text with vertical alignment at '='.
+     * Uses regular spaces for alignment (for use inside <pre> tags).
+     * Applies syntax highlighting colors to types and values.
+     */
+    @NotNull
+    private String formatAlignedMembersPlain(java.util.List<String[]> members) {
+        if (members.isEmpty()) {
+            return "";
+        }
+
+        // Find max length of "type name" portion (before '=')
+        int maxLeftLength = 0;
+        for (String[] parts : members) {
+            int leftLength = parts[0].length() + 1 + parts[1].length(); // "type name"
+            if (leftLength > maxLeftLength) {
+                maxLeftLength = leftLength;
+            }
+        }
+
+        StringBuilder result = new StringBuilder();
+        for (int i = 0; i < members.size(); i++) {
+            if (i > 0) {
+                result.append("\n");
+            }
+
+            String[] parts = members.get(i);
+            String typeName = parts[0];
+            String varName = parts[1];
+
+            // Colorize the type name if it's a known type
+            if (TYPE_NAMES.contains(typeName)) {
+                result.append("<span style=\"color: ").append(COLOR_TYPE).append(";\">")
+                      .append(escapeHtmlNoBreaks(typeName)).append("</span>");
+            } else {
+                result.append(escapeHtmlNoBreaks(typeName));
+            }
+            result.append(" ").append(escapeHtmlNoBreaks(varName));
+
+            if (parts[2] != null) {
+                // Add padding to align '='
+                String left = typeName + " " + varName;
+                int padding = maxLeftLength - left.length();
+                for (int p = 0; p < padding; p++) {
+                    result.append(" ");
+                }
+                result.append(" = ").append(colorizeCodeNoBreaks(parts[2]));
+            }
+        }
+
+        return result.toString();
+    }
+
+    /**
      * Format members with vertical alignment at '='.
      * Uses HTML non-breaking spaces (&nbsp;) for alignment.
      * Applies syntax highlighting colors to types and values.
@@ -798,6 +863,19 @@ public class KiteDocumentationProvider extends AbstractDocumentationProvider {
             .replace("\n", "<br/>");
     }
 
+    /**
+     * Escape HTML special characters without converting newlines.
+     * For use inside <pre> tags where newlines should be preserved as-is.
+     */
+    @NotNull
+    private String escapeHtmlNoBreaks(String text) {
+        return text
+            .replace("&", "&amp;")
+            .replace("<", "&lt;")
+            .replace(">", "&gt;")
+            .replace("\"", "&quot;");
+    }
+
     // CSS colors for syntax highlighting in documentation (matching editor colors)
     private static final String COLOR_KEYWORD = "#AB5FDB";   // Purple - keywords (matches KiteSyntaxHighlighter.KEYWORD)
     private static final String COLOR_TYPE = "#498BF6";      // Blue - type names (matches KiteAnnotator.TYPE_NAME)
@@ -815,6 +893,79 @@ public class KiteDocumentationProvider extends AbstractDocumentationProvider {
     private static final java.util.Set<String> TYPE_NAMES = new java.util.HashSet<>(java.util.Arrays.asList(
         "string", "number", "boolean", "object", "any", "void", "list", "map"
     ));
+
+    /**
+     * Colorize code text with syntax highlighting (no newline conversion).
+     * For use inside <pre> tags where newlines should be preserved.
+     */
+    @NotNull
+    private String colorizeCodeNoBreaks(String text) {
+        if (text == null || text.isEmpty()) {
+            return "";
+        }
+
+        StringBuilder result = new StringBuilder();
+        int i = 0;
+        int len = text.length();
+
+        while (i < len) {
+            char c = text.charAt(i);
+
+            // Handle string literals (quoted strings)
+            if (c == '"') {
+                int start = i;
+                i++; // skip opening quote
+                while (i < len && text.charAt(i) != '"') {
+                    if (text.charAt(i) == '\\' && i + 1 < len) {
+                        i++; // skip escaped char
+                    }
+                    i++;
+                }
+                if (i < len) i++; // skip closing quote
+                String str = escapeHtmlNoBreaks(text.substring(start, i));
+                result.append("<span style=\"color: ").append(COLOR_STRING).append(";\">").append(str).append("</span>");
+                continue;
+            }
+
+            // Handle identifiers and keywords
+            if (Character.isLetter(c) || c == '_') {
+                int start = i;
+                while (i < len && (Character.isLetterOrDigit(text.charAt(i)) || text.charAt(i) == '_')) {
+                    i++;
+                }
+                String word = text.substring(start, i);
+
+                if (KEYWORDS.contains(word)) {
+                    result.append("<span style=\"color: ").append(COLOR_KEYWORD).append("; font-weight: bold;\">")
+                          .append(escapeHtmlNoBreaks(word)).append("</span>");
+                } else if (TYPE_NAMES.contains(word)) {
+                    result.append("<span style=\"color: ").append(COLOR_TYPE).append(";\">")
+                          .append(escapeHtmlNoBreaks(word)).append("</span>");
+                } else {
+                    result.append(escapeHtmlNoBreaks(word));
+                }
+                continue;
+            }
+
+            // Handle numbers
+            if (Character.isDigit(c)) {
+                int start = i;
+                while (i < len && (Character.isDigit(text.charAt(i)) || text.charAt(i) == '.')) {
+                    i++;
+                }
+                String num = text.substring(start, i);
+                result.append("<span style=\"color: ").append(COLOR_NUMBER).append(";\">")
+                      .append(escapeHtmlNoBreaks(num)).append("</span>");
+                continue;
+            }
+
+            // Other characters - just escape and append
+            result.append(escapeHtmlNoBreaks(String.valueOf(c)));
+            i++;
+        }
+
+        return result.toString();
+    }
 
     /**
      * Colorize code text with syntax highlighting.
