@@ -210,10 +210,10 @@ Created 4 comprehensive test files demonstrating all language features:
 
 ### Medium Value, Lower Complexity
 
-- [ ] **TODO/FIXME Highlighting**: Highlight TODO, FIXME, HACK comments in a distinct color
+- [x] **TODO/FIXME Highlighting**: Highlight TODO, FIXME, HACK comments in a distinct color
   - Register with IntelliJ's TODO tool window
 
-- [ ] **File Templates**: New file templates
+- [x] **File Templates**: New file templates
   - "Kite Resource File" with basic resource skeleton
   - "Kite Component File" with component template
   - "Kite Schema File" with schema template
