@@ -63,7 +63,11 @@ public class KiteReference extends PsiReferenceBase<PsiElement> implements PsiPo
 
     @Override
     public PsiElement handleElementRename(@NotNull String newElementName) throws IncorrectOperationException {
-        // TODO: Implement rename support
+        // Use ElementManipulator to handle the rename
+        ElementManipulator<PsiElement> manipulator = ElementManipulators.getManipulator(myElement);
+        if (manipulator != null) {
+            return manipulator.handleContentChange(myElement, getRangeInElement(), newElementName);
+        }
         return myElement;
     }
 

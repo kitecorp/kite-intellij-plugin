@@ -179,5 +179,17 @@
         <!-- Breadcrumbs navigation -->
         <breadcrumbsInfoProvider implementation="io.kite.intellij.KiteBreadcrumbsProvider"/>
 
+        <!-- Rename refactoring support -->
+        <lang.refactoringSupport language="Kite"
+                                  implementationClass="io.kite.intellij.refactoring.KiteRefactoringSupportProvider"/>
+
+        <!-- Names validator for identifiers -->
+        <lang.namesValidator language="Kite"
+                             implementationClass="io.kite.intellij.refactoring.KiteNamesValidator"/>
+
+        <!-- Element manipulator for identifier renaming -->
+        <lang.elementManipulator forClass="com.intellij.psi.impl.source.tree.LeafPsiElement"
+                                  implementationClass="io.kite.intellij.refactoring.KiteIdentifierManipulator"/>
+
     </extensions>
 </idea-plugin>
