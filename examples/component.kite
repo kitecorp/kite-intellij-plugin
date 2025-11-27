@@ -1,12 +1,14 @@
 // asd
+@count
 component WebServer {
-  @allowed(["dev", "prod"])
   @unique
+  @allowed(["dev", "prod"])
   input number env          = "dev"
   input string instanceType = "t2.micro"
 
   var client = "myClient"
 
+  @count
   resource VM.Instance server {
     size        = instanceType
     tag         = {

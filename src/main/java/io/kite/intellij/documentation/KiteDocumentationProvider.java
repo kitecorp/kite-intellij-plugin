@@ -219,16 +219,22 @@ public class KiteDocumentationProvider extends AbstractDocumentationProvider {
         // Add signature section (plain HTML without background)
         if (signature != null && !signature.isEmpty()) {
             sb.append("<div style=\"margin-bottom: 4px;\">");
-            sb.append("<span style=\"color: #808080;\">Declaration:</span> ");
+            sb.append("<span>Declaration:</span> ");
             sb.append("<code>").append(colorizeCode(signature)).append("</code>");
             sb.append("</div>");
         }
 
-        // Add decorators section (if any)
+        // Add type-specific information (plain HTML without background)
+        String typeInfo = getTypeSpecificInfo(declaration, type);
+        if (typeInfo != null && !typeInfo.isEmpty()) {
+            sb.append(typeInfo);
+        }
+
+        // Add decorators section (if any) - AFTER default value, BEFORE comment
         java.util.List<String> decorators = extractDecorators(declaration);
         if (!decorators.isEmpty()) {
             sb.append("<div style=\"margin-bottom: 8px; background-color: ").append(getSectionBackgroundColor()).append("; padding: 8px; border-radius: 4px;\">");
-            sb.append("<span style=\"color: #808080;\">Decorators:</span>");
+            sb.append("<span>Decorators:</span>");
             sb.append("<pre style=\"margin: 4px 0 0 0; padding: 0; font-family: monospace; background: transparent;\">");
             for (int i = 0; i < decorators.size(); i++) {
                 if (i > 0) {
@@ -238,12 +244,6 @@ public class KiteDocumentationProvider extends AbstractDocumentationProvider {
             }
             sb.append("</pre>");
             sb.append("</div>");
-        }
-
-        // Add type-specific information (plain HTML without background)
-        String typeInfo = getTypeSpecificInfo(declaration, type);
-        if (typeInfo != null && !typeInfo.isEmpty()) {
-            sb.append(typeInfo);
         }
 
         // Add comment section LAST (after type-specific info like Outputs)
@@ -647,7 +647,7 @@ public class KiteDocumentationProvider extends AbstractDocumentationProvider {
             String resourceType = extractResourceType(declaration);
             if (resourceType != null) {
                 sb.append("<div style=\"margin-bottom: 4px;\">");
-                sb.append("<span style=\"color: #808080;\">Resource Type:</span> ");
+                sb.append("<span>Resource Type:</span> ");
                 sb.append("<code>").append(escapeHtml(resourceType)).append("</code>");
                 sb.append("</div>");
             }
@@ -656,7 +656,7 @@ public class KiteDocumentationProvider extends AbstractDocumentationProvider {
             String componentType = extractComponentType(declaration);
             if (componentType != null) {
                 sb.append("<div style=\"margin-bottom: 4px;\">");
-                sb.append("<span style=\"color: #808080;\">Component Type:</span> ");
+                sb.append("<span>Component Type:</span> ");
                 sb.append("<code>").append(escapeHtml(componentType)).append("</code>");
                 sb.append("</div>");
             }
@@ -665,7 +665,7 @@ public class KiteDocumentationProvider extends AbstractDocumentationProvider {
             java.util.List<String[]> inputs = extractComponentMembersWithParts(declaration, KiteElementTypes.INPUT_DECLARATION);
             if (!inputs.isEmpty()) {
                 sb.append("<div style=\"margin-bottom: 8px; background-color: " + getSectionBackgroundColor() + "; padding: 8px; border-radius: 4px;\">");
-                sb.append("<span style=\"color: #808080;\">Inputs:</span>");
+                sb.append("<span>Inputs:</span>");
                 sb.append("<pre style=\"margin: 4px 0 0 0; padding: 0; font-family: monospace; background: transparent;\">");
                 sb.append(formatAlignedMembersPlain(inputs));
                 sb.append("</pre>");
@@ -676,7 +676,7 @@ public class KiteDocumentationProvider extends AbstractDocumentationProvider {
             java.util.List<String[]> outputs = extractComponentMembersWithParts(declaration, KiteElementTypes.OUTPUT_DECLARATION);
             if (!outputs.isEmpty()) {
                 sb.append("<div style=\"margin-bottom: 8px; background-color: " + getSectionBackgroundColor() + "; padding: 8px; border-radius: 4px;\">");
-                sb.append("<span style=\"color: #808080;\">Outputs:</span>");
+                sb.append("<span>Outputs:</span>");
                 sb.append("<pre style=\"margin: 4px 0 0 0; padding: 0; font-family: monospace; background: transparent;\">");
                 sb.append(formatAlignedMembersPlain(outputs));
                 sb.append("</pre>");
@@ -689,7 +689,7 @@ public class KiteDocumentationProvider extends AbstractDocumentationProvider {
             String varType = extractVariableType(declaration);
             if (varType != null) {
                 sb.append("<div style=\"margin-bottom: 4px;\">");
-                sb.append("<span style=\"color: #808080;\">Type:</span> ");
+                sb.append("<span>Type:</span> ");
                 sb.append("<code>").append(escapeHtml(varType)).append("</code>");
                 sb.append("</div>");
             }
@@ -698,7 +698,7 @@ public class KiteDocumentationProvider extends AbstractDocumentationProvider {
             String defaultValue = extractDefaultValue(declaration);
             if (defaultValue != null) {
                 sb.append("<div style=\"margin-bottom: 4px;\">");
-                sb.append("<span style=\"color: #808080;\">Default:</span> ");
+                sb.append("<span>Default:</span> ");
                 sb.append("<code>").append(colorizeCode(defaultValue)).append("</code>");
                 sb.append("</div>");
             }
@@ -707,7 +707,7 @@ public class KiteDocumentationProvider extends AbstractDocumentationProvider {
             String params = extractFunctionParams(declaration);
             if (params != null) {
                 sb.append("<div style=\"margin-bottom: 4px;\">");
-                sb.append("<span style=\"color: #808080;\">Parameters:</span> ");
+                sb.append("<span>Parameters:</span> ");
                 sb.append("<code>").append(escapeHtml(params)).append("</code>");
                 sb.append("</div>");
             }
