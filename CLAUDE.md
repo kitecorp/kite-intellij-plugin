@@ -46,6 +46,15 @@ type == KiteTokenTypes.WHITESPACE
 An identifier is a **declaration name** (not navigable) if followed by `=`, `{`, `+=`, or `:`.
 Otherwise it's a **reference** (navigable to its declaration).
 
+### Quick Documentation (Ctrl+Q / F1)
+
+Shows documentation popup for declarations. Supports:
+- Variables, inputs, outputs, resources, components, schemas, functions
+- Shows type, default value, decorators, and preceding comments
+- Components display all inputs and outputs
+- Works in string interpolation (`${var}` and `$var`)
+- Colors match editor theme (types=blue, strings=green, numbers=blue)
+
 ### Force Clean Builds
 
 ```bash

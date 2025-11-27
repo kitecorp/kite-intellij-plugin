@@ -53,11 +53,35 @@
       <li><b>Brace Matching</b> - Automatic highlighting of matching braces, brackets, and parentheses</li>
       <li><b>Breadcrumbs</b> - Navigation path showing current location (e.g., component > resource > property) at top/bottom of editor</li>
       <li><b>Custom Color Scheme</b> - Configurable syntax colors for keywords, types, literals, comments, and more via Settings > Editor > Color Scheme > Kite</li>
+      <li><b>Quick Documentation</b> - Press Ctrl+Q (Windows/Linux) or F1 (Mac) on any declaration to view documentation:
+        <ul>
+          <li>Shows declaration kind, name, type, and default value</li>
+          <li>Displays decorators and preceding comments</li>
+          <li>Components show all inputs and outputs with their types and defaults</li>
+          <li>Resources show their resource type (e.g., <code>VM.Instance</code>)</li>
+          <li>Works with identifiers and string interpolation (<code>${var}</code> and <code>$var</code>)</li>
+          <li>Syntax-highlighted with colors matching the editor theme</li>
+        </ul>
+      </li>
     </ul>
   ]]></description>
 
     <!-- Short summary of new features and bugfixes in the latest version -->
     <change-notes><![CDATA[
+    <b>0.7.0</b>
+    <ul>
+      <li><b>Quick Documentation</b> - Press Ctrl+Q (Windows/Linux) or F1 (Mac) on any declaration to view documentation
+        <ul>
+          <li>Shows declaration kind (Variable, Input, Output, Resource, Component, Schema, Function)</li>
+          <li>Displays type, default value, and decorators for inputs/outputs/variables</li>
+          <li>Components show all inputs and outputs with their types and defaults</li>
+          <li>Resources show their full resource type (e.g., <code>VM.Instance</code>)</li>
+          <li>Preceding comments are displayed at the end of the documentation</li>
+          <li>Works with identifiers and string interpolation (<code>${var}</code> and <code>$var</code>)</li>
+          <li>Syntax-highlighted with colors matching the editor theme</li>
+        </ul>
+      </li>
+    </ul>
     <b>0.6.0</b>
     <ul>
       <li><b>Rename Refactoring</b> - Use Shift+F6 to rename identifiers across the file
