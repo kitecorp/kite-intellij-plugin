@@ -172,13 +172,26 @@ Created 4 comprehensive test files demonstrating all language features:
 4. ✅ Preview demo code in color settings
 5. ✅ No errors in IDE log related to Kite plugin
 
+## ✅ Recently Implemented
+
+### Quick Documentation (Ctrl+Q / F1)
+- **File**: `src/main/java/io/kite/intellij/documentation/KiteDocumentationProvider.java`
+- **Registration**: `plugin.xml` as `lang.documentationProvider` extension
+- Press Ctrl+Q (Windows/Linux) or F1 (Mac) on any declaration to see documentation popup
+- Shows:
+  - Declaration kind (Variable, Input, Output, Resource, Component, Schema, Function, Type, Loop Variable)
+  - Declaration name and signature
+  - Preceding comments (if any)
+  - Type-specific information:
+    - Resources: Resource type (e.g., `VM.Instance`)
+    - Components: Component type
+    - Variables/Inputs/Outputs: Type and default value
+    - Functions: Parameter list
+- Works with identifiers and string interpolation (`${var}` and `$var`)
+
 ## 🔮 Future Enhancements (Not Implemented Yet)
 
 ### High Value, Moderate Complexity
-
-- [ ] **Quick Documentation (Ctrl+Q)**: Show popup documentation for declarations when hovering or pressing Ctrl+Q
-  - Display declaration type, signature, and any comments above the declaration
-  - Show inferred types for variables
 
 - [ ] **Parameter Info (Ctrl+P)**: Show function parameter hints while typing function calls
   - Display parameter names, types, and default values

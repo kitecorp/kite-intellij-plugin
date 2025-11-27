@@ -22,10 +22,14 @@ component WebServer {
   output string tagNameA = server.tag.New.a
 }
 
+/*
+lalal
+
+*/
 component WebServer serviceA {
   instanceType = "t4g.normal"
 }
-
+// asd
 component WebServer serviceB {
   instanceType = instanceTypes
 }

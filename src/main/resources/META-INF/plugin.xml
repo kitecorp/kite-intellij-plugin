@@ -213,5 +213,9 @@
         <!-- Custom rename handler for Kite identifiers -->
         <renameHandler implementation="io.kite.intellij.refactoring.KiteRenameHandler"/>
 
+        <!-- Quick documentation (Ctrl+Q / F1) -->
+        <lang.documentationProvider language="Kite"
+                                     implementationClass="io.kite.intellij.documentation.KiteDocumentationProvider"/>
+
     </extensions>
 </idea-plugin>
