@@ -27,7 +27,9 @@ public class KiteBraceMatcher implements PairedBraceMatcher {
 
     @Override
     public boolean isPairedBracesAllowedBeforeType(@NotNull IElementType lbraceType,
-                                                    @Nullable IElementType contextType) {
+                                                   @Nullable IElementType contextType) {
+        var x = "";
+        var y = 2;
         return true;
     }
 

@@ -52,6 +52,8 @@ var portInlay           = 8080
 var portInlayString     = "str"
 var inlaySingleString   = 'str'
 var inlayBoolean        = false
+
+
 fun greet(string name) {
   println(name)
 }

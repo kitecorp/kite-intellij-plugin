@@ -224,6 +224,8 @@ Created 4 comprehensive test files demonstrating all language features:
 
 - [x] **Inlay Hints**: Show inline type hints ✅
     - Display inferred types for variables without explicit type annotation (e.g., `var x = "hello"` shows `: string`)
+  - Supports string, number, boolean, null, object, and array literals
+  - Hints are placed before the `=` sign to preserve vertical alignment of declarations
     - Show parameter names in function calls (e.g., `greet("Alice", 30)` shows `name:` and `age:`)
     - Configurable via Settings > Editor > Inlay Hints > Kite
 
