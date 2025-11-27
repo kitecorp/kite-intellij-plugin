@@ -203,6 +203,10 @@ public class KiteDocumentationProvider extends AbstractDocumentationProvider {
         // Get preceding comment (if any)
         String comment = getPrecedingComment(declaration);
 
+        // Add a wrapper div with minimum width to encourage larger popup size
+        // The popup auto-sizes to content, so we provide a minimum width hint
+        sb.append("<div style=\"min-width: 400px;\">");
+
         // Build documentation HTML
         sb.append(DocumentationMarkup.DEFINITION_START);
         sb.append("<b>").append(kind).append("</b>");
@@ -236,6 +240,9 @@ public class KiteDocumentationProvider extends AbstractDocumentationProvider {
             sb.append(typeInfo);
             sb.append(DocumentationMarkup.SECTIONS_END);
         }
+
+        // Close the wrapper div
+        sb.append("</div>");
 
         return sb.toString();
     }
@@ -272,15 +279,10 @@ public class KiteDocumentationProvider extends AbstractDocumentationProvider {
             endIndex = newlineIndex;
         }
         if (braceIndex > 0 && braceIndex < endIndex) {
-            endIndex = braceIndex + 1; // Include the brace
+            endIndex = braceIndex; // Stop BEFORE the brace (not including it)
         }
 
         String signature = text.substring(0, endIndex).trim();
-
-        // If we cut at brace, add "..." to indicate more content
-        if (braceIndex > 0 && braceIndex < text.length() - 1) {
-            signature = signature + " ...";
-        }
 
         return signature;
     }
@@ -343,31 +345,25 @@ public class KiteDocumentationProvider extends AbstractDocumentationProvider {
             }
 
             // Extract inputs
-            java.util.List<String> inputs = extractComponentMembers(declaration, KiteElementTypes.INPUT_DECLARATION);
+            java.util.List<String[]> inputs = extractComponentMembersWithParts(declaration, KiteElementTypes.INPUT_DECLARATION);
             if (!inputs.isEmpty()) {
                 sb.append(DocumentationMarkup.SECTION_HEADER_START);
                 sb.append("Inputs:");
                 sb.append(DocumentationMarkup.SECTION_SEPARATOR);
                 sb.append("<code>");
-                for (int i = 0; i < inputs.size(); i++) {
-                    if (i > 0) sb.append("<br/>");
-                    sb.append(escapeHtml(inputs.get(i)));
-                }
+                sb.append(formatAlignedMembers(inputs));
                 sb.append("</code>");
                 sb.append(DocumentationMarkup.SECTION_END);
             }
 
             // Extract outputs
-            java.util.List<String> outputs = extractComponentMembers(declaration, KiteElementTypes.OUTPUT_DECLARATION);
+            java.util.List<String[]> outputs = extractComponentMembersWithParts(declaration, KiteElementTypes.OUTPUT_DECLARATION);
             if (!outputs.isEmpty()) {
                 sb.append(DocumentationMarkup.SECTION_HEADER_START);
                 sb.append("Outputs:");
                 sb.append(DocumentationMarkup.SECTION_SEPARATOR);
                 sb.append("<code>");
-                for (int i = 0; i < outputs.size(); i++) {
-                    if (i > 0) sb.append("<br/>");
-                    sb.append(escapeHtml(outputs.get(i)));
-                }
+                sb.append(formatAlignedMembers(outputs));
                 sb.append("</code>");
                 sb.append(DocumentationMarkup.SECTION_END);
             }
@@ -559,16 +555,16 @@ public class KiteDocumentationProvider extends AbstractDocumentationProvider {
 
     /**
      * Extract component members (inputs or outputs) from a component declaration.
-     * Returns a list of formatted member declarations like "number port = 8080"
+     * Returns a list of String arrays: [0]=type, [1]=name, [2]=defaultValue (or null)
      */
     @NotNull
-    private java.util.List<String> extractComponentMembers(PsiElement declaration, IElementType memberType) {
-        java.util.List<String> members = new java.util.ArrayList<>();
-        extractMembersRecursive(declaration, memberType, members);
+    private java.util.List<String[]> extractComponentMembersWithParts(PsiElement declaration, IElementType memberType) {
+        java.util.List<String[]> members = new java.util.ArrayList<>();
+        extractMembersWithPartsRecursive(declaration, memberType, members);
         return members;
     }
 
-    private void extractMembersRecursive(PsiElement element, IElementType memberType, java.util.List<String> members) {
+    private void extractMembersWithPartsRecursive(PsiElement element, IElementType memberType, java.util.List<String[]> members) {
         if (element.getNode() == null) {
             return;
         }
@@ -576,10 +572,10 @@ public class KiteDocumentationProvider extends AbstractDocumentationProvider {
         IElementType type = element.getNode().getElementType();
 
         if (type == memberType) {
-            // Format the member declaration: "type name" or "type name = value"
-            String formatted = formatMemberDeclaration(element, memberType);
-            if (formatted != null) {
-                members.add(formatted);
+            // Format the member declaration: returns [type, name, defaultValue]
+            String[] parts = formatMemberDeclarationParts(element, memberType);
+            if (parts != null) {
+                members.add(parts);
             }
             return; // Don't recurse into found members
         }
@@ -587,23 +583,23 @@ public class KiteDocumentationProvider extends AbstractDocumentationProvider {
         // Recurse into children
         PsiElement child = element.getFirstChild();
         while (child != null) {
-            extractMembersRecursive(child, memberType, members);
+            extractMembersWithPartsRecursive(child, memberType, members);
             child = child.getNextSibling();
         }
     }
 
     /**
-     * Format a member declaration for display.
-     * e.g., "input number port = 8080" -> "number port = 8080"
+     * Format a member declaration into parts for alignment.
+     * e.g., "input number port = 8080" -> ["number", "port", "8080"]
+     * @return String array: [0]=type, [1]=name, [2]=defaultValue (or null if no default)
      */
     @Nullable
-    private String formatMemberDeclaration(PsiElement member, IElementType memberType) {
-        StringBuilder sb = new StringBuilder();
+    private String[] formatMemberDeclarationParts(PsiElement member, IElementType memberType) {
         boolean foundKeyword = false;
         boolean foundType = false;
         String varType = null;
         String varName = null;
-        StringBuilder defaultValue = new StringBuilder();
+        StringBuilder defaultValueBuilder = new StringBuilder();
         boolean foundAssign = false;
 
         PsiElement child = member.getFirstChild();
@@ -621,31 +617,72 @@ public class KiteDocumentationProvider extends AbstractDocumentationProvider {
                 varName = child.getText();
             } else if (childType == KiteTokenTypes.ASSIGN) {
                 foundAssign = true;
-            } else if (foundAssign && childType != KiteTokenTypes.WHITESPACE &&
+            } else if (foundAssign &&
+                       childType != KiteTokenTypes.WHITESPACE &&
                        childType != com.intellij.psi.TokenType.WHITE_SPACE) {
-                if (defaultValue.length() > 0) {
-                    defaultValue.append(" ");
-                }
-                defaultValue.append(child.getText());
+                // Collect all non-whitespace tokens after = to form the value expression
+                // This handles property access chains like server.tag.Name
+                defaultValueBuilder.append(child.getText());
             }
 
             child = child.getNextSibling();
         }
 
         if (varType != null && varName != null) {
-            sb.append(varType).append(" ").append(varName);
-            if (defaultValue.length() > 0) {
-                String defVal = defaultValue.toString().trim();
+            String defaultValue = defaultValueBuilder.toString().trim();
+            if (defaultValue.isEmpty()) {
+                defaultValue = null;
+            } else if (defaultValue.length() > 30) {
                 // Truncate long default values
-                if (defVal.length() > 30) {
-                    defVal = defVal.substring(0, 27) + "...";
-                }
-                sb.append(" = ").append(defVal);
+                defaultValue = defaultValue.substring(0, 27) + "...";
             }
-            return sb.toString();
+            return new String[] { varType, varName, defaultValue };
         }
 
         return null;
+    }
+
+    /**
+     * Format members with vertical alignment at '='.
+     * Uses HTML non-breaking spaces (&nbsp;) for alignment.
+     */
+    @NotNull
+    private String formatAlignedMembers(java.util.List<String[]> members) {
+        if (members.isEmpty()) {
+            return "";
+        }
+
+        // Find max length of "type name" portion (before '=')
+        int maxLeftLength = 0;
+        for (String[] parts : members) {
+            int leftLength = parts[0].length() + 1 + parts[1].length(); // "type name"
+            if (leftLength > maxLeftLength) {
+                maxLeftLength = leftLength;
+            }
+        }
+
+        StringBuilder result = new StringBuilder();
+        for (int i = 0; i < members.size(); i++) {
+            if (i > 0) {
+                result.append("<br/>");
+            }
+
+            String[] parts = members.get(i);
+            String left = parts[0] + " " + parts[1];
+
+            result.append(escapeHtml(left));
+
+            if (parts[2] != null) {
+                // Add padding to align '='
+                int padding = maxLeftLength - left.length();
+                for (int p = 0; p < padding; p++) {
+                    result.append("&nbsp;");
+                }
+                result.append(" = ").append(escapeHtml(parts[2]));
+            }
+        }
+
+        return result.toString();
     }
 
     /**
