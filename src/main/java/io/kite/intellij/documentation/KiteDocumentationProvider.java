@@ -224,17 +224,19 @@ public class KiteDocumentationProvider extends AbstractDocumentationProvider {
             sb.append("</div>");
         }
 
-        // Add comment section (plain HTML without background)
-        if (comment != null && !comment.isEmpty()) {
-            sb.append("<div style=\"margin-top: 8px; margin-bottom: 4px; color: #808080; font-style: italic;\">");
-            sb.append(escapeHtml(comment));
-            sb.append("</div>");
-        }
-
         // Add type-specific information (plain HTML without background)
         String typeInfo = getTypeSpecificInfo(declaration, type);
         if (typeInfo != null && !typeInfo.isEmpty()) {
             sb.append(typeInfo);
+        }
+
+        // Add comment section LAST (after type-specific info like Outputs)
+        // Comments can be long, so they appear at the end
+        // Use theme-aware text color (inherits from dialog - white in dark theme, black in light theme)
+        if (comment != null && !comment.isEmpty()) {
+            sb.append("<div style=\"margin-top: 8px;margin-bottom: 8px;\">");
+            sb.append(escapeHtml(comment));
+            sb.append("</div>");
         }
 
         // Close the wrapper div
@@ -475,11 +477,15 @@ public class KiteDocumentationProvider extends AbstractDocumentationProvider {
     /**
      * Extract resource type from a resource declaration.
      * e.g., "resource VM.Instance server { }" -> "VM.Instance"
+     *
+     * Pattern: resource <type> <name> { ... }
+     * where <type> can be dotted like VM.Instance
      */
     @Nullable
     private String extractResourceType(PsiElement declaration) {
         StringBuilder typeBuilder = new StringBuilder();
         boolean foundResource = false;
+        boolean lastWasDot = false;
 
         PsiElement child = declaration.getFirstChild();
         while (child != null) {
@@ -489,27 +495,34 @@ public class KiteDocumentationProvider extends AbstractDocumentationProvider {
                 foundResource = true;
             } else if (foundResource) {
                 if (childType == KiteTokenTypes.IDENTIFIER) {
-                    if (typeBuilder.length() > 0) {
-                        // This is the name, not the type - stop here
+                    if (typeBuilder.length() > 0 && !lastWasDot) {
+                        // Previous was identifier without dot between - this is the name, stop
                         break;
                     }
                     typeBuilder.append(child.getText());
+                    lastWasDot = false;
                 } else if (childType == KiteTokenTypes.DOT) {
                     typeBuilder.append(".");
-                } else if (childType != KiteTokenTypes.WHITESPACE &&
-                           childType != com.intellij.psi.TokenType.WHITE_SPACE) {
-                    // Check if we have a complete type before the name
-                    PsiElement next = child.getNextSibling();
-                    while (next != null && (next.getNode().getElementType() == KiteTokenTypes.WHITESPACE ||
-                                            next.getNode().getElementType() == com.intellij.psi.TokenType.WHITE_SPACE)) {
-                        next = next.getNextSibling();
+                    lastWasDot = true;
+                } else if (childType == KiteTokenTypes.WHITESPACE ||
+                           childType == com.intellij.psi.TokenType.WHITE_SPACE) {
+                    // Whitespace after identifier without dot means next identifier is the name
+                    // But only if we already have some type content
+                    if (typeBuilder.length() > 0 && !lastWasDot) {
+                        // Look ahead to see if there's a name identifier after whitespace
+                        PsiElement next = child.getNextSibling();
+                        while (next != null && (next.getNode().getElementType() == KiteTokenTypes.WHITESPACE ||
+                                                next.getNode().getElementType() == com.intellij.psi.TokenType.WHITE_SPACE)) {
+                            next = next.getNextSibling();
+                        }
+                        if (next != null && next.getNode().getElementType() == KiteTokenTypes.IDENTIFIER) {
+                            // Next identifier after whitespace is the name - stop here
+                            break;
+                        }
                     }
-                    if (next != null && next.getNode().getElementType() == KiteTokenTypes.IDENTIFIER) {
-                        // Continue building type
-                        typeBuilder.append(child.getText());
-                    } else {
-                        break;
-                    }
+                } else if (childType == KiteTokenTypes.LBRACE) {
+                    // Hit the opening brace, stop
+                    break;
                 }
             }
 
@@ -611,7 +624,16 @@ public class KiteDocumentationProvider extends AbstractDocumentationProvider {
                          childType != com.intellij.psi.TokenType.WHITE_SPACE) {
                     String text = child.getText().trim();
                     if (!text.isEmpty()) {
-                        if (value.length() > 0) {
+                        // Don't add space before/after certain characters:
+                        // - quotes (handles split string tokens)
+                        // - dots (handles property access chains like server.tag.New)
+                        boolean isQuote = text.equals("\"") || text.equals("'");
+                        boolean isDot = text.equals(".");
+                        boolean lastWasQuote = value.length() > 0 &&
+                            (value.charAt(value.length() - 1) == '"' || value.charAt(value.length() - 1) == '\'');
+                        boolean lastWasDot = value.length() > 0 && value.charAt(value.length() - 1) == '.';
+
+                        if (value.length() > 0 && !isQuote && !lastWasQuote && !isDot && !lastWasDot) {
                             value.append(" ");
                         }
                         value.append(text);
