@@ -133,6 +133,21 @@ public class KiteRenameHandler implements RenameHandler {
             return;
         }
 
+        // Check if the new name already exists as a declaration in the file
+        PsiElement existingDeclaration = findDeclarationByName(psiFile, newName);
+        if (existingDeclaration != null) {
+            int result = Messages.showYesNoDialog(
+                    project,
+                    "A declaration named '" + newName + "' already exists in this file. " +
+                    "Renaming to this name may cause conflicts.\n\nContinue anyway?",
+                    "Name Conflict Warning",
+                    Messages.getWarningIcon()
+            );
+            if (result != Messages.YES) {
+                return;
+            }
+        }
+
         // Determine if we're on a declaration or a usage
         PsiElement declaration = findDeclaration(element, psiFile);
         if (declaration == null) {
@@ -143,13 +158,45 @@ public class KiteRenameHandler implements RenameHandler {
         // Collect all occurrences to rename
         List<PsiElement> occurrences = collectAllOccurrences(declaration, element, psiFile);
 
+        // Show confirmation with occurrence count
+        int occurrenceCount = occurrences.size();
+        String message = "Rename '" + oldName + "' to '" + newName + "'?\n\n" +
+                "This will update " + occurrenceCount + " occurrence" + (occurrenceCount != 1 ? "s" : "") +
+                " in this file.\n\n" +
+                "Note: This rename only affects the current file.";
+        int confirm = Messages.showOkCancelDialog(
+                project,
+                message,
+                "Confirm Rename",
+                "Rename",
+                "Cancel",
+                Messages.getQuestionIcon()
+        );
+        if (confirm != Messages.OK) {
+            return;
+        }
+
         // Perform the rename
         final String finalNewName = newName;
         final List<PsiElement> finalOccurrences = occurrences;
+        final int[] successCount = {0};
+        final int[] failCount = {0};
 
         WriteCommandAction.runWriteCommandAction(project, "Rename '" + oldName + "' to '" + newName + "'", null, () -> {
-            renameOccurrences(finalOccurrences, finalNewName, project);
+            int[] counts = renameOccurrences(finalOccurrences, finalNewName, project);
+            successCount[0] = counts[0];
+            failCount[0] = counts[1];
         });
+
+        // Show result summary if there were failures
+        if (failCount[0] > 0) {
+            Messages.showWarningDialog(
+                    project,
+                    "Renamed " + successCount[0] + " occurrence" + (successCount[0] != 1 ? "s" : "") + " successfully.\n" +
+                    failCount[0] + " occurrence" + (failCount[0] != 1 ? "s" : "") + " could not be renamed.",
+                    "Rename Partially Complete"
+            );
+        }
     }
 
     /**
@@ -168,6 +215,15 @@ public class KiteRenameHandler implements RenameHandler {
     }
 
     /**
+     * Find a declaration by name in the file.
+     * Used to check if a name already exists before renaming.
+     */
+    @Nullable
+    private PsiElement findDeclarationByName(@NotNull PsiFile psiFile, @NotNull String name) {
+        return findDeclarationRecursive(psiFile, name, null);
+    }
+
+    /**
      * Find the declaration for a given element.
      */
     @Nullable
@@ -179,7 +235,7 @@ public class KiteRenameHandler implements RenameHandler {
     }
 
     @Nullable
-    private PsiElement findDeclarationRecursive(@NotNull PsiElement element, @NotNull String name, @NotNull PsiElement original) {
+    private PsiElement findDeclarationRecursive(@NotNull PsiElement element, @NotNull String name, @Nullable PsiElement original) {
         IElementType type = element.getNode().getElementType();
 
         if (isDeclarationType(type)) {
@@ -254,10 +310,15 @@ public class KiteRenameHandler implements RenameHandler {
 
     /**
      * Rename all occurrences.
+     * @return int array with [successCount, failCount]
      */
-    private void renameOccurrences(@NotNull List<PsiElement> occurrences, @NotNull String newName, @NotNull Project project) {
+    private int[] renameOccurrences(@NotNull List<PsiElement> occurrences, @NotNull String newName, @NotNull Project project) {
+        int successCount = 0;
+        int failCount = 0;
+
         for (PsiElement element : occurrences) {
             if (!element.isValid()) {
+                failCount++;
                 continue;
             }
 
@@ -280,12 +341,17 @@ public class KiteRenameHandler implements RenameHandler {
             if (newElement != null) {
                 try {
                     element.replace(newElement);
+                    successCount++;
                 } catch (Exception e) {
-                    // Log error but continue with other occurrences
+                    failCount++;
                     System.err.println("[KiteRename] Failed to rename element: " + e.getMessage());
                 }
+            } else {
+                failCount++;
             }
         }
+
+        return new int[] { successCount, failCount };
     }
 
     /**
