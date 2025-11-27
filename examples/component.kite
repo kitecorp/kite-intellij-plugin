@@ -1,5 +1,5 @@
 component WebServer {
-  @allowed(["dev","prod"])
+  @allowed(["dev", "prod"])
   input number env          = "dev"
   input string instanceType = "t2.micro"
 
@@ -38,4 +38,4 @@ output string instanceType = "t2.micro"
 
 var number port         = 8080
 var string instanceType = "t2.micro"
-var string size         = api.endpoint
+var string size         = serviceA.endpoint

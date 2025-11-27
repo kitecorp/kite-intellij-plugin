@@ -4,7 +4,10 @@ import com.intellij.lexer.LexerBase;
 import com.intellij.psi.tree.IElementType;
 import io.kite.intellij.parser.KiteLexer;
 import io.kite.intellij.psi.KiteTokenTypes;
+import org.antlr.v4.runtime.BaseErrorListener;
 import org.antlr.v4.runtime.CharStreams;
+import org.antlr.v4.runtime.RecognitionException;
+import org.antlr.v4.runtime.Recognizer;
 import org.antlr.v4.runtime.Token;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -56,43 +59,50 @@ public class KiteLexerAdapter extends LexerBase {
     @Override
     public void start(@NotNull CharSequence buffer, int startOffset, int endOffset, int initialState) {
         this.buffer = buffer;
-        this.startOffset = startOffset;
         this.endOffset = endOffset;
         this.tokens = new ArrayList<>();
         this.currentTokenIndex = 0;
 
-        // Decode initial state
-        int initialMode = initialState & MODE_MASK;
-        int initialDepth = (initialState >> DEPTH_SHIFT) & DEPTH_MASK;
+        // CRITICAL FIX: Always lex from the beginning of the buffer.
+        //
+        // ANTLR lexers with modes (STRING_MODE for double-quoted strings) cannot correctly
+        // resume from arbitrary positions. When IntelliJ asks us to lex from offset N with
+        // state S, the character at offset N might be ambiguous (e.g., a `"` could be either
+        // opening or closing a string depending on context).
+        //
+        // For example, in `@allowed(["dev", "prod"])`, if IntelliJ asks us to start at the
+        // closing `"` of "dev" with state 0 (DEFAULT_MODE), a new ANTLR lexer will interpret
+        // that `"` as DQUOTE (opening a string) instead of STRING_DQUOTE (closing a string).
+        // This cascades through the file, causing incorrect tokenization.
+        //
+        // The safe solution is to ALWAYS lex from offset 0. We then skip tokens that end
+        // before the requested startOffset.
+        this.startOffset = 0;  // Always start from beginning
+        int requestedStartOffset = startOffset;  // Remember where IntelliJ wanted us to start
 
-        // Get the text to lex
-        String text = buffer.subSequence(startOffset, endOffset).toString();
+        // Get the FULL text to lex (from 0 to endOffset)
+        String text = buffer.subSequence(0, endOffset).toString();
         KiteLexer lexer = new KiteLexer(CharStreams.fromString(text));
 
-        // Restore lexer state if we're resuming from mid-file
-        if (initialState != 0) {
-            // Set the mode
-            if (initialMode == STRING_MODE) {
-                lexer.pushMode(KiteLexer.STRING_MODE);
+        // Replace default error listener with a silent one to avoid console spam
+        // We handle unrecognized characters as BAD_CHARACTER tokens anyway
+        lexer.removeErrorListeners();
+        lexer.addErrorListener(new BaseErrorListener() {
+            @Override
+            public void syntaxError(Recognizer<?, ?> recognizer, Object offendingSymbol,
+                                    int line, int charPositionInLine, String msg, RecognitionException e) {
+                // Silent - errors are handled as BAD_CHARACTER tokens
             }
-            // Set interpolation depth via reflection or by setting the field directly
-            // Note: KiteLexer has a public interpolationDepth field we can set
-            try {
-                var field = KiteLexer.class.getDeclaredField("interpolationDepth");
-                field.setAccessible(true);
-                field.setInt(lexer, initialDepth);
-            } catch (Exception e) {
-                // If we can't set the field, the lexer will work but may have issues
-                // with incremental lexing inside interpolations
-            }
-        }
+        });
+
+        // No state restoration needed since we always start from 0
 
         int currentPos = 0;
         Token token;
 
-        // Track current state after each token
-        int currentMode = initialMode;
-        int currentDepth = initialDepth;
+        // Track current state after each token (starting from default)
+        int currentMode = DEFAULT_MODE;
+        int currentDepth = 0;
 
         while ((token = lexer.nextToken()).getType() != Token.EOF) {
             int tokenStart = token.getStartIndex();
@@ -150,6 +160,14 @@ public class KiteLexerAdapter extends LexerBase {
                 text.length(),
                 finalState
             ));
+        }
+
+        // Skip tokens that end before the requested startOffset
+        // This is an optimization - IntelliJ asked to start from requestedStartOffset,
+        // so it doesn't need tokens before that position
+        while (currentTokenIndex < tokens.size() &&
+               tokens.get(currentTokenIndex).end <= requestedStartOffset) {
+            currentTokenIndex++;
         }
     }
 

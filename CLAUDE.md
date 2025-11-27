@@ -32,7 +32,13 @@ When implementing new features or fixing bugs, follow these principles to avoid 
 7. **How to update CLAUDE.md**
    - don't add implementation details to the top of the file - keep it short and focused on the problem
    - add a new section for each new feature or change
-   - use the same format as the existing sections 
+   - use the same format as the existing sections
+8. **If you're stuck, ask for help**
+   - If you're stuck, ask for help!
+   - If you're stuck on a particular feature, ask for help on that specific feature
+   - If you're stuck on a general problem, ask for help on the general problem
+   - If you're stuck on a specific problem and can't find help, ask for help on the general problem
+   - It's OK to not know the answer to a question, just ask for help!
 
 ### Testing
 - Use the `examples/` directory for test files (e.g., `test_*.kite`)
