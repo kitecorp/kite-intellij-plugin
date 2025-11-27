@@ -2,7 +2,6 @@ package io.kite.intellij.reference;
 
 import com.intellij.openapi.util.TextRange;
 import com.intellij.psi.*;
-import com.intellij.psi.TokenType;
 import com.intellij.psi.tree.IElementType;
 import com.intellij.util.IncorrectOperationException;
 import io.kite.intellij.psi.KiteElementTypes;
@@ -126,6 +125,10 @@ public class KiteReference extends PsiReferenceBase<PsiElement> implements PsiPo
      *   1. Find declaration of "server" (the resource)
      *   2. Find "tag" property inside server's block → get its OBJECT_LITERAL value
      *   3. Find "Name" property inside that object literal
+     *
+     * Special case: For component instances (e.g., "serviceA.endpoint" where serviceA is
+     * "component WebServer serviceA {...}"), we need to find the property in the component
+     * TYPE definition (the "component WebServer {...}" that defines inputs/outputs).
      */
     private void resolvePropertyAccessChain(List<String> chain, List<ResolveResult> results) {
         PsiFile file = myElement.getContainingFile();
@@ -144,6 +147,28 @@ public class KiteReference extends PsiReferenceBase<PsiElement> implements PsiPo
 
         System.err.println("[KiteRef] Found root declaration: " + currentScope.getNode().getElementType());
         System.err.println("[KiteRef] Root declaration text preview: " + currentScope.getText().substring(0, Math.min(100, currentScope.getText().length())) + "...");
+
+        // Special case: If the root is a component INSTANCE, we need to look up properties
+        // in the component TYPE definition instead
+        if (currentScope.getNode().getElementType() == KiteElementTypes.COMPONENT_DECLARATION) {
+            String componentTypeName = getComponentTypeName(currentScope);
+            if (componentTypeName != null) {
+                System.err.println("[KiteRef] Root is a component instance of type: " + componentTypeName);
+                // Find the component type definition
+                PsiElement componentTypeDef = findComponentTypeDefinition(file, componentTypeName);
+                if (componentTypeDef != null) {
+                    System.err.println("[KiteRef] Found component type definition, searching for output: " + name);
+                    // For component instances, properties come from outputs (and inputs) of the type definition
+                    findOutputOrInputInComponent(componentTypeDef, name, results);
+                    if (!results.isEmpty()) {
+                        System.err.println("[KiteRef] Found " + results.size() + " results in component type definition");
+                        return;
+                    }
+                } else {
+                    System.err.println("[KiteRef] Component type definition not found for: " + componentTypeName);
+                }
+            }
+        }
 
         // Navigate through the rest of the chain (e.g., ["tag"] for server.tag.Name)
         for (int i = 1; i < chain.size(); i++) {
@@ -180,6 +205,105 @@ public class KiteReference extends PsiReferenceBase<PsiElement> implements PsiPo
         findPropertyInScope(currentScope, name, results);
         System.err.println("[KiteRef] Results count: " + results.size());
         System.err.println("[KiteRef] ============================================");
+    }
+
+    /**
+     * Get the component type name from a component declaration.
+     * For "component WebServer serviceA { ... }", returns "WebServer".
+     * For "component WebServer { ... }" (type definition), returns null (no instance name).
+     *
+     * @return The component type name if this is an instance, null if it's a type definition
+     */
+    @Nullable
+    private String getComponentTypeName(PsiElement componentDeclaration) {
+        // Structure: COMPONENT <type> <name> { ... } for instances
+        // Structure: COMPONENT <name> { ... } for type definitions
+        // We need to find TWO identifiers before the LBRACE to identify an instance
+        List<String> identifiers = new ArrayList<>();
+
+        for (PsiElement child = componentDeclaration.getFirstChild(); child != null; child = child.getNextSibling()) {
+            IElementType type = child.getNode().getElementType();
+            if (type == KiteTokenTypes.IDENTIFIER) {
+                identifiers.add(child.getText());
+            } else if (type == KiteTokenTypes.LBRACE) {
+                break;
+            }
+        }
+
+        // If we have 2 identifiers, first is type, second is instance name
+        if (identifiers.size() >= 2) {
+            System.err.println("[KiteRef] getComponentTypeName: Found instance with type=" + identifiers.get(0) + ", name=" + identifiers.get(1));
+            return identifiers.get(0);
+        }
+
+        // Only 1 identifier = this is a type definition, not an instance
+        System.err.println("[KiteRef] getComponentTypeName: Found type definition (not an instance)");
+        return null;
+    }
+
+    /**
+     * Find the component TYPE definition (the one with inputs/outputs, not an instance).
+     * For type name "WebServer", finds "component WebServer { input..., output... }".
+     */
+    @Nullable
+    private PsiElement findComponentTypeDefinition(PsiElement scope, String typeName) {
+        IElementType type = scope.getNode().getElementType();
+
+        if (type == KiteElementTypes.COMPONENT_DECLARATION) {
+            // Check if this is a type definition (1 identifier) with matching name
+            List<String> identifiers = new ArrayList<>();
+            for (PsiElement child = scope.getFirstChild(); child != null; child = child.getNextSibling()) {
+                IElementType childType = child.getNode().getElementType();
+                if (childType == KiteTokenTypes.IDENTIFIER) {
+                    identifiers.add(child.getText());
+                } else if (childType == KiteTokenTypes.LBRACE) {
+                    break;
+                }
+            }
+
+            // Type definition has exactly 1 identifier before {
+            if (identifiers.size() == 1 && identifiers.get(0).equals(typeName)) {
+                System.err.println("[KiteRef] findComponentTypeDefinition: Found type definition for " + typeName);
+                return scope;
+            }
+        }
+
+        // Recurse into children
+        for (PsiElement child = scope.getFirstChild(); child != null; child = child.getNextSibling()) {
+            PsiElement result = findComponentTypeDefinition(child, typeName);
+            if (result != null) {
+                return result;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Find an output or input declaration by name inside a component type definition.
+     */
+    private void findOutputOrInputInComponent(PsiElement componentTypeDef, String propertyName, List<ResolveResult> results) {
+        for (PsiElement child = componentTypeDef.getFirstChild(); child != null; child = child.getNextSibling()) {
+            IElementType childType = child.getNode().getElementType();
+
+            // Check OUTPUT_DECLARATION and INPUT_DECLARATION
+            if (childType == KiteElementTypes.OUTPUT_DECLARATION || childType == KiteElementTypes.INPUT_DECLARATION) {
+                PsiElement nameElement = findNameInDeclaration(child, childType);
+                if (nameElement != null && propertyName.equals(nameElement.getText())) {
+                    System.err.println("[KiteRef] findOutputOrInputInComponent: Found " + childType + " named " + propertyName);
+                    results.add(new PsiElementResolveResult(nameElement));
+                    return;
+                }
+            }
+
+            // Recurse into non-declaration children (but not into nested declarations)
+            if (!isDeclarationType(childType) && child.getFirstChild() != null) {
+                findOutputOrInputInComponent(child, propertyName, results);
+                if (!results.isEmpty()) {
+                    return;
+                }
+            }
+        }
     }
 
     /**

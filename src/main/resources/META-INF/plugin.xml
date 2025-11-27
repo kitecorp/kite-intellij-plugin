@@ -264,5 +264,8 @@
         <codeInsight.inlayProvider language="Kite"
                                    implementationClass="io.kite.intellij.hints.KiteInlayHintsProvider"/>
 
+        <!-- TODO/FIXME highlighting in comments -->
+        <indexPatternBuilder implementation="io.kite.intellij.search.KiteIndexPatternBuilder"/>
+
     </extensions>
 </idea-plugin>
