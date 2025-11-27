@@ -13,6 +13,6 @@ component WebServer serviceA {
 }
 
 component WebServer serviceB {
-  instanceType = instanceType
+  instanceType = "asd"
   fromOutput   = serviceA.fromOutputs
 }

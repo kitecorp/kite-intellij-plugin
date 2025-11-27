@@ -9,6 +9,7 @@ resource Database prod {
 @maxValue(100)
 @description("Number of instances to create")
 input number instanceCount = 10
+
 /*
 @validate(regex: "^[a-z0-9-]+$")
 @minLength(3)
@@ -27,7 +28,7 @@ input string bucketName
 )
 @minLength(3)
 @maxLength(63)
-input string bucketName
+input string bucketNames
 
 @provisionOn(["aws", "azure"])
 @tags({

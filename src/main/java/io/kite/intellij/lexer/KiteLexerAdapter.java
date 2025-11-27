@@ -109,15 +109,10 @@ public class KiteLexerAdapter extends LexerBase {
             int tokenEnd = token.getStopIndex() + 1;
             int antlrType = token.getType();
 
-            // Fill gap with whitespace if there's a gap
+            // Fill gap - check for comments that ANTLR skipped
             if (tokenStart > currentPos) {
                 int gapState = encodeState(currentMode, currentDepth);
-                tokens.add(new TokenInfo(
-                    KiteTokenTypes.WHITESPACE,
-                    currentPos,
-                    tokenStart,
-                    gapState
-                ));
+                fillGapWithTokens(text, currentPos, tokenStart, gapState);
             }
 
             // Update mode/depth tracking based on token type
@@ -154,12 +149,7 @@ public class KiteLexerAdapter extends LexerBase {
         // Fill any remaining gap at the end
         if (currentPos < text.length()) {
             int finalState = encodeState(currentMode, currentDepth);
-            tokens.add(new TokenInfo(
-                KiteTokenTypes.WHITESPACE,
-                currentPos,
-                text.length(),
-                finalState
-            ));
+            fillGapWithTokens(text, currentPos, text.length(), finalState);
         }
 
         // Skip tokens that end before the requested startOffset
@@ -173,6 +163,66 @@ public class KiteLexerAdapter extends LexerBase {
 
     private int encodeState(int mode, int depth) {
         return (mode & MODE_MASK) | ((depth & DEPTH_MASK) << DEPTH_SHIFT);
+    }
+
+    /**
+     * Fills a gap between tokens, detecting comments that ANTLR skipped.
+     * ANTLR's -> skip directive causes comments to be omitted from the token stream,
+     * but we need to emit them as tokens for IntelliJ syntax highlighting.
+     */
+    private void fillGapWithTokens(String text, int gapStart, int gapEnd, int state) {
+        int pos = gapStart;
+
+        while (pos < gapEnd) {
+            // Check for line comment: //
+            if (pos + 1 < gapEnd && text.charAt(pos) == '/' && text.charAt(pos + 1) == '/') {
+                // Find end of line comment (until newline or end of gap)
+                int commentEnd = pos + 2;
+                while (commentEnd < gapEnd && text.charAt(commentEnd) != '\n' && text.charAt(commentEnd) != '\r') {
+                    commentEnd++;
+                }
+                tokens.add(new TokenInfo(KiteTokenTypes.LINE_COMMENT, pos, commentEnd, state));
+                pos = commentEnd;
+                continue;
+            }
+
+            // Check for block comment: /* ... */
+            if (pos + 1 < gapEnd && text.charAt(pos) == '/' && text.charAt(pos + 1) == '*') {
+                // Find end of block comment
+                int commentEnd = pos + 2;
+                while (commentEnd + 1 < gapEnd) {
+                    if (text.charAt(commentEnd) == '*' && text.charAt(commentEnd + 1) == '/') {
+                        commentEnd += 2;
+                        break;
+                    }
+                    commentEnd++;
+                }
+                // If we didn't find closing */, include the rest of the gap
+                if (commentEnd >= gapEnd - 1) {
+                    commentEnd = gapEnd;
+                }
+                tokens.add(new TokenInfo(KiteTokenTypes.BLOCK_COMMENT, pos, commentEnd, state));
+                pos = commentEnd;
+                continue;
+            }
+
+            // Regular whitespace - find extent
+            int wsStart = pos;
+            while (pos < gapEnd) {
+                char c = text.charAt(pos);
+                // Stop at start of comment
+                if (c == '/' && pos + 1 < gapEnd) {
+                    char next = text.charAt(pos + 1);
+                    if (next == '/' || next == '*') {
+                        break;
+                    }
+                }
+                pos++;
+            }
+            if (pos > wsStart) {
+                tokens.add(new TokenInfo(KiteTokenTypes.WHITESPACE, wsStart, pos, state));
+            }
+        }
     }
 
     @Override
