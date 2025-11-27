@@ -204,7 +204,8 @@ public class KiteDocumentationProvider extends AbstractDocumentationProvider {
         String comment = getPrecedingComment(declaration);
 
         // Add a wrapper div with no text wrapping - content stays on single lines with horizontal scroll
-        sb.append("<div style=\"white-space: nowrap;\">");
+        // Use overflow-x: auto to enable horizontal scrolling, white-space: nowrap to prevent wrapping
+        sb.append("<div style=\"white-space: nowrap; overflow-x: auto; max-width: 800px;\">");
 
         // Build documentation HTML
         sb.append(DocumentationMarkup.DEFINITION_START);
@@ -220,7 +221,7 @@ public class KiteDocumentationProvider extends AbstractDocumentationProvider {
             sb.append(DocumentationMarkup.SECTION_HEADER_START);
             sb.append("Declaration:");
             sb.append(DocumentationMarkup.SECTION_SEPARATOR);
-            sb.append("<code>").append(escapeHtml(signature)).append("</code>");
+            sb.append("<code>").append(colorizeCode(signature)).append("</code>");
             sb.append(DocumentationMarkup.SECTION_END);
             sb.append(DocumentationMarkup.SECTIONS_END);
         }
@@ -679,6 +680,7 @@ public class KiteDocumentationProvider extends AbstractDocumentationProvider {
         String varName = null;
         StringBuilder defaultValueBuilder = new StringBuilder();
         boolean foundAssign = false;
+        int braceDepth = 0;  // Track nested object literals
 
         PsiElement child = member.getFirstChild();
         while (child != null) {
@@ -695,12 +697,22 @@ public class KiteDocumentationProvider extends AbstractDocumentationProvider {
                 varName = child.getText();
             } else if (childType == KiteTokenTypes.ASSIGN) {
                 foundAssign = true;
-            } else if (foundAssign &&
-                       childType != KiteTokenTypes.WHITESPACE &&
-                       childType != com.intellij.psi.TokenType.WHITE_SPACE) {
-                // Collect all non-whitespace tokens after = to form the value expression
-                // This handles property access chains like server.tag.Name
-                defaultValueBuilder.append(child.getText());
+            } else if (foundAssign) {
+                // Track brace depth for object literals
+                if (childType == KiteTokenTypes.LBRACE) {
+                    braceDepth++;
+                    // For object literals, just show "{...}" placeholder
+                    if (braceDepth == 1) {
+                        defaultValueBuilder.append("{...}");
+                    }
+                } else if (childType == KiteTokenTypes.RBRACE) {
+                    braceDepth--;
+                } else if (braceDepth == 0 &&
+                           childType != KiteTokenTypes.WHITESPACE &&
+                           childType != com.intellij.psi.TokenType.WHITE_SPACE) {
+                    // Only collect tokens when not inside an object literal
+                    defaultValueBuilder.append(child.getText());
+                }
             }
 
             child = child.getNextSibling();
@@ -723,6 +735,7 @@ public class KiteDocumentationProvider extends AbstractDocumentationProvider {
     /**
      * Format members with vertical alignment at '='.
      * Uses HTML non-breaking spaces (&nbsp;) for alignment.
+     * Applies syntax highlighting colors to types and values.
      */
     @NotNull
     private String formatAlignedMembers(java.util.List<String[]> members) {
@@ -746,17 +759,26 @@ public class KiteDocumentationProvider extends AbstractDocumentationProvider {
             }
 
             String[] parts = members.get(i);
-            String left = parts[0] + " " + parts[1];
+            String typeName = parts[0];
+            String varName = parts[1];
 
-            result.append(escapeHtml(left));
+            // Colorize the type name if it's a known type
+            if (TYPE_NAMES.contains(typeName)) {
+                result.append("<span style=\"color: ").append(COLOR_TYPE).append(";\">")
+                      .append(escapeHtml(typeName)).append("</span>");
+            } else {
+                result.append(escapeHtml(typeName));
+            }
+            result.append(" ").append(escapeHtml(varName));
 
             if (parts[2] != null) {
                 // Add padding to align '='
+                String left = typeName + " " + varName;
                 int padding = maxLeftLength - left.length();
                 for (int p = 0; p < padding; p++) {
                     result.append("&nbsp;");
                 }
-                result.append(" = ").append(escapeHtml(parts[2]));
+                result.append(" = ").append(colorizeCode(parts[2]));
             }
         }
 
@@ -774,5 +796,96 @@ public class KiteDocumentationProvider extends AbstractDocumentationProvider {
             .replace(">", "&gt;")
             .replace("\"", "&quot;")
             .replace("\n", "<br/>");
+    }
+
+    // CSS colors for syntax highlighting in documentation (matching editor colors)
+    private static final String COLOR_KEYWORD = "#AB5FDB";   // Purple - keywords (matches KiteSyntaxHighlighter.KEYWORD)
+    private static final String COLOR_TYPE = "#498BF6";      // Blue - type names (matches KiteAnnotator.TYPE_NAME)
+    private static final String COLOR_STRING = "#6A9955";    // Green - string literals (matches KiteSyntaxHighlighter.STRING)
+    private static final String COLOR_NUMBER = "#1750EB";    // Blue - number literals
+
+    // Keywords that should be colored
+    private static final java.util.Set<String> KEYWORDS = new java.util.HashSet<>(java.util.Arrays.asList(
+        "resource", "component", "schema", "fun", "var", "input", "output", "type",
+        "if", "else", "for", "while", "in", "return", "import", "from", "init", "this",
+        "true", "false", "null"
+    ));
+
+    // Built-in type names
+    private static final java.util.Set<String> TYPE_NAMES = new java.util.HashSet<>(java.util.Arrays.asList(
+        "string", "number", "boolean", "object", "any", "void", "list", "map"
+    ));
+
+    /**
+     * Colorize code text with syntax highlighting.
+     * This applies coloring to keywords, types, strings, and numbers.
+     */
+    @NotNull
+    private String colorizeCode(String text) {
+        if (text == null || text.isEmpty()) {
+            return "";
+        }
+
+        StringBuilder result = new StringBuilder();
+        int i = 0;
+        int len = text.length();
+
+        while (i < len) {
+            char c = text.charAt(i);
+
+            // Handle string literals (quoted strings)
+            if (c == '"') {
+                int start = i;
+                i++; // skip opening quote
+                while (i < len && text.charAt(i) != '"') {
+                    if (text.charAt(i) == '\\' && i + 1 < len) {
+                        i++; // skip escaped char
+                    }
+                    i++;
+                }
+                if (i < len) i++; // skip closing quote
+                String str = escapeHtml(text.substring(start, i));
+                result.append("<span style=\"color: ").append(COLOR_STRING).append(";\">").append(str).append("</span>");
+                continue;
+            }
+
+            // Handle identifiers and keywords
+            if (Character.isLetter(c) || c == '_') {
+                int start = i;
+                while (i < len && (Character.isLetterOrDigit(text.charAt(i)) || text.charAt(i) == '_')) {
+                    i++;
+                }
+                String word = text.substring(start, i);
+
+                if (KEYWORDS.contains(word)) {
+                    result.append("<span style=\"color: ").append(COLOR_KEYWORD).append("; font-weight: bold;\">")
+                          .append(escapeHtml(word)).append("</span>");
+                } else if (TYPE_NAMES.contains(word)) {
+                    result.append("<span style=\"color: ").append(COLOR_TYPE).append(";\">")
+                          .append(escapeHtml(word)).append("</span>");
+                } else {
+                    result.append(escapeHtml(word));
+                }
+                continue;
+            }
+
+            // Handle numbers
+            if (Character.isDigit(c)) {
+                int start = i;
+                while (i < len && (Character.isDigit(text.charAt(i)) || text.charAt(i) == '.')) {
+                    i++;
+                }
+                String num = text.substring(start, i);
+                result.append("<span style=\"color: ").append(COLOR_NUMBER).append(";\">")
+                      .append(escapeHtml(num)).append("</span>");
+                continue;
+            }
+
+            // Other characters - just escape and append
+            result.append(escapeHtml(String.valueOf(c)));
+            i++;
+        }
+
+        return result.toString();
     }
 }
