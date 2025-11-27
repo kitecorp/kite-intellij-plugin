@@ -63,11 +63,30 @@
           <li>Syntax-highlighted with colors matching the editor theme</li>
         </ul>
       </li>
+      <li><b>Inlay Hints</b> - Inline type and parameter hints displayed directly in the editor:
+        <ul>
+          <li>Type hints for variables without explicit type annotation (e.g., <code>var x = "hello"</code> shows <code>:string</code>)</li>
+          <li>Supports string, number, boolean, null, object, and array literals</li>
+          <li>Parameter name hints in function calls (e.g., <code>greet("Alice", 30)</code> shows <code>name:</code> and <code>age:</code>)</li>
+          <li>Configurable via Settings > Editor > Inlay Hints > Kite</li>
+        </ul>
+      </li>
     </ul>
   ]]></description>
 
     <!-- Short summary of new features and bugfixes in the latest version -->
     <change-notes><![CDATA[
+    <b>0.8.0</b>
+    <ul>
+      <li><b>Inlay Hints</b> - Inline type and parameter hints displayed in the editor
+        <ul>
+          <li>Type hints show inferred types for var declarations without explicit type annotation</li>
+          <li>Supports string, number, boolean, null, object, and array literals</li>
+          <li>Parameter name hints in function calls</li>
+          <li>Configurable via Settings > Editor > Inlay Hints > Kite</li>
+        </ul>
+      </li>
+    </ul>
     <b>0.7.0</b>
     <ul>
       <li><b>Quick Documentation</b> - Press Ctrl+Q (Windows/Linux) or F1 (Mac) on any declaration to view documentation
