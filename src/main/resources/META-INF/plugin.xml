@@ -38,6 +38,14 @@
           <li>File name and line number</li>
         </ul>
       </li>
+      <li><b>Rename Refactoring</b> - Use Shift+F6 (or Refactor > Rename) to rename identifiers across the file:
+        <ul>
+          <li>Renames declarations and all their usages simultaneously</li>
+          <li>Supports variables, inputs, outputs, resources, components, schemas, and functions</li>
+          <li>Also renames references in string interpolation (<code>$var</code> and <code>${var}</code>)</li>
+          <li>Validates new names against Kite identifier rules and keywords</li>
+        </ul>
+      </li>
       <li><b>Structure View</b> - Hierarchical outline with color-coded icons for resources, components, schemas, functions, types, variables, inputs, outputs, and imports</li>
       <li><b>Code Folding</b> - Collapse and expand declarations (components, resources, schemas, functions), control flow statements (for, while), object literals, and comments</li>
       <li><b>Code Formatting</b> - Automatic code formatting with 'Reformat Code' action (Cmd+Alt+L / Ctrl+Alt+L) including vertical alignment of object properties and declarations</li>
@@ -50,6 +58,17 @@
 
     <!-- Short summary of new features and bugfixes in the latest version -->
     <change-notes><![CDATA[
+    <b>0.6.0</b>
+    <ul>
+      <li><b>Rename Refactoring</b> - Use Shift+F6 to rename identifiers across the file
+        <ul>
+          <li>Renames declarations and all their usages simultaneously</li>
+          <li>Supports all declaration types: variables, inputs, outputs, resources, components, schemas, functions</li>
+          <li>Also renames references in string interpolation (<code>$var</code> and <code>${var}</code>)</li>
+          <li>Validates new names against Kite identifier rules and keywords</li>
+        </ul>
+      </li>
+    </ul>
     <b>0.5.0</b>
     <ul>
       <li><b>Breadcrumbs Navigation</b> - Navigation path showing current location at top/bottom of editor
