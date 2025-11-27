@@ -222,9 +222,10 @@ Created 4 comprehensive test files demonstrating all language features:
   - Auto-insert closing brace when typing `{` (via BraceMatcher + IntelliJ's TypedHandler)
   - Auto-indent when pressing Enter inside blocks (via IntelliJ's standard indentation)
 
-- [ ] **Inlay Hints**: Show inline type hints
-  - Display inferred types for variables without explicit type annotation
-  - Show parameter names in function calls
+- [x] **Inlay Hints**: Show inline type hints ✅
+    - Display inferred types for variables without explicit type annotation (e.g., `var x = "hello"` shows `: string`)
+    - Show parameter names in function calls (e.g., `greet("Alice", 30)` shows `name:` and `age:`)
+    - Configurable via Settings > Editor > Inlay Hints > Kite
 
 ### Future Enhancements (Advanced)
 

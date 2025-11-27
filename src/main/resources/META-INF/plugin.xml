@@ -241,5 +241,9 @@
         <lang.documentationProvider language="Kite"
                                      implementationClass="io.kite.intellij.documentation.KiteDocumentationProvider"/>
 
+        <!-- Inlay hints (type hints and parameter name hints) -->
+        <codeInsight.inlayProvider language="Kite"
+                                   implementationClass="io.kite.intellij.hints.KiteInlayHintsProvider"/>
+
     </extensions>
 </idea-plugin>
