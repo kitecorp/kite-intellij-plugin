@@ -197,7 +197,7 @@ Created 4 comprehensive test files demonstrating all language features:
   - Display parameter names, types, and default values
   - Highlight current parameter being typed
 
-- [ ] **Live Templates/Snippets**: Code snippets that expand to common patterns
+- [x] **Live Templates/Snippets**: Code snippets that expand to common patterns
   - `res` → `resource Type name { }`
   - `comp` → `component Name { input ... output ... }`
   - `sch` → `schema Name { }`

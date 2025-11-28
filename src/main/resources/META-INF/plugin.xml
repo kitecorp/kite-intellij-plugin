@@ -73,11 +73,41 @@
       </li>
       <li><b>TODO/FIXME Highlighting</b> - TODO, FIXME, and other task patterns are highlighted in comments and appear in the TODO tool window</li>
       <li><b>File Templates</b> - Create new .kite files from the New menu (File > New > Kite File or right-click > New > Kite File)</li>
+      <li><b>Live Templates</b> - Code snippets that expand to common patterns. Type abbreviation + Tab:
+        <ul>
+          <li><code>comp</code> → component block</li>
+          <li><code>res</code> → resource block</li>
+          <li><code>sch</code> → schema block</li>
+          <li><code>fun</code> → function definition</li>
+          <li><code>inp</code> → input declaration</li>
+          <li><code>out</code> → output declaration</li>
+          <li><code>var</code> → variable declaration</li>
+          <li><code>for</code> → for loop</li>
+          <li><code>if</code> / <code>ife</code> → if / if-else statements</li>
+          <li><code>type</code> → type alias</li>
+          <li><code>imp</code> → import statement</li>
+          <li><code>s3</code> → S3 Bucket resource</li>
+          <li><code>vm</code> → VM Instance resource</li>
+          <li><code>compfull</code> → complete component with inputs, resource, and output</li>
+        </ul>
+      </li>
     </ul>
   ]]></description>
 
     <!-- Short summary of new features and bugfixes in the latest version -->
     <change-notes><![CDATA[
+    <b>0.10.0</b>
+    <ul>
+      <li><b>Live Templates</b> - Code snippets that expand to common Kite patterns
+        <ul>
+          <li>Type abbreviation + Tab to expand (e.g., <code>comp</code> + Tab → component block)</li>
+          <li>Includes templates for: component, resource, schema, function, input, output, var, for, if, if-else, type alias, import, decorator</li>
+          <li>Resource-specific templates: <code>s3</code> for S3 Bucket, <code>vm</code> for VM Instance</li>
+          <li><code>compfull</code> creates a complete component with inputs, resource, and output</li>
+          <li>Tab through placeholders to fill in values</li>
+        </ul>
+      </li>
+    </ul>
     <b>0.9.0</b>
     <ul>
       <li><b>File Templates</b> - Create new .kite files from the New menu
@@ -281,6 +311,10 @@
 
         <!-- Internal file template for creating new Kite files -->
         <internalFileTemplate name="Kite File"/>
+
+        <!-- Live Templates (code snippets) -->
+        <defaultLiveTemplates file="/liveTemplates/Kite.xml"/>
+        <liveTemplateContext contextId="Kite" implementation="io.kite.intellij.templates.KiteLiveTemplateContext"/>
 
     </extensions>
 
