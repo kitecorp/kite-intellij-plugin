@@ -341,8 +341,13 @@ public class KiteImportHelper {
 
     /**
      * Resolve a file path relative to a containing file.
+     * Supports multiple resolution strategies:
+     * 1. Relative path from containing file (e.g., "common.kite", "../shared/utils.kite")
+     * 2. Project-local providers: .kite/providers/
+     * 3. User-global providers: ~/.kite/providers/
+     * 4. Package-style paths: "aws.DatabaseConfig" → "aws/DatabaseConfig.kite"
      *
-     * @param importPath     The import path (e.g., "common.kite" or "../shared/utils.kite")
+     * @param importPath     The import path (e.g., "common.kite" or "aws.DatabaseConfig")
      * @param containingFile The file containing the import
      * @return The resolved PsiFile, or null if not found
      */
@@ -359,21 +364,49 @@ public class KiteImportHelper {
             return null;
         }
 
-        // Try to resolve the path relative to the containing file's directory
-        VirtualFile targetFile = containingDir.findFileByRelativePath(importPath);
+        com.intellij.openapi.vfs.LocalFileSystem fileSystem = com.intellij.openapi.vfs.LocalFileSystem.getInstance();
+        VirtualFile targetFile = null;
+
+        // Strategy 1: Try to resolve the path relative to the containing file's directory
+        targetFile = containingDir.findFileByRelativePath(importPath);
 
         // If not found, try without the leading "./" if present
         if (targetFile == null && importPath.startsWith("./")) {
             targetFile = containingDir.findFileByRelativePath(importPath.substring(2));
         }
 
-        // If still not found, try searching in project base path
+        // Strategy 2: Try searching in project base path
         if (targetFile == null) {
             String basePath = project.getBasePath();
             if (basePath != null) {
-                VirtualFile projectRoot = com.intellij.openapi.vfs.LocalFileSystem.getInstance().findFileByPath(basePath);
+                VirtualFile projectRoot = fileSystem.findFileByPath(basePath);
                 if (projectRoot != null) {
                     targetFile = projectRoot.findFileByRelativePath(importPath);
+                }
+            }
+        }
+
+        // Strategy 3: Try project-local providers directory (.kite/providers/)
+        if (targetFile == null) {
+            String basePath = project.getBasePath();
+            if (basePath != null) {
+                VirtualFile projectRoot = fileSystem.findFileByPath(basePath);
+                if (projectRoot != null) {
+                    VirtualFile providersDir = projectRoot.findFileByRelativePath(".kite/providers");
+                    if (providersDir != null && providersDir.isDirectory()) {
+                        targetFile = resolveInProviderDir(providersDir, importPath);
+                    }
+                }
+            }
+        }
+
+        // Strategy 4: Try user-global providers directory (~/.kite/providers/)
+        if (targetFile == null) {
+            String userHome = System.getProperty("user.home");
+            if (userHome != null) {
+                VirtualFile userProvidersDir = fileSystem.findFileByPath(userHome + "/.kite/providers");
+                if (userProvidersDir != null && userProvidersDir.isDirectory()) {
+                    targetFile = resolveInProviderDir(userProvidersDir, importPath);
                 }
             }
         }
@@ -384,6 +417,53 @@ public class KiteImportHelper {
 
         // Convert to PsiFile
         return PsiManager.getInstance(project).findFile(targetFile);
+    }
+
+    /**
+     * Resolve an import path within a provider directory.
+     * Handles both direct file paths and package-style paths.
+     * Package-style: "aws.DatabaseConfig" → "aws/DatabaseConfig.kite"
+     *
+     * @param providerDir The provider directory to search in
+     * @param importPath  The import path
+     * @return The resolved VirtualFile, or null if not found
+     */
+    @Nullable
+    private static VirtualFile resolveInProviderDir(VirtualFile providerDir, String importPath) {
+        // First, try direct path
+        VirtualFile targetFile = providerDir.findFileByRelativePath(importPath);
+        if (targetFile != null && targetFile.exists()) {
+            return targetFile;
+        }
+
+        // Try package-style resolution: convert dots to path separators and add .kite extension
+        // Example: "aws.DatabaseConfig" → "aws/DatabaseConfig.kite"
+        if (!importPath.contains("/") && !importPath.endsWith(".kite")) {
+            String packagePath = importPath.replace('.', '/') + ".kite";
+            targetFile = providerDir.findFileByRelativePath(packagePath);
+            if (targetFile != null && targetFile.exists()) {
+                System.err.println("[KiteImport] Resolved package path: " + importPath + " → " + packagePath);
+                return targetFile;
+            }
+
+            // Also try just the last component as a file name
+            // Example: "aws.DatabaseConfig" → look for "DatabaseConfig.kite" in "aws/" folder
+            int lastDot = importPath.lastIndexOf('.');
+            if (lastDot > 0) {
+                String folderPath = importPath.substring(0, lastDot).replace('.', '/');
+                String fileName = importPath.substring(lastDot + 1) + ".kite";
+                VirtualFile folder = providerDir.findFileByRelativePath(folderPath);
+                if (folder != null && folder.isDirectory()) {
+                    targetFile = folder.findChild(fileName);
+                    if (targetFile != null && targetFile.exists()) {
+                        System.err.println("[KiteImport] Resolved package path: " + importPath + " → " + folderPath + "/" + fileName);
+                        return targetFile;
+                    }
+                }
+            }
+        }
+
+        return null;
     }
 
     /**
