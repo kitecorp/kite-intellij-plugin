@@ -8,6 +8,7 @@ type Region = "us-east-1" | "us-west-2" | "eu-west-1"
 schema CommonConfig {
   string name
   Region region = "us-east-1"
+  any data
 }
 
 // Shared variable

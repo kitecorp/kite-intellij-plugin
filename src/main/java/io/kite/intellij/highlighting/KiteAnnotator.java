@@ -46,6 +46,15 @@ public class KiteAnnotator implements Annotator {
             return;
         }
 
+        // Handle 'any' keyword - color it as TYPE_NAME (blue) like other type keywords
+        if (elementType == KiteTokenTypes.ANY) {
+            holder.newSilentAnnotation(HighlightSeverity.INFORMATION)
+                    .range(element)
+                    .textAttributes(TYPE_NAME)
+                    .create();
+            return;
+        }
+
         // Only process identifiers for type highlighting
         if (elementType != KiteTokenTypes.IDENTIFIER) {
             return;

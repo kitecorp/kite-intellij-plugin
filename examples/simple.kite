@@ -34,6 +34,7 @@ input string inname = "asd"
 output string outname = "asda"
 resource CommonConfig common {
   name = ""
+  data = 123
 }
 
 var p = common.name

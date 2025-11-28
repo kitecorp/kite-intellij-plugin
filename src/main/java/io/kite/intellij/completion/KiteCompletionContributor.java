@@ -1496,6 +1496,13 @@ public class KiteCompletionContributor extends CompletionContributor {
                         continue;
                     }
 
+                    // Handle 'any' keyword as a type
+                    if (type == KiteTokenTypes.ANY) {
+                        currentType = "any";
+                        child = child.getNextSibling();
+                        continue;
+                    }
+
                     // Track type -> name pattern
                     if (type == KiteTokenTypes.IDENTIFIER) {
                         String text = child.getText();

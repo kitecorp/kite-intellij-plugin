@@ -101,9 +101,15 @@ public class KiteSyntaxHighlighter extends SyntaxHighlighterBase {
                 tokenType == KiteTokenTypes.FROM || tokenType == KiteTokenTypes.FUN ||
                 tokenType == KiteTokenTypes.VAR || tokenType == KiteTokenTypes.TYPE ||
                 tokenType == KiteTokenTypes.INIT || tokenType == KiteTokenTypes.THIS ||
-                tokenType == KiteTokenTypes.OBJECT || tokenType == KiteTokenTypes.ANY ||
+            tokenType == KiteTokenTypes.OBJECT ||
                 tokenType == KiteTokenTypes.NULL) {
             return KEYWORD_KEYS;
+        }
+
+        // 'any' is a type keyword but should have same highlighting as other type names
+        // (not purple keyword color, will be colored by KiteAnnotator as TYPE_NAME)
+        if (tokenType == KiteTokenTypes.ANY) {
+            return IDENTIFIER_KEYS;
         }
 
         // Boolean literals - same color as numbers

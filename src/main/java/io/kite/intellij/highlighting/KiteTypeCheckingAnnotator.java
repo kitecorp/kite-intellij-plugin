@@ -599,6 +599,12 @@ public class KiteTypeCheckingAnnotator implements Annotator {
                 continue;
             }
 
+            // Handle 'any' keyword as a type
+            if (childType == KiteTokenTypes.ANY) {
+                currentType = "any";
+                continue;
+            }
+
             // Pattern: type propertyName [= defaultValue]
             if (childType == KiteTokenTypes.IDENTIFIER) {
                 if (currentType == null) {
@@ -1023,6 +1029,11 @@ public class KiteTypeCheckingAnnotator implements Annotator {
         }
 
         IElementType prevType = prev.getNode().getElementType();
+
+        // If preceded by 'any' keyword, this is a property name (any is a type)
+        if (prevType == KiteTokenTypes.ANY) {
+            return true;
+        }
 
         // If preceded by a builtin type or another identifier (custom type), this is a property name
         if (prevType == KiteTokenTypes.IDENTIFIER) {
