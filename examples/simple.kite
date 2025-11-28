@@ -1,22 +1,31 @@
 // Simple Kite example
+// Test cross-file navigation: Cmd+Click on imported symbols
 import * from "common.kite"
 
+// Using imported type from common.kite
+// Cmd+Click on "Region" should navigate to common.kite
 type Environment = "dev" | "staging" | "prod"
+
+// Using imported variable from common.kite
+// Cmd+Click on "defaultRegion" should navigate to common.kite
+var myRegion = defaultRegion
+
+// Using imported function from common.kite
+// Cmd+Click on "formatName" should navigate to common.kite
+var formattedName = formatName("app", appName)
 
 schema DatabaseConfig {
   string host
-  number port = 5432
+  number port  = 5432
   boolean ssl  = true
-  boolean sslu  = false
+  boolean sslu = false
 }
 
 @provisionOn(["aws"])
 @tags({Environment: "production", Team: "platform"})
-resource S3.Bucket photos {
-  name  = "my-photos-bucket"
-  region  = "us-east-1"
-  region = "us-east-1"
-  region   = "us-east-1"
+resource DatabaseConfig photos {
+  host = "my-photos-bucket"
+  port = 123
 }
 
 fun calculateCost(number instances, string name) number {

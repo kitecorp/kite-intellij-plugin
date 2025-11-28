@@ -10,15 +10,18 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Reference implementation for Kite identifiers.
  * Resolves identifier usages to their declarations using pure PSI traversal.
  *
- * Handles two types of references:
+ * Handles three types of references:
  * 1. Simple identifiers (e.g., "server") - resolved to declarations in scope
  * 2. Property access (e.g., "size" in "server.size") - resolved within the object's declaration
+ * 3. Cross-file references - resolved through import statements
  */
 public class KiteReference extends PsiReferenceBase<PsiElement> implements PsiPolyVariantReference {
 
@@ -47,6 +50,12 @@ public class KiteReference extends PsiReferenceBase<PsiElement> implements PsiPo
             // Simple identifier: search declarations in file scope
             PsiFile file = myElement.getContainingFile();
             findDeclarations(file, name, results);
+
+            // If not found locally, search in imported files
+            if (results.isEmpty()) {
+                System.err.println("[KiteRef] Not found locally, searching imported files");
+                findDeclarationsInImportedFiles(file, name, results, new HashSet<>());
+            }
         }
 
         System.err.println("[KiteRef] Found " + results.size() + " results");
@@ -665,5 +674,69 @@ public class KiteReference extends PsiReferenceBase<PsiElement> implements PsiPo
                type == KiteTokenTypes.WHITESPACE ||
                type == KiteTokenTypes.NL ||
                type == KiteTokenTypes.NEWLINE;
+    }
+
+    /**
+     * Find declarations in imported files (cross-file navigation).
+     *
+     * @param file       The file containing the import statements
+     * @param targetName The name to find
+     * @param results    List to add found results to
+     * @param visited    Set of visited file paths to prevent infinite loops
+     */
+    private void findDeclarationsInImportedFiles(PsiFile file, String targetName,
+                                                 List<ResolveResult> results, Set<String> visited) {
+        // Get all imported files
+        List<PsiFile> importedFiles = KiteImportHelper.getImportedFiles(file);
+
+        for (PsiFile importedFile : importedFiles) {
+            if (importedFile == null || importedFile.getVirtualFile() == null) {
+                continue;
+            }
+
+            String filePath = importedFile.getVirtualFile().getPath();
+            if (visited.contains(filePath)) {
+                continue; // Already visited, skip to prevent infinite loop
+            }
+            visited.add(filePath);
+
+            System.err.println("[KiteRef] Searching in imported file: " + filePath);
+
+            // Search for declarations in this imported file
+            findDeclarationsInFile(importedFile, targetName, results);
+
+            // If found, we can stop (or continue to find all if there are multiple matches)
+            if (!results.isEmpty()) {
+                System.err.println("[KiteRef] Found declaration in imported file: " + filePath);
+            }
+
+            // Also recursively check imports in the imported file
+            findDeclarationsInImportedFiles(importedFile, targetName, results, visited);
+        }
+    }
+
+    /**
+     * Find declarations in a specific file (used for cross-file search).
+     * Unlike findDeclarations, this doesn't check if nameElement == myElement
+     * since we're searching in a different file.
+     */
+    private void findDeclarationsInFile(PsiElement element, String targetName, List<ResolveResult> results) {
+        IElementType type = element.getNode().getElementType();
+
+        if (isDeclarationType(type)) {
+            PsiElement nameElement = findNameInDeclaration(element, type);
+            if (nameElement != null && targetName.equals(nameElement.getText())) {
+                // For cross-file references, we always add the result
+                results.add(new PsiElementResolveResult(nameElement));
+                return; // Found it, no need to recurse further in this declaration
+            }
+        }
+
+        // Recurse into children
+        PsiElement child = element.getFirstChild();
+        while (child != null) {
+            findDeclarationsInFile(child, targetName, results);
+            child = child.getNextSibling();
+        }
     }
 }

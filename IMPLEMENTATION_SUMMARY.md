@@ -239,9 +239,10 @@ Created 4 comprehensive test files demonstrating all language features:
   - Extract repeated expressions to variables
   - Extract code blocks to functions
 
-- [ ] **Cross-file Navigation**: Go to Declaration across files
+- [x] **Cross-file Navigation**: Go to Declaration across files ✅
   - Follow imports to navigate to external declarations
-  - Support for multi-file projects
+  - Support for multi-file projects with `import * from "file.kite"` syntax
+  - Recursive import resolution for transitive dependencies
 
 - [ ] **Import Management**: Auto-import and organize imports
   - Suggest imports for unresolved references

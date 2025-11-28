@@ -10,10 +10,13 @@ import com.intellij.psi.tree.IElementType;
 import io.kite.intellij.KiteLanguage;
 import io.kite.intellij.psi.KiteElementTypes;
 import io.kite.intellij.psi.KiteTokenTypes;
+import io.kite.intellij.reference.KiteImportHelper;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -121,6 +124,14 @@ public class KiteGotoDeclarationHandler implements GotoDeclarationHandler {
             if (declaration != null) {
                 LOG.info("[KiteGotoDecl] Returning declaration target: " + declaration.getText());
                 return new PsiElement[]{declaration};
+            }
+
+            // Not found locally - search in imported files (cross-file navigation)
+            LOG.info("[KiteGotoDecl] Not found locally, searching in imported files...");
+            PsiElement importedDeclaration = findDeclarationInImportedFiles(file, name, sourceElement, new HashSet<>());
+            if (importedDeclaration != null) {
+                LOG.info("[KiteGotoDecl] Found in imported file: " + importedDeclaration.getText());
+                return new PsiElement[]{importedDeclaration};
             }
         }
 
@@ -673,6 +684,15 @@ public class KiteGotoDeclarationHandler implements GotoDeclarationHandler {
             }
         }
 
+        // Handle raw VAR tokens (local variables inside function bodies)
+        if (type == KiteTokenTypes.VAR) {
+            PsiElement nameElement = findVarNameElementFromToken(element);
+            if (nameElement != null && targetName.equals(nameElement.getText()) && nameElement != sourceElement) {
+                LOG.info("[findDeclaration] MATCH FOUND (VAR token): " + nameElement.getText());
+                return nameElement;
+            }
+        }
+
         // Recurse into children
         PsiElement child = element.getFirstChild();
         while (child != null) {
@@ -681,6 +701,51 @@ public class KiteGotoDeclarationHandler implements GotoDeclarationHandler {
                 return result;
             }
             child = child.getNextSibling();
+        }
+
+        return null;
+    }
+
+    /**
+     * Find the variable name element from a raw VAR token.
+     * Pattern: var [type] name = value
+     * Returns the identifier element that is the variable name (last identifier before =)
+     */
+    @Nullable
+    private PsiElement findVarNameElementFromToken(PsiElement varToken) {
+        PsiElement lastIdentifier = null;
+        PsiElement sibling = varToken.getNextSibling();
+
+        while (sibling != null) {
+            if (sibling.getNode() == null) {
+                sibling = sibling.getNextSibling();
+                continue;
+            }
+
+            IElementType siblingType = sibling.getNode().getElementType();
+
+            // Skip whitespace
+            if (isWhitespace(siblingType)) {
+                sibling = sibling.getNextSibling();
+                continue;
+            }
+
+            // Collect identifiers
+            if (siblingType == KiteTokenTypes.IDENTIFIER) {
+                lastIdentifier = sibling;
+            }
+
+            // Stop at = and return the last identifier found
+            if (siblingType == KiteTokenTypes.ASSIGN) {
+                return lastIdentifier;
+            }
+
+            // Stop at newline (incomplete declaration)
+            if (siblingType == KiteTokenTypes.NL) {
+                break;
+            }
+
+            sibling = sibling.getNextSibling();
         }
 
         return null;
@@ -745,8 +810,28 @@ public class KiteGotoDeclarationHandler implements GotoDeclarationHandler {
             }
         }
 
+        // Special handling for function declarations
+        // Pattern: fun name(params) returnType { ... }
+        // The function name is the identifier after FUN and before LPAREN
+        if (declarationType == KiteElementTypes.FUNCTION_DECLARATION) {
+            boolean foundFun = false;
+            PsiElement child = declaration.getFirstChild();
+            while (child != null) {
+                IElementType childType = child.getNode().getElementType();
+                if (childType == KiteTokenTypes.FUN) {
+                    foundFun = true;
+                } else if (foundFun && childType == KiteTokenTypes.IDENTIFIER) {
+                    return child; // First identifier after FUN is the function name
+                } else if (childType == KiteTokenTypes.LPAREN) {
+                    break; // Stop at opening paren
+                }
+                child = child.getNextSibling();
+            }
+            return null;
+        }
+
         // For var/input/output: keyword [type] name [= value]
-        // For resource/component/schema/function: keyword [type] name { ... }
+        // For resource/component/schema: keyword [type] name { ... }
         // Find the identifier that comes before '=' or '{'
         PsiElement lastIdentifier = null;
         PsiElement child = declaration.getFirstChild();
@@ -875,6 +960,53 @@ public class KiteGotoDeclarationHandler implements GotoDeclarationHandler {
         }
 
         return sb.length() > 0 ? sb.toString() : null;
+    }
+
+    /**
+     * Find declaration in imported files (cross-file navigation).
+     * Uses KiteImportHelper to resolve imports and search in imported files.
+     *
+     * @param file          The file containing the import statements
+     * @param targetName    The name to find
+     * @param sourceElement The element that triggered the navigation (to exclude from results)
+     * @param visited       Set of visited file paths to prevent infinite loops
+     * @return The declaration element if found, null otherwise
+     */
+    @Nullable
+    private PsiElement findDeclarationInImportedFiles(PsiFile file, String targetName, PsiElement sourceElement, Set<String> visited) {
+        // Get all imported files
+        List<PsiFile> importedFiles = KiteImportHelper.getImportedFiles(file);
+        LOG.info("[KiteGotoDecl] Found " + importedFiles.size() + " imported files");
+
+        for (PsiFile importedFile : importedFiles) {
+            if (importedFile == null || importedFile.getVirtualFile() == null) {
+                continue;
+            }
+
+            String filePath = importedFile.getVirtualFile().getPath();
+            if (visited.contains(filePath)) {
+                continue; // Already visited, skip to prevent infinite loop
+            }
+            visited.add(filePath);
+
+            LOG.info("[KiteGotoDecl] Searching in imported file: " + importedFile.getName());
+
+            // Search for declaration in this imported file
+            // Use null for sourceElement since we're in a different file
+            PsiElement declaration = findDeclaration(importedFile, targetName, null);
+            if (declaration != null) {
+                LOG.info("[KiteGotoDecl] Found declaration in imported file: " + filePath);
+                return declaration;
+            }
+
+            // Also recursively check imports in the imported file
+            PsiElement nestedDeclaration = findDeclarationInImportedFiles(importedFile, targetName, sourceElement, visited);
+            if (nestedDeclaration != null) {
+                return nestedDeclaration;
+            }
+        }
+
+        return null;
     }
 
     /**

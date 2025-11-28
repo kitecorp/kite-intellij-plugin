@@ -106,11 +106,32 @@
           <li>Supports string, number, boolean, null, object, and array types</li>
         </ul>
       </li>
+      <li><b>Cross-file Navigation</b> - Go to Declaration across files:
+        <ul>
+          <li>Follow imports to navigate to declarations in other files</li>
+          <li>Cmd+Click (Mac) or Ctrl+Click (Win/Linux) on identifiers from imported modules</li>
+          <li>Supports <code>import * from "path/to/file.kite"</code> syntax</li>
+          <li>Automatically resolves relative paths from the current file</li>
+          <li>Recursive import resolution for transitive dependencies</li>
+        </ul>
+      </li>
     </ul>
   ]]></description>
 
     <!-- Short summary of new features and bugfixes in the latest version -->
     <change-notes><![CDATA[
+    <b>0.13.0</b>
+    <ul>
+      <li><b>Cross-file Navigation</b> - Go to Declaration across files
+        <ul>
+          <li>Follow imports to navigate to declarations in other files</li>
+          <li>Cmd+Click (Mac) or Ctrl+Click (Win/Linux) on identifiers from imported modules</li>
+          <li>Supports <code>import * from "path/to/file.kite"</code> syntax</li>
+          <li>Automatically resolves relative paths from the current file</li>
+          <li>Recursive import resolution for transitive dependencies</li>
+        </ul>
+      </li>
+    </ul>
     <b>0.12.0</b>
     <ul>
       <li><b>Type Checking & Error Highlighting</b> - Real-time validation with warnings and errors

@@ -82,6 +82,16 @@ Real-time validation with warnings and errors:
 - Skips property access (handled by reference resolution)
 - Skips type annotations and declaration names
 
+### Cross-file Navigation
+
+Go to Declaration across files:
+
+- Cmd+Click (Mac) or Ctrl+Click (Win/Linux) on identifiers from imported modules
+- Supports `import * from "path/to/file.kite"` syntax
+- Automatically resolves relative paths from the current file
+- Recursive import resolution for transitive dependencies
+- Type checking also considers imported declarations
+
 ### Force Clean Builds
 
 ```bash
@@ -103,5 +113,6 @@ killall -9 java  # Kill lingering IDE instances
 | Parameter Info      | `parameterinfo/KiteParameterInfoHandler.java`  |
 | Inlay Hints         | `hints/KiteInlayHintsProvider.java`            |
 | Type Checking       | `highlighting/KiteTypeCheckingAnnotator.java`  |
+| Cross-file Nav      | `reference/KiteImportHelper.java`              |
 | Structure View      | `structure/KiteStructureViewElement.java`      |
 | References          | `reference/KiteReferenceContributor.java`      |
