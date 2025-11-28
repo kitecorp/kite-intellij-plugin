@@ -166,6 +166,11 @@ public class KiteInlayHintsProvider implements InlayHintsProvider<KiteInlayHints
                 collectTypeHints(element, sink);
             }
 
+            // Show type hints for RESOURCE property assignments
+            if (settings.showTypeHints && elementType == KiteElementTypes.RESOURCE_DECLARATION) {
+                collectResourcePropertyTypeHints(element, sink);
+            }
+
             // Show parameter hints for function calls
             if (settings.showParameterHints) {
                 // Function calls are identifiers followed by parentheses with arguments
@@ -266,6 +271,236 @@ public class KiteInlayHintsProvider implements InlayHintsProvider<KiteInlayHints
                     sink.addInlineElement(offset, true, presentation, false);
                 }
             }
+        }
+
+        /**
+         * Collect type hints for resource property assignments.
+         * Looks up the property type from the matching schema.
+         * <p>
+         * Example: resource DatabaseConfig photos { host = "..." } shows ": string" after "host"
+         */
+        private void collectResourcePropertyTypeHints(PsiElement resourceDeclaration, InlayHintsSink sink) {
+            ASTNode node = resourceDeclaration.getNode();
+            if (node == null) return;
+
+            // Get the resource type name (first identifier after RESOURCE keyword)
+            String schemaName = getResourceTypeName(node);
+            if (schemaName == null) return;
+
+            // Find the matching schema
+            PsiFile file = resourceDeclaration.getContainingFile();
+            if (file == null) return;
+
+            java.util.Map<String, String> schemaProperties = findSchemaProperties(file, schemaName);
+            if (schemaProperties.isEmpty()) return;
+
+            // Find property assignments inside the resource body
+            boolean insideBraces = false;
+            for (ASTNode child : node.getChildren(null)) {
+                IElementType childType = child.getElementType();
+
+                if (childType == KiteTokenTypes.LBRACE) {
+                    insideBraces = true;
+                    continue;
+                }
+                if (childType == KiteTokenTypes.RBRACE) {
+                    break;
+                }
+
+                // Look for property assignments: identifier = value
+                if (insideBraces && childType == KiteTokenTypes.IDENTIFIER) {
+                    String propertyName = child.getText();
+
+                    // Check if followed by =
+                    ASTNode next = child.getTreeNext();
+                    while (next != null && isWhitespaceToken(next.getElementType())) {
+                        next = next.getTreeNext();
+                    }
+
+                    if (next != null && next.getElementType() == KiteTokenTypes.ASSIGN) {
+                        // This is a property assignment - look up the type from schema
+                        String propertyType = schemaProperties.get(propertyName);
+                        if (propertyType != null) {
+                            int offset = child.getTextRange().getEndOffset();
+                            PresentationFactory factory = new PresentationFactory(editor);
+                            InlayPresentation text = factory.smallText(":" + propertyType);
+                            InlayPresentation presentation = factory.roundWithBackground(text);
+                            sink.addInlineElement(offset, true, presentation, false);
+                        }
+                    }
+                }
+            }
+        }
+
+        /**
+         * Get the resource type name from a resource declaration.
+         * Pattern: resource TypeName instanceName { ... }
+         * Returns the first identifier after RESOURCE keyword.
+         */
+        @Nullable
+        private String getResourceTypeName(ASTNode resourceNode) {
+            boolean foundResource = false;
+            for (ASTNode child : resourceNode.getChildren(null)) {
+                IElementType childType = child.getElementType();
+
+                if (childType == KiteTokenTypes.RESOURCE) {
+                    foundResource = true;
+                    continue;
+                }
+
+                if (foundResource && childType == KiteTokenTypes.IDENTIFIER) {
+                    return child.getText(); // First identifier is the type name
+                }
+
+                if (childType == KiteTokenTypes.LBRACE) {
+                    break;
+                }
+            }
+            return null;
+        }
+
+        /**
+         * Find schema properties by name. Returns a map of property name to type.
+         * Searches in current file and imported files.
+         */
+        private java.util.Map<String, String> findSchemaProperties(PsiFile file, String schemaName) {
+            java.util.Map<String, String> properties = new java.util.HashMap<>();
+
+            // Search in current file
+            findSchemaPropertiesRecursive(file.getNode(), schemaName, properties);
+
+            // If not found, search in imported files
+            if (properties.isEmpty()) {
+                findSchemaPropertiesInImports(file, schemaName, properties, new HashSet<>());
+            }
+
+            return properties;
+        }
+
+        /**
+         * Recursively search for a schema and extract its properties.
+         */
+        private void findSchemaPropertiesRecursive(ASTNode node, String schemaName, java.util.Map<String, String> properties) {
+            if (node == null) return;
+
+            if (node.getElementType() == KiteElementTypes.SCHEMA_DECLARATION) {
+                // Check if this is the schema we're looking for
+                String name = getSchemaName(node);
+                if (schemaName.equals(name)) {
+                    extractSchemaProperties(node, properties);
+                    return;
+                }
+            }
+
+            // Recurse into children
+            for (ASTNode child : node.getChildren(null)) {
+                findSchemaPropertiesRecursive(child, schemaName, properties);
+                if (!properties.isEmpty()) return; // Found it
+            }
+        }
+
+        /**
+         * Search for schema properties in imported files.
+         */
+        private void findSchemaPropertiesInImports(PsiFile file, String schemaName,
+                                                   java.util.Map<String, String> properties, Set<String> visited) {
+            List<PsiFile> importedFiles = KiteImportHelper.getImportedFiles(file);
+
+            for (PsiFile importedFile : importedFiles) {
+                if (importedFile == null || importedFile.getVirtualFile() == null) continue;
+
+                String path = importedFile.getVirtualFile().getPath();
+                if (visited.contains(path)) continue;
+                visited.add(path);
+
+                findSchemaPropertiesRecursive(importedFile.getNode(), schemaName, properties);
+                if (!properties.isEmpty()) return;
+
+                // Recursively check imports
+                findSchemaPropertiesInImports(importedFile, schemaName, properties, visited);
+                if (!properties.isEmpty()) return;
+            }
+        }
+
+        /**
+         * Get the schema name from a schema declaration.
+         */
+        @Nullable
+        private String getSchemaName(ASTNode schemaNode) {
+            boolean foundSchema = false;
+            for (ASTNode child : schemaNode.getChildren(null)) {
+                IElementType childType = child.getElementType();
+
+                if (childType == KiteTokenTypes.SCHEMA) {
+                    foundSchema = true;
+                    continue;
+                }
+
+                if (foundSchema && childType == KiteTokenTypes.IDENTIFIER) {
+                    return child.getText();
+                }
+
+                if (childType == KiteTokenTypes.LBRACE) {
+                    break;
+                }
+            }
+            return null;
+        }
+
+        /**
+         * Extract property definitions from a schema.
+         * Pattern inside schema: type propertyName [= defaultValue]
+         */
+        private void extractSchemaProperties(ASTNode schemaNode, java.util.Map<String, String> properties) {
+            boolean insideBraces = false;
+            String currentType = null;
+
+            for (ASTNode child : schemaNode.getChildren(null)) {
+                IElementType childType = child.getElementType();
+
+                if (childType == KiteTokenTypes.LBRACE) {
+                    insideBraces = true;
+                    continue;
+                }
+                if (childType == KiteTokenTypes.RBRACE) {
+                    break;
+                }
+
+                if (!insideBraces) continue;
+
+                // Skip whitespace and newlines
+                if (isWhitespaceToken(childType)) {
+                    continue;
+                }
+
+                // Track type -> name pattern
+                if (childType == KiteTokenTypes.IDENTIFIER) {
+                    String text = child.getText();
+                    if (currentType == null) {
+                        // First identifier is the type
+                        currentType = text;
+                    } else {
+                        // Second identifier is the property name
+                        properties.put(text, currentType);
+                        currentType = null;
+                    }
+                }
+
+                // Reset on newline or assignment (end of property definition)
+                if (childType == KiteTokenTypes.NL || childType == KiteTokenTypes.ASSIGN) {
+                    currentType = null;
+                }
+            }
+        }
+
+        /**
+         * Check if token type is whitespace.
+         */
+        private boolean isWhitespaceToken(IElementType type) {
+            return type == KiteTokenTypes.WHITESPACE ||
+                   type == KiteTokenTypes.NL ||
+                   type == KiteTokenTypes.NEWLINE ||
+                   type == TokenType.WHITE_SPACE;
         }
 
         /**

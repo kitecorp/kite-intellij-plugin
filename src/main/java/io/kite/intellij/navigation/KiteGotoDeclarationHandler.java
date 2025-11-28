@@ -80,6 +80,17 @@ public class KiteGotoDeclarationHandler implements GotoDeclarationHandler {
             return null;
         }
 
+        // Handle file path strings in import statements
+        // e.g., import * from "common.kite" - clicking on "common.kite" navigates to the file
+        if (isImportPathString(sourceElement)) {
+            LOG.info("[KiteGotoDecl] Import path string detected");
+            PsiFile targetFile = resolveImportPathToFile(sourceElement, file);
+            if (targetFile != null) {
+                LOG.info("[KiteGotoDecl] Resolved import path to file: " + targetFile.getName());
+                return new PsiElement[]{targetFile};
+            }
+        }
+
         // Handle legacy STRING tokens with interpolations (for backwards compatibility)
         if (elementType == KiteTokenTypes.STRING) {
             LOG.info("[KiteGotoDecl] Legacy STRING token detected, handling string interpolation navigation");
@@ -1069,5 +1080,97 @@ public class KiteGotoDeclarationHandler implements GotoDeclarationHandler {
         }
 
         return false;
+    }
+
+    /**
+     * Check if the element is a string literal in an import statement.
+     * Import syntax: import * from "path/to/file.kite"
+     * The string element can be:
+     * - STRING token (the whole string including quotes)
+     * - STRING_TEXT token (the text inside the quotes)
+     * - DQUOTE or SINGLE_STRING token
+     */
+    private boolean isImportPathString(PsiElement element) {
+        if (element == null || element.getNode() == null) {
+            return false;
+        }
+
+        IElementType type = element.getNode().getElementType();
+
+        // Check if this is a string-related token
+        boolean isStringToken = (type == KiteTokenTypes.STRING ||
+                                 type == KiteTokenTypes.STRING_TEXT ||
+                                 type == KiteTokenTypes.DQUOTE ||
+                                 type == KiteTokenTypes.SINGLE_STRING);
+
+        if (!isStringToken) {
+            return false;
+        }
+
+        // Walk backward to find if there's a FROM keyword before this string
+        PsiElement current = element.getPrevSibling();
+        while (current != null) {
+            if (current.getNode() == null) {
+                current = current.getPrevSibling();
+                continue;
+            }
+
+            IElementType currentType = current.getNode().getElementType();
+
+            // Skip whitespace
+            if (isWhitespace(currentType)) {
+                current = current.getPrevSibling();
+                continue;
+            }
+
+            // Found FROM keyword - this is an import path string
+            if (currentType == KiteTokenTypes.FROM) {
+                return true;
+            }
+
+            // If we hit any other non-whitespace token, this is not an import path
+            break;
+        }
+
+        // Also check parent element for IMPORT_STATEMENT
+        PsiElement parent = element.getParent();
+        while (parent != null && !(parent instanceof PsiFile)) {
+            if (parent.getNode() != null &&
+                parent.getNode().getElementType() == KiteElementTypes.IMPORT_STATEMENT) {
+                return true;
+            }
+            parent = parent.getParent();
+        }
+
+        return false;
+    }
+
+    /**
+     * Resolve an import path string to a PsiFile.
+     * Extracts the path from the string element and uses KiteImportHelper to resolve it.
+     */
+    @Nullable
+    private PsiFile resolveImportPathToFile(PsiElement stringElement, PsiFile containingFile) {
+        String text = stringElement.getText();
+
+        // Extract path from string (remove quotes if present)
+        String path = text;
+        if ((path.startsWith("\"") && path.endsWith("\"")) ||
+            (path.startsWith("'") && path.endsWith("'"))) {
+            if (path.length() >= 2) {
+                path = path.substring(1, path.length() - 1);
+            }
+        }
+
+        // If this is just the text content (STRING_TEXT), it won't have quotes
+        // Use it directly if it looks like a file path
+        if (path.isEmpty()) {
+            return null;
+        }
+
+        LOG.info("[KiteGotoDecl] Resolving import path: " + path);
+
+        // Use KiteImportHelper to resolve the path
+        return KiteImportHelper.resolveFilePath(path, containingFile);
     }
 }

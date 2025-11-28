@@ -258,6 +258,12 @@ public class KiteTypeCheckingAnnotator implements Annotator {
                 return;
             }
 
+            // Skip decorator names (identifiers after @)
+            // Decorators are global/built-in and don't need to be imported
+            if (isDecoratorName(element)) {
+                return;
+            }
+
             // Check if the name is declared
             if (!declaredNames.contains(name)) {
                 holder.newAnnotation(HighlightSeverity.WARNING,
@@ -539,6 +545,16 @@ public class KiteTypeCheckingAnnotator implements Annotator {
     private boolean isPropertyAccess(PsiElement identifier) {
         PsiElement prev = skipWhitespaceBackward(identifier.getPrevSibling());
         return prev != null && prev.getNode().getElementType() == KiteTokenTypes.DOT;
+    }
+
+    /**
+     * Check if the identifier is a decorator name (immediately after @).
+     * Decorators are global/built-in and don't need to be declared.
+     */
+    private boolean isDecoratorName(PsiElement identifier) {
+        PsiElement prev = skipWhitespaceBackward(identifier.getPrevSibling());
+        return prev != null && prev.getNode() != null &&
+               prev.getNode().getElementType() == KiteTokenTypes.AT;
     }
 
     /**
