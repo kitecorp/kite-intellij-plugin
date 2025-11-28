@@ -15,12 +15,13 @@
 ./gradlew runIde          # Run plugin in sandbox IDE
 ./gradlew buildPlugin     # Build plugin ZIP
 ./gradlew clean build     # Clean rebuild
+./gradlew compileJava     # Compile only
 ```
 
 ## Testing
 
 - Test files: `examples/` directory
-- Main test file: `examples/component.kite`
+- Main test file: `examples/simple.kite`, `examples/common.kite`
 
 ## Key Implementation Notes
 
@@ -38,13 +39,55 @@ Always check for both IntelliJ and Kite whitespace types:
 ```java
 type == TokenType.WHITE_SPACE ||  // IntelliJ platform
 type == KiteTokenTypes.NL ||
-type == KiteTokenTypes.WHITESPACE
+type == KiteTokenTypes.WHITESPACE ||
+type == KiteTokenTypes.NEWLINE
 ```
 
 ### Navigation: Declaration vs Reference
 
 An identifier is a **declaration name** (not navigable) if followed by `=`, `{`, `+=`, or `:`.
 Otherwise it's a **reference** (navigable to its declaration).
+
+### Function Parameter Navigation
+
+When resolving references inside function bodies, check if the identifier is a function parameter:
+
+1. Walk up PSI tree to find enclosing `FUNCTION_DECLARATION`
+2. Search parameter list for matching name (pattern: `type paramName, type paramName`)
+3. Return the parameter name identifier
+
+### Import Resolution Order
+
+Imports are resolved in this order (see `KiteImportHelper.resolveFilePath()`):
+
+1. Relative to containing file (e.g., `"common.kite"`)
+2. Project base path
+3. Project-local providers: `.kite/providers/`
+4. User-global providers: `~/.kite/providers/`
+5. Package-style paths: `"aws.DatabaseConfig"` → `aws/DatabaseConfig.kite`
+
+### Type Checking Exclusions
+
+The annotator skips validation for:
+
+- **Decorator names**: identifiers after `@` (decorators are global/built-in)
+- **Schema property definitions**: `type propertyName` pattern inside schema/resource bodies
+- **Type annotations**: built-in types and capitalized type names
+- **Property access**: handled by reference resolution
+
+### Inlay Hints
+
+Two types of inlay hints:
+
+1. **Variable type hints**: Shows inferred type after variable name (e.g., `var x:string = "hello"`)
+2. **Parameter name hints**: Shows parameter names before arguments (e.g., `greet(name:"Alice")`)
+3. **Resource property type hints**: Shows property types from matching schema
+
+Schema lookup for resource hints:
+
+- Find schema with same name as resource type
+- Search current file, then imported files
+- Extract `type propertyName` pairs from schema body
 
 ### Quick Documentation (Ctrl+Q / F1)
 
@@ -58,45 +101,16 @@ Shows documentation popup for declarations. Supports:
 ### Parameter Info (Ctrl+P)
 
 Shows function parameter hints while typing inside function calls:
-
 - Displays parameter names and types from function declaration
 - Highlights current parameter based on cursor position
-- Only shows for function calls, not declarations
-
-### Inlay Hints
-
-Shows inline hints in the editor:
-
-- Type hints for variables without explicit type (e.g., `var x = "hello"` shows `:string`)
-- Parameter name hints in function calls (e.g., `greet("alice")` shows `name:`)
-- Configurable via Settings > Editor > Inlay Hints > Kite
-
-### Type Checking / Error Highlighting
-
-Real-time validation with warnings and errors:
-
-- Undefined reference detection: warns when identifiers don't resolve to any declaration
-- Type mismatch detection: error when assigned value type doesn't match declared type
-- Checks variable, input, and output declarations with explicit types
-- Supports string, number, boolean, null, object, and array types
-- Skips property access (handled by reference resolution)
-- Skips type annotations and declaration names
-
-### Cross-file Navigation
-
-Go to Declaration across files:
-
-- Cmd+Click (Mac) or Ctrl+Click (Win/Linux) on identifiers from imported modules
-- Supports `import * from "path/to/file.kite"` syntax
-- Automatically resolves relative paths from the current file
-- Recursive import resolution for transitive dependencies
-- Type checking also considers imported declarations
+- Cross-file support: searches imported files for function declarations
 
 ### Force Clean Builds
 
 ```bash
 ./gradlew clean compileJava --no-build-cache --rerun-tasks
 killall -9 java  # Kill lingering IDE instances
+pkill -f "idea"  # Kill sandbox IDE
 ```
 
 ## File Structure
@@ -113,6 +127,51 @@ killall -9 java  # Kill lingering IDE instances
 | Parameter Info      | `parameterinfo/KiteParameterInfoHandler.java`  |
 | Inlay Hints         | `hints/KiteInlayHintsProvider.java`            |
 | Type Checking       | `highlighting/KiteTypeCheckingAnnotator.java`  |
-| Cross-file Nav      | `reference/KiteImportHelper.java`              |
+| Import Resolution   | `reference/KiteImportHelper.java`              |
 | Structure View      | `structure/KiteStructureViewElement.java`      |
 | References          | `reference/KiteReferenceContributor.java`      |
+
+## Kite Language Syntax
+
+```kite
+// Import syntax
+import * from "path/to/file.kite"
+import * from "aws.DatabaseConfig"  // Package-style
+
+// Type definition
+type Region = "us-east-1" | "us-west-2"
+
+// Schema definition
+schema DatabaseConfig {
+  string host
+  number port = 5432
+  boolean ssl = true
+}
+
+// Resource using schema
+resource DatabaseConfig photos {
+  host = "localhost"  // Inlay hint shows :string
+  port = 5433         // Inlay hint shows :number
+}
+
+// Variable declarations
+var string explicitType = "hello"
+var inferredType = "world"  // Inlay hint shows :string
+
+// Function declaration
+fun calculateCost(number instances, string name) number {
+  var baseCost = 0.10
+  return instances * baseCost  // Cmd+Click on 'instances' navigates to param
+}
+
+// Decorators (global, not imported)
+@provisionOn(["aws"])
+@tags({Environment: "production"})
+resource VM.Instance server { }
+
+// Component with inputs/outputs
+component WebServer {
+  input string port = "8080"
+  output string endpoint = "http://localhost:${port}"
+}
+```

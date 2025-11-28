@@ -31,5 +31,6 @@ resource DatabaseConfig photos {
 
 fun calculateCost(number instances, string name) number {
   var baseCost = 0.10
+  print(instances)
   return instances * baseCost
 }
