@@ -1,0 +1,406 @@
+package io.kite.intellij.reference;
+
+import com.intellij.openapi.project.Project;
+import com.intellij.openapi.vfs.VirtualFile;
+import com.intellij.psi.PsiElement;
+import com.intellij.psi.PsiFile;
+import com.intellij.psi.PsiManager;
+import com.intellij.psi.tree.IElementType;
+import io.kite.intellij.psi.KiteElementTypes;
+import io.kite.intellij.psi.KiteTokenTypes;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+/**
+ * Helper class for parsing import statements and resolving cross-file references.
+ * <p>
+ * Supports Kite import syntax:
+ * - import * from "path/to/file.kite"
+ */
+public class KiteImportHelper {
+
+    /**
+     * Get all imported files from a Kite file.
+     *
+     * @param file The Kite file to analyze
+     * @return List of resolved PsiFiles that are imported
+     */
+    @NotNull
+    public static List<PsiFile> getImportedFiles(@NotNull PsiFile file) {
+        return getImportedFiles(file, new HashSet<>());
+    }
+
+    // Pattern to match import statements: import * from "path" or import * from 'path'
+    private static final Pattern IMPORT_PATTERN = Pattern.compile(
+            "import\\s+\\*\\s+from\\s+[\"']([^\"']+)[\"']"
+    );
+
+    /**
+     * Get all imported files, tracking visited files to prevent circular imports.
+     */
+    @NotNull
+    private static List<PsiFile> getImportedFiles(@NotNull PsiFile file, @NotNull Set<String> visitedPaths) {
+        List<PsiFile> importedFiles = new ArrayList<>();
+
+        System.err.println("[KiteImport] getImportedFiles called for: " + file.getName());
+
+        // Add this file to visited to prevent circular imports
+        VirtualFile vFile = file.getVirtualFile();
+        if (vFile != null) {
+            String path = vFile.getPath();
+            if (visitedPaths.contains(path)) {
+                System.err.println("[KiteImport] Already visited: " + path);
+                return importedFiles; // Already visited, prevent infinite loop
+            }
+            visitedPaths.add(path);
+        }
+
+        // Try PSI-based approach first
+        findImportStatements(file, file, importedFiles);
+
+        // If PSI approach didn't find anything, try text-based fallback
+        if (importedFiles.isEmpty()) {
+            System.err.println("[KiteImport] PSI approach found nothing, trying text-based fallback");
+            findImportsFromText(file, importedFiles);
+        }
+
+        System.err.println("[KiteImport] Found " + importedFiles.size() + " imported files");
+        return importedFiles;
+    }
+
+    /**
+     * Fallback: Parse import statements from file text using regex.
+     * This is more reliable when the PSI structure doesn't match expectations.
+     */
+    private static void findImportsFromText(@NotNull PsiFile file, @NotNull List<PsiFile> importedFiles) {
+        String text = file.getText();
+        Matcher matcher = IMPORT_PATTERN.matcher(text);
+
+        while (matcher.find()) {
+            String importPath = matcher.group(1);
+            System.err.println("[KiteImport] Text fallback found import: " + importPath);
+
+            PsiFile importedFile = resolveFilePath(importPath, file);
+            if (importedFile != null) {
+                System.err.println("[KiteImport] Text fallback resolved to: " + importedFile.getName());
+                importedFiles.add(importedFile);
+            } else {
+                System.err.println("[KiteImport] Text fallback could not resolve: " + importPath);
+            }
+        }
+    }
+
+    /**
+     * Recursively find import statements in the PSI tree.
+     * Looks for IMPORT_STATEMENT elements OR IMPORT keyword tokens followed by import syntax.
+     */
+    private static void findImportStatements(PsiElement element, PsiFile containingFile, List<PsiFile> importedFiles) {
+        if (element.getNode() == null) return;
+
+        IElementType type = element.getNode().getElementType();
+
+        // Check for IMPORT_STATEMENT composite element
+        if (type == KiteElementTypes.IMPORT_STATEMENT) {
+            System.err.println("[KiteImport] Found IMPORT_STATEMENT element!");
+            PsiFile importedFile = resolveImport(element, containingFile);
+            if (importedFile != null) {
+                System.err.println("[KiteImport] Resolved to: " + importedFile.getName());
+                importedFiles.add(importedFile);
+            } else {
+                System.err.println("[KiteImport] Could not resolve import");
+            }
+            return; // Don't recurse into children of import statement
+        }
+
+        // Alternative: Look for IMPORT keyword token and parse from there
+        // This handles cases where IMPORT_STATEMENT element isn't properly created
+        if (type == KiteTokenTypes.IMPORT) {
+            System.err.println("[KiteImport] Found IMPORT keyword token!");
+            // The import statement syntax is: import * from "path"
+            // We need to find the string path that follows
+            String importPath = extractImportPathFromKeyword(element);
+            if (importPath != null) {
+                System.err.println("[KiteImport] Extracted path from keyword: " + importPath);
+                PsiFile importedFile = resolveFilePath(importPath, containingFile);
+                if (importedFile != null) {
+                    System.err.println("[KiteImport] Resolved to: " + importedFile.getName());
+                    importedFiles.add(importedFile);
+                }
+            }
+            return; // Don't recurse further from import keyword
+        }
+
+        // Recurse into children
+        for (PsiElement child = element.getFirstChild(); child != null; child = child.getNextSibling()) {
+            findImportStatements(child, containingFile, importedFiles);
+        }
+    }
+
+    /**
+     * Extract import path by scanning forward from the IMPORT keyword token.
+     */
+    @Nullable
+    private static String extractImportPathFromKeyword(@NotNull PsiElement importKeyword) {
+        boolean foundFrom = false;
+        PsiElement sibling = importKeyword.getNextSibling();
+
+        while (sibling != null) {
+            if (sibling.getNode() == null) {
+                sibling = sibling.getNextSibling();
+                continue;
+            }
+
+            IElementType type = sibling.getNode().getElementType();
+            String text = sibling.getText();
+
+            // Skip whitespace
+            if (type == KiteTokenTypes.WHITESPACE || type == KiteTokenTypes.NL ||
+                type == com.intellij.psi.TokenType.WHITE_SPACE) {
+                sibling = sibling.getNextSibling();
+                continue;
+            }
+
+            // Look for "from" keyword
+            if (type == KiteTokenTypes.FROM || "from".equals(text)) {
+                System.err.println("[KiteImport] Found FROM keyword");
+                foundFrom = true;
+                sibling = sibling.getNextSibling();
+                continue;
+            }
+
+            // After FROM, look for the string literal
+            if (foundFrom) {
+                System.err.println("[KiteImport] After FROM, checking: type=" + type + ", text=" + text);
+
+                // Check for quoted string
+                if (text.startsWith("\"") && text.endsWith("\"") && text.length() >= 2) {
+                    return text.substring(1, text.length() - 1);
+                }
+                if (text.startsWith("'") && text.endsWith("'") && text.length() >= 2) {
+                    return text.substring(1, text.length() - 1);
+                }
+
+                // Check for DQUOTE element that contains the string
+                if (type == KiteTokenTypes.DQUOTE || type == KiteTokenTypes.STRING ||
+                    type == KiteTokenTypes.SINGLE_STRING) {
+                    return extractStringContent(sibling);
+                }
+
+                // Check children for string content
+                String path = extractStringFromElement(sibling);
+                if (path != null) {
+                    return path;
+                }
+            }
+
+            // Stop at newline (end of import statement)
+            if (type == KiteTokenTypes.NL) {
+                break;
+            }
+
+            sibling = sibling.getNextSibling();
+        }
+
+        return null;
+    }
+
+    /**
+     * Resolve an import statement to a PsiFile.
+     *
+     * @param importStatement The IMPORT_STATEMENT element
+     * @param containingFile  The file containing the import statement
+     * @return The resolved PsiFile, or null if not found
+     */
+    @Nullable
+    public static PsiFile resolveImport(@NotNull PsiElement importStatement, @NotNull PsiFile containingFile) {
+        // Parse import statement: import * from "path/to/file.kite"
+        String importPath = extractImportPath(importStatement);
+        if (importPath == null) {
+            return null;
+        }
+
+        // Resolve the path relative to the containing file
+        return resolveFilePath(importPath, containingFile);
+    }
+
+    /**
+     * Extract the import path from an import statement.
+     * <p>
+     * Parses: import * from "path/to/file.kite"
+     * Returns: "path/to/file.kite"
+     */
+    @Nullable
+    public static String extractImportPath(@NotNull PsiElement importStatement) {
+        System.err.println("[KiteImport] extractImportPath called");
+        System.err.println("[KiteImport] Import statement text: " + importStatement.getText());
+
+        boolean foundFrom = false;
+
+        for (PsiElement child = importStatement.getFirstChild(); child != null; child = child.getNextSibling()) {
+            if (child.getNode() == null) continue;
+
+            IElementType type = child.getNode().getElementType();
+            System.err.println("[KiteImport] Child type: " + type + ", text: " + child.getText());
+
+            if (type == KiteTokenTypes.FROM) {
+                System.err.println("[KiteImport] Found FROM keyword");
+                foundFrom = true;
+                continue;
+            }
+
+            // After FROM, look for the string literal
+            if (foundFrom) {
+                System.err.println("[KiteImport] Looking for string after FROM, type=" + type);
+                // Handle various string token types
+                if (type == KiteTokenTypes.STRING ||
+                    type == KiteTokenTypes.SINGLE_STRING ||
+                    type == KiteTokenTypes.DQUOTE) {
+                    String result = extractStringContent(child);
+                    System.err.println("[KiteImport] Extracted string content: " + result);
+                    return result;
+                }
+
+                // For composite elements, recurse to find string content
+                String path = extractStringFromElement(child);
+                if (path != null) {
+                    System.err.println("[KiteImport] Extracted from element: " + path);
+                    return path;
+                }
+            }
+        }
+
+        System.err.println("[KiteImport] Could not extract import path");
+        return null;
+    }
+
+    /**
+     * Extract string content from various string element types.
+     */
+    @Nullable
+    private static String extractStringFromElement(@NotNull PsiElement element) {
+        String text = element.getText();
+
+        // Direct string content
+        if (text.startsWith("\"") && text.endsWith("\"") && text.length() >= 2) {
+            return text.substring(1, text.length() - 1);
+        }
+        if (text.startsWith("'") && text.endsWith("'") && text.length() >= 2) {
+            return text.substring(1, text.length() - 1);
+        }
+
+        // Check children for string content
+        for (PsiElement child = element.getFirstChild(); child != null; child = child.getNextSibling()) {
+            if (child.getNode() == null) continue;
+
+            IElementType type = child.getNode().getElementType();
+            if (type == KiteTokenTypes.STRING_TEXT) {
+                return child.getText();
+            }
+
+            // Recurse into composite elements
+            String result = extractStringFromElement(child);
+            if (result != null) {
+                return result;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Extract the content from a string literal element.
+     */
+    @NotNull
+    private static String extractStringContent(@NotNull PsiElement stringElement) {
+        String text = stringElement.getText();
+
+        // Remove surrounding quotes if present
+        if ((text.startsWith("\"") && text.endsWith("\"")) ||
+            (text.startsWith("'") && text.endsWith("'"))) {
+            if (text.length() >= 2) {
+                return text.substring(1, text.length() - 1);
+            }
+        }
+
+        // For DQUOTE tokens, we need to find the STRING_TEXT inside
+        for (PsiElement child = stringElement.getFirstChild(); child != null; child = child.getNextSibling()) {
+            if (child.getNode() != null && child.getNode().getElementType() == KiteTokenTypes.STRING_TEXT) {
+                return child.getText();
+            }
+        }
+
+        return text;
+    }
+
+    /**
+     * Resolve a file path relative to a containing file.
+     *
+     * @param importPath     The import path (e.g., "common.kite" or "../shared/utils.kite")
+     * @param containingFile The file containing the import
+     * @return The resolved PsiFile, or null if not found
+     */
+    @Nullable
+    public static PsiFile resolveFilePath(@NotNull String importPath, @NotNull PsiFile containingFile) {
+        Project project = containingFile.getProject();
+        VirtualFile containingVFile = containingFile.getVirtualFile();
+        if (containingVFile == null) {
+            return null;
+        }
+
+        VirtualFile containingDir = containingVFile.getParent();
+        if (containingDir == null) {
+            return null;
+        }
+
+        // Try to resolve the path relative to the containing file's directory
+        VirtualFile targetFile = containingDir.findFileByRelativePath(importPath);
+
+        // If not found, try without the leading "./" if present
+        if (targetFile == null && importPath.startsWith("./")) {
+            targetFile = containingDir.findFileByRelativePath(importPath.substring(2));
+        }
+
+        // If still not found, try searching in project base path
+        if (targetFile == null) {
+            String basePath = project.getBasePath();
+            if (basePath != null) {
+                VirtualFile projectRoot = com.intellij.openapi.vfs.LocalFileSystem.getInstance().findFileByPath(basePath);
+                if (projectRoot != null) {
+                    targetFile = projectRoot.findFileByRelativePath(importPath);
+                }
+            }
+        }
+
+        if (targetFile == null || !targetFile.exists()) {
+            return null;
+        }
+
+        // Convert to PsiFile
+        return PsiManager.getInstance(project).findFile(targetFile);
+    }
+
+    /**
+     * Check if a name is imported in a file (for wildcard imports, everything is imported).
+     *
+     * @param name            The name to check
+     * @param importStatement The import statement to check
+     * @return true if the name is imported by this statement
+     */
+    public static boolean isNameImported(@NotNull String name, @NotNull PsiElement importStatement) {
+        // For now, we only support wildcard imports (import * from "...")
+        // which imports everything
+        for (PsiElement child = importStatement.getFirstChild(); child != null; child = child.getNextSibling()) {
+            if (child.getNode() != null && child.getNode().getElementType() == KiteTokenTypes.MULTIPLY) {
+                return true; // Wildcard import includes everything
+            }
+        }
+        return false;
+    }
+}
