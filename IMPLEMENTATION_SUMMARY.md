@@ -110,6 +110,7 @@ src/main/java/io/kite/intellij/
 │
 └── structure/
     ├── KiteStructureViewElement.java    # Structure view
+    ├── KiteStructureViewIcons.java      # Element icons
     └── KiteStructureViewModel.java
 ```
 
@@ -130,23 +131,57 @@ pkill -f "idea"           # Kill sandbox IDE
 - `examples/component.kite` - Component declarations
 - `examples/decorators.kite` - Decorator examples
 
-## Recent Changes (This Session)
+## Recent Changes
 
-1. **Resource property type hints from schema**
+### Version 0.14.0
+
+1. **Resource Block Code Completion**
+    - Context-aware autocomplete distinguishes before/after `=`
+    - Before `=`: Shows only schema properties for the resource type
+    - After `=`: Shows variables, inputs, outputs, resources, components, functions
+    - Functions display with correct names (not return types)
+    - Already-defined properties filtered from suggestions
+
+2. **Resource Property Navigation**
+    - Cmd+Click on property name navigates to schema property definition
+    - Looks up schema by matching name to resource type
+    - Added `findSchemaPropertyDefinition()` in `KiteGotoDeclarationHandler.java`
+
+3. **Resource Property Inlay Hints**
     - Shows type hints after property names in resources
     - Looks up types from matching schema by name
     - Searches current file and imports for schema definitions
 
-2. **Function parameter navigation**
+4. **Find Usages in String Interpolations**
+    - Cmd+Click on declaration now shows usages inside strings
+    - Supports `$varName` (INTERP_SIMPLE) tokens
+    - Supports `${varName}` (INTERP_IDENTIFIER) tokens
+    - Legacy STRING token fallback with regex pattern matching
+    - Added `findUsagesInString()` helper method
+
+5. **Structure View Icons**
+    - OUTPUT icon changed to lime yellow-green (205, 220, 57)
+    - INPUT icon remains amber yellow (255, 193, 7)
+    - Better visual distinction between input and output
+
+6. **Syntax Highlighting Fixes**
+    - Component definition names use default text color (not blue)
+    - Only component instantiation type names are blue
+    - Pattern: `component TypeName instanceName { }` - TypeName blue
+    - Pattern: `component DefinitionName { }` - DefinitionName default
+
+### Previous Session
+
+1. **Function parameter navigation**
     - Cmd+Click on parameter usage navigates to parameter declaration
     - Added `findParameterInEnclosingFunction()` and `findParameterInFunction()`
 
-3. **Provider directory search for imports**
+2. **Provider directory search for imports**
     - Added `.kite/providers/` (project-local) search
     - Added `~/.kite/providers/` (user-global) search
     - Added package-style path resolution
 
-4. **Type checking improvements**
+3. **Type checking improvements**
     - Skip decorator names (after `@`)
     - Skip schema property definitions
     - Import path string navigation

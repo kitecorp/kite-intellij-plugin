@@ -98,6 +98,50 @@ Shows documentation popup for declarations. Supports:
 - Works in string interpolation (`${var}` and `$var`)
 - Colors match editor theme (types=blue, strings=green, numbers=blue)
 
+### Find Usages with String Interpolations
+
+When finding usages (Cmd+Click on declaration), the plugin searches for:
+
+1. **IDENTIFIER tokens**: Standard identifier references
+2. **INTERP_SIMPLE tokens**: `$varName` patterns in strings
+3. **INTERP_IDENTIFIER tokens**: Variables inside `${...}` patterns
+4. **STRING tokens**: Legacy fallback with regex pattern matching
+
+Implementation in `KiteGotoDeclarationHandler.findUsagesRecursive()`.
+
+### Resource Block Completion
+
+Context-aware autocomplete in resource blocks:
+
+1. **Before `=`**: Shows only schema properties for the resource type
+    - Looks up schema by matching name to resource type
+    - Filters out already-defined properties
+2. **After `=`**: Shows variables, inputs, outputs, resources, components, functions
+    - Functions display with correct names (not return types)
+
+### Resource Property Navigation
+
+Cmd+Click on property name in resource block navigates to schema property definition:
+
+- Finds schema matching resource type name
+- Searches for property definition in schema body
+- Returns the property name identifier for navigation
+
+### Structure View Icons
+
+Different colored circular icons for each element type:
+
+- Resource: Purple (R)
+- Component: Blue (C)
+- Schema: Green (S)
+- Function: Orange (F)
+- Type: Blue (T)
+- Variable: Purple (V)
+- Input: Amber yellow (I)
+- Output: Lime yellow-green (O)
+- Import: Brown (M)
+- Property: Cornflower blue (P)
+
 ### Parameter Info (Ctrl+P)
 
 Shows function parameter hints while typing inside function calls:
@@ -129,6 +173,7 @@ pkill -f "idea"  # Kill sandbox IDE
 | Type Checking       | `highlighting/KiteTypeCheckingAnnotator.java`  |
 | Import Resolution   | `reference/KiteImportHelper.java`              |
 | Structure View      | `structure/KiteStructureViewElement.java`      |
+| Structure Icons     | `structure/KiteStructureViewIcons.java`        |
 | References          | `reference/KiteReferenceContributor.java`      |
 
 ## Kite Language Syntax

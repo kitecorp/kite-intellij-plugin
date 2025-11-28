@@ -304,6 +304,11 @@ public class KiteTypeCheckingAnnotator implements Annotator {
             checkDeclarationTypeMismatch(element, holder);
         }
 
+        // Check resource property type mismatches against schema
+        if (type == KiteElementTypes.RESOURCE_DECLARATION) {
+            checkResourcePropertyTypeMismatches(element, holder);
+        }
+
         // Recurse into children
         for (PsiElement child = element.getFirstChild(); child != null; child = child.getNextSibling()) {
             checkTypeMismatches(child, holder);
@@ -382,6 +387,239 @@ public class KiteTypeCheckingAnnotator implements Annotator {
                             "Type mismatch: expected '" + declaredType + "' but got '" + valueType + "'")
                     .range(valueElement)
                     .create();
+        }
+    }
+
+    /**
+     * Check resource property type mismatches against schema definitions.
+     * For example: if schema defines "string name" but resource assigns "name = 123",
+     * this should show an error.
+     */
+    private void checkResourcePropertyTypeMismatches(PsiElement resourceDeclaration, AnnotationHolder holder) {
+        // Get the resource type name (first identifier after RESOURCE keyword)
+        String schemaName = getResourceTypeName(resourceDeclaration);
+        if (schemaName == null) return;
+
+        // Find the matching schema and get property types
+        PsiFile file = resourceDeclaration.getContainingFile();
+        if (file == null) return;
+
+        java.util.Map<String, String> schemaProperties = findSchemaProperties(file, schemaName);
+        if (schemaProperties.isEmpty()) return;
+
+        // Find property assignments inside the resource body
+        boolean insideBraces = false;
+        for (PsiElement child = resourceDeclaration.getFirstChild(); child != null; child = child.getNextSibling()) {
+            if (child.getNode() == null) continue;
+            IElementType childType = child.getNode().getElementType();
+
+            if (childType == KiteTokenTypes.LBRACE) {
+                insideBraces = true;
+                continue;
+            }
+            if (childType == KiteTokenTypes.RBRACE) {
+                break;
+            }
+
+            // Look for property assignments: identifier = value
+            if (insideBraces && childType == KiteTokenTypes.IDENTIFIER) {
+                String propertyName = child.getText();
+
+                // Check if followed by =
+                PsiElement next = skipWhitespace(child.getNextSibling());
+                if (next != null && next.getNode() != null &&
+                    next.getNode().getElementType() == KiteTokenTypes.ASSIGN) {
+
+                    // Get the value element
+                    PsiElement valueElement = skipWhitespace(next.getNextSibling());
+                    if (valueElement == null) continue;
+
+                    // Get expected type from schema
+                    String expectedType = schemaProperties.get(propertyName);
+                    if (expectedType == null) continue;
+
+                    // Infer actual value type
+                    String actualType = inferType(valueElement);
+                    if (actualType == null) continue;
+
+                    // Check for mismatch
+                    if (!isTypeCompatible(expectedType, actualType)) {
+                        holder.newAnnotation(HighlightSeverity.ERROR,
+                                        "Type mismatch: property '" + propertyName + "' expects '" + expectedType +
+                                        "' but got '" + actualType + "'")
+                                .range(valueElement)
+                                .create();
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Get the resource type name from a resource declaration.
+     * Pattern: resource TypeName instanceName { ... }
+     * Returns the first identifier after RESOURCE keyword.
+     */
+    @Nullable
+    private String getResourceTypeName(PsiElement resourceDeclaration) {
+        boolean foundResource = false;
+        for (PsiElement child = resourceDeclaration.getFirstChild(); child != null; child = child.getNextSibling()) {
+            if (child.getNode() == null) continue;
+            IElementType childType = child.getNode().getElementType();
+
+            if (childType == KiteTokenTypes.RESOURCE) {
+                foundResource = true;
+                continue;
+            }
+
+            if (foundResource && childType == KiteTokenTypes.IDENTIFIER) {
+                return child.getText(); // First identifier is the type name
+            }
+
+            if (childType == KiteTokenTypes.LBRACE) {
+                break;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Find schema properties by name. Returns a map of property name to type.
+     * Searches in current file and imported files.
+     */
+    private java.util.Map<String, String> findSchemaProperties(PsiFile file, String schemaName) {
+        java.util.Map<String, String> properties = new java.util.HashMap<>();
+
+        // Search in current file
+        findSchemaPropertiesRecursive(file, schemaName, properties);
+
+        // If not found, search in imported files
+        if (properties.isEmpty()) {
+            findSchemaPropertiesInImports(file, schemaName, properties, new HashSet<>());
+        }
+
+        return properties;
+    }
+
+    /**
+     * Recursively search for a schema and extract its properties.
+     */
+    private void findSchemaPropertiesRecursive(PsiElement element, String schemaName, java.util.Map<String, String> properties) {
+        if (element == null || element.getNode() == null) return;
+
+        if (element.getNode().getElementType() == KiteElementTypes.SCHEMA_DECLARATION) {
+            // Check if this is the schema we're looking for
+            String name = getSchemaNameFromDeclaration(element);
+            if (schemaName.equals(name)) {
+                extractSchemaProperties(element, properties);
+                return;
+            }
+        }
+
+        // Recurse into children
+        for (PsiElement child = element.getFirstChild(); child != null; child = child.getNextSibling()) {
+            findSchemaPropertiesRecursive(child, schemaName, properties);
+            if (!properties.isEmpty()) return; // Found it
+        }
+    }
+
+    /**
+     * Search for schema properties in imported files.
+     */
+    private void findSchemaPropertiesInImports(PsiFile file, String schemaName,
+                                               java.util.Map<String, String> properties, Set<String> visited) {
+        List<PsiFile> importedFiles = KiteImportHelper.getImportedFiles(file);
+
+        for (PsiFile importedFile : importedFiles) {
+            if (importedFile == null || importedFile.getVirtualFile() == null) continue;
+
+            String path = importedFile.getVirtualFile().getPath();
+            if (visited.contains(path)) continue;
+            visited.add(path);
+
+            findSchemaPropertiesRecursive(importedFile, schemaName, properties);
+            if (!properties.isEmpty()) return;
+
+            // Recursively check imports
+            findSchemaPropertiesInImports(importedFile, schemaName, properties, visited);
+            if (!properties.isEmpty()) return;
+        }
+    }
+
+    /**
+     * Get the schema name from a schema declaration.
+     */
+    @Nullable
+    private String getSchemaNameFromDeclaration(PsiElement schemaDeclaration) {
+        boolean foundSchema = false;
+        for (PsiElement child = schemaDeclaration.getFirstChild(); child != null; child = child.getNextSibling()) {
+            if (child.getNode() == null) continue;
+            IElementType childType = child.getNode().getElementType();
+
+            if (childType == KiteTokenTypes.SCHEMA) {
+                foundSchema = true;
+                continue;
+            }
+
+            if (foundSchema && childType == KiteTokenTypes.IDENTIFIER) {
+                return child.getText();
+            }
+
+            if (childType == KiteTokenTypes.LBRACE) {
+                break;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Extract property definitions from a schema.
+     * Pattern inside schema: type propertyName [= defaultValue]
+     */
+    private void extractSchemaProperties(PsiElement schemaDeclaration, java.util.Map<String, String> properties) {
+        boolean insideBraces = false;
+        String currentType = null;
+
+        for (PsiElement child = schemaDeclaration.getFirstChild(); child != null; child = child.getNextSibling()) {
+            if (child.getNode() == null) continue;
+            IElementType childType = child.getNode().getElementType();
+
+            if (childType == KiteTokenTypes.LBRACE) {
+                insideBraces = true;
+                continue;
+            }
+            if (childType == KiteTokenTypes.RBRACE) {
+                break;
+            }
+
+            if (!insideBraces) continue;
+
+            // Skip whitespace and newlines
+            if (isWhitespace(childType)) {
+                continue;
+            }
+
+            // Pattern: type propertyName [= defaultValue]
+            if (childType == KiteTokenTypes.IDENTIFIER) {
+                if (currentType == null) {
+                    // This identifier is the type
+                    currentType = child.getText();
+                } else {
+                    // This identifier is the property name
+                    properties.put(child.getText(), currentType);
+                    currentType = null;
+                }
+            }
+
+            // Reset on = (end of property definition)
+            if (childType == KiteTokenTypes.ASSIGN) {
+                currentType = null;
+            }
+
+            // Reset on newline (end of property definition)
+            if (childType == KiteTokenTypes.NL || childType == KiteTokenTypes.NEWLINE) {
+                currentType = null;
+            }
         }
     }
 

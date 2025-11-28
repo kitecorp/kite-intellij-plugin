@@ -33,7 +33,7 @@ resource DatabaseConfig photos {
 input string inname = "asd"
 output string outname = "asda"
 resource CommonConfig common {
-  name = "asd"
+  name = ""
 }
 
 var p = common.name
