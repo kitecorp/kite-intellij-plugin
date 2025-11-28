@@ -46,6 +46,11 @@ public class KiteCompletionContributor extends CompletionContributor {
         "string", "number", "boolean", "object", "any"
     };
 
+    // Built-in array types
+    private static final String[] BUILTIN_ARRAY_TYPES = {
+            "string[]", "number[]", "boolean[]", "object[]", "any[]"
+    };
+
     // Literals
     private static final String[] LITERAL_KEYWORDS = {
         "true", "false", "null", "this"
@@ -167,13 +172,22 @@ public class KiteCompletionContributor extends CompletionContributor {
      * Add built-in type completions
      */
     private void addTypeCompletions(@NotNull CompletionResultSet result) {
+        // Basic types (higher priority)
         for (String type : BUILTIN_TYPES) {
-            result.addElement(
-                LookupElementBuilder.create(type)
+            LookupElementBuilder element = LookupElementBuilder.create(type)
                     .withTypeText("type")
                     .withBoldness(true)
-                    .withIcon(KiteStructureViewIcons.TYPE)
-            );
+                    .withIcon(KiteStructureViewIcons.TYPE);
+            result.addElement(PrioritizedLookupElement.withPriority(element, 100.0));
+        }
+
+        // Array types (slightly lower priority so they appear after basic types)
+        for (String type : BUILTIN_ARRAY_TYPES) {
+            LookupElementBuilder element = LookupElementBuilder.create(type)
+                    .withTypeText("array type")
+                    .withBoldness(true)
+                    .withIcon(KiteStructureViewIcons.TYPE);
+            result.addElement(PrioritizedLookupElement.withPriority(element, 90.0));
         }
     }
 

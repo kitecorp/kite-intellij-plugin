@@ -44,6 +44,7 @@ fun calculateCost(number instances, string name) number {
   print(instances)
   return instances * baseCost
 }
+
 fun calculateCostAny(any instances, any name) any {
   var baseCost = 0.10
   print(instances)

@@ -103,7 +103,7 @@
           <li>Undefined reference detection: warns when identifiers don't resolve to any declaration</li>
           <li>Type mismatch detection: error when assigned value type doesn't match declared type</li>
           <li>Checks variable, input, and output declarations with explicit types</li>
-          <li>Supports string, number, boolean, null, object, and array types</li>
+          <li>Supports string, number, boolean, null, object, any, and array types (<code>string[]</code>, <code>number[]</code>, etc.)</li>
         </ul>
       </li>
       <li><b>Cross-file Navigation</b> - Go to Declaration across files:
@@ -120,6 +120,19 @@
 
     <!-- Short summary of new features and bugfixes in the latest version -->
     <change-notes><![CDATA[
+    <b>0.15.0</b>
+    <ul>
+      <li><b>Array Types</b> - Full support for array type syntax
+        <ul>
+          <li>Declare variables with array types: <code>var string[] names</code></li>
+          <li>Function parameters: <code>fun process(number[] items)</code></li>
+          <li>Return types: <code>fun getData() string[] { }</code></li>
+          <li>Schema properties: <code>string[] tags</code></li>
+          <li>Code completion suggests array types (<code>string[]</code>, <code>number[]</code>, etc.)</li>
+          <li>Syntax highlighting correctly identifies array types in all contexts</li>
+        </ul>
+      </li>
+    </ul>
     <b>0.14.0</b>
     <ul>
       <li><b>Code Completion Improvements</b> - Context-aware autocomplete in resource blocks

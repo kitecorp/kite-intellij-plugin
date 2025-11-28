@@ -91,11 +91,12 @@ public class KiteAnnotator implements Annotator {
         }
         // After component, it's a type only if followed by ANOTHER identifier (instantiation)
         // component TypeName instanceName { ... } - TypeName is type (blue)
+        // component TypeName[] instanceName { ... } - TypeName is type (blue)
         // component TypeName { ... } - TypeName is definition name (default)
         else if (beforeElement.matches(".*(^|\\s)component\\s+$")) {
-            // Check if followed by another identifier before { (instantiation)
-            if (afterElement.matches("^\\s+[a-zA-Z_][a-zA-Z0-9_]*\\s*\\{.*") ||
-                afterElement.matches("^\\s+[a-zA-Z_][a-zA-Z0-9_]*\\s*$")) {
+            // Check if followed by optional [] and another identifier before { (instantiation)
+            if (afterElement.matches("^(\\[\\d*\\])*\\s+[a-zA-Z_][a-zA-Z0-9_]*\\s*\\{.*") ||
+                afterElement.matches("^(\\[\\d*\\])*\\s+[a-zA-Z_][a-zA-Z0-9_]*\\s*$")) {
                 isType = true;
             }
             // If followed directly by { or end of line, it's a definition name (not a type)
@@ -110,37 +111,41 @@ public class KiteAnnotator implements Annotator {
             isType = true;
         }
         // After var, it's only a type if followed by another identifier (not = or +=)
+        // Also handles array types: var string[] names
         else if (beforeElement.matches(".*(^|\\s)var\\s+$")) {
-            // Check if followed by another identifier (not = or +=)
-            if (afterElement.matches("^\\s+[a-zA-Z_][a-zA-Z0-9_]*.*")) {
+            // Check if followed by optional [] and then another identifier (not = or +=)
+            if (afterElement.matches("^(\\[\\d*\\])*\\s+[a-zA-Z_][a-zA-Z0-9_]*.*")) {
                 isType = true;
             }
         }
         // After opening paren or comma (function parameters), check if followed by identifier
         // BUT exclude object literal property names (which are followed by colon)
+        // Also handles array types: fun process(string[] items)
         else if (beforeElement.matches(".*[\\(,]\\s*$")) {
             // Skip if this is an object literal property (followed by colon)
             if (afterElement.matches("^\\s*:.*")) {
                 // This is an object property name, not a type
                 isType = false;
             }
-            // It's a type if followed by another identifier (not , or ) or :)
-            else if (afterElement.matches("^\\s+[a-zA-Z_][a-zA-Z0-9_]*.*") &&
+            // It's a type if followed by optional [] and another identifier (not , or ) or :)
+            else if (afterElement.matches("^(\\[\\d*\\])*\\s+[a-zA-Z_][a-zA-Z0-9_]*.*") &&
                 !afterElement.matches("^\\s*[,\\):].*")) {
                 isType = true;
             }
         }
         // After closing paren (return type), check if before opening brace
+        // Also handles array return types: fun process() string[] {
         else if (beforeElement.matches(".*\\)\\s*$")) {
-            // It's a return type if followed by { or another identifier (for dotted types)
-            if (afterElement.matches("^\\s*[\\{].*") || afterElement.matches("^\\s*\\..*")) {
+            // It's a return type if followed by optional [] and then { or . (for dotted types)
+            if (afterElement.matches("^(\\[\\d*\\])*\\s*[\\{].*") || afterElement.matches("^\\s*\\..*")) {
                 isType = true;
             }
         }
         // Schema property type: line starts with whitespace, identifier is followed by another identifier
+        // Also handles array types in schemas: string[] names
         else if (beforeElement.matches("^\\s*$") || beforeElement.matches(".*[\\{\\n]\\s*$")) {
-            // It's a type if followed by another identifier (the property name)
-            if (afterElement.matches("^\\s+[a-zA-Z_][a-zA-Z0-9_]*.*")) {
+            // It's a type if followed by optional [] and another identifier (the property name)
+            if (afterElement.matches("^(\\[\\d*\\])*\\s+[a-zA-Z_][a-zA-Z0-9_]*.*")) {
                 isType = true;
             }
         }
