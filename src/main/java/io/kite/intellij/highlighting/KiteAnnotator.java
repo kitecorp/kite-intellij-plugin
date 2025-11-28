@@ -71,9 +71,25 @@ public class KiteAnnotator implements Annotator {
         // Check if this identifier is a type
         boolean isType = false;
 
-        // After input/output/component/resource, the first identifier is always a type
-        if (beforeElement.matches(".*(^|\\s)(input|output|component|resource)\\s+$")) {
+        // After input/output, the first identifier is always a type
+        if (beforeElement.matches(".*(^|\\s)(input|output)\\s+$")) {
             isType = true;
+        }
+        // After resource, the first identifier is always a type (schema name)
+        // resource SchemaType instanceName { ... }
+        else if (beforeElement.matches(".*(^|\\s)resource\\s+$")) {
+            isType = true;
+        }
+        // After component, it's a type only if followed by ANOTHER identifier (instantiation)
+        // component TypeName instanceName { ... } - TypeName is type (blue)
+        // component TypeName { ... } - TypeName is definition name (default)
+        else if (beforeElement.matches(".*(^|\\s)component\\s+$")) {
+            // Check if followed by another identifier before { (instantiation)
+            if (afterElement.matches("^\\s+[a-zA-Z_][a-zA-Z0-9_]*\\s*\\{.*") ||
+                afterElement.matches("^\\s+[a-zA-Z_][a-zA-Z0-9_]*\\s*$")) {
+                isType = true;
+            }
+            // If followed directly by { or end of line, it's a definition name (not a type)
         }
         // After colon (but not after =), it's a type
         else if (beforeElement.matches(".*:\\s*$") && !beforeElement.contains("=")) {
