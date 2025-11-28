@@ -168,6 +168,7 @@ public class KiteInlayHintsProvider implements InlayHintsProvider<KiteInlayHints
 
             // Show type hints for RESOURCE property assignments
             if (settings.showTypeHints && elementType == KiteElementTypes.RESOURCE_DECLARATION) {
+                System.err.println("[InlayHints] Found RESOURCE_DECLARATION element");
                 collectResourcePropertyTypeHints(element, sink);
             }
 
@@ -283,8 +284,11 @@ public class KiteInlayHintsProvider implements InlayHintsProvider<KiteInlayHints
             ASTNode node = resourceDeclaration.getNode();
             if (node == null) return;
 
+            System.err.println("[InlayHints] collectResourcePropertyTypeHints called");
+
             // Get the resource type name (first identifier after RESOURCE keyword)
             String schemaName = getResourceTypeName(node);
+            System.err.println("[InlayHints] Resource type/schema name: " + schemaName);
             if (schemaName == null) return;
 
             // Find the matching schema
@@ -292,6 +296,7 @@ public class KiteInlayHintsProvider implements InlayHintsProvider<KiteInlayHints
             if (file == null) return;
 
             java.util.Map<String, String> schemaProperties = findSchemaProperties(file, schemaName);
+            System.err.println("[InlayHints] Schema properties found: " + schemaProperties);
             if (schemaProperties.isEmpty()) return;
 
             // Find property assignments inside the resource body

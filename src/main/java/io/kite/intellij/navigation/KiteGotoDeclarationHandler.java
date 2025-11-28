@@ -682,6 +682,23 @@ public class KiteGotoDeclarationHandler implements GotoDeclarationHandler {
      */
     @Nullable
     private PsiElement findDeclaration(PsiElement element, String targetName, PsiElement sourceElement) {
+        // First, check if we're inside a function and the target is a parameter
+        if (sourceElement != null) {
+            PsiElement parameterDecl = findParameterInEnclosingFunction(sourceElement, targetName);
+            if (parameterDecl != null) {
+                LOG.info("[findDeclaration] MATCH FOUND (function parameter): " + targetName);
+                return parameterDecl;
+            }
+        }
+
+        return findDeclarationRecursive(element, targetName, sourceElement);
+    }
+
+    /**
+     * Recursively search for a declaration with the given name.
+     */
+    @Nullable
+    private PsiElement findDeclarationRecursive(PsiElement element, String targetName, PsiElement sourceElement) {
         IElementType type = element.getNode().getElementType();
         LOG.info("[findDeclaration] Searching in element type: " + type + " for: " + targetName);
 
@@ -707,10 +724,97 @@ public class KiteGotoDeclarationHandler implements GotoDeclarationHandler {
         // Recurse into children
         PsiElement child = element.getFirstChild();
         while (child != null) {
-            PsiElement result = findDeclaration(child, targetName, sourceElement);
+            PsiElement result = findDeclarationRecursive(child, targetName, sourceElement);
             if (result != null) {
                 return result;
             }
+            child = child.getNextSibling();
+        }
+
+        return null;
+    }
+
+    /**
+     * Find a parameter declaration in the enclosing function.
+     * Walks up the PSI tree to find a FUNCTION_DECLARATION and searches for the parameter name.
+     */
+    @Nullable
+    private PsiElement findParameterInEnclosingFunction(PsiElement element, String parameterName) {
+        // Walk up to find the enclosing function declaration
+        PsiElement current = element;
+        while (current != null && !(current instanceof PsiFile)) {
+            if (current.getNode() != null &&
+                current.getNode().getElementType() == KiteElementTypes.FUNCTION_DECLARATION) {
+                // Found enclosing function - search for parameter
+                return findParameterInFunction(current, parameterName);
+            }
+            current = current.getParent();
+        }
+        return null;
+    }
+
+    /**
+     * Find a parameter by name within a function declaration.
+     * Function syntax: fun name(type param1, type param2) returnType { ... }
+     * Parameters are identifiers between LPAREN and RPAREN, where each parameter
+     * is the identifier AFTER a type identifier.
+     */
+    @Nullable
+    private PsiElement findParameterInFunction(PsiElement functionDeclaration, String parameterName) {
+        boolean inParams = false;
+        PsiElement prevIdentifier = null;
+
+        PsiElement child = functionDeclaration.getFirstChild();
+        while (child != null) {
+            if (child.getNode() == null) {
+                child = child.getNextSibling();
+                continue;
+            }
+
+            IElementType childType = child.getNode().getElementType();
+
+            // Enter parameter list
+            if (childType == KiteTokenTypes.LPAREN) {
+                inParams = true;
+                child = child.getNextSibling();
+                continue;
+            }
+
+            // Exit parameter list
+            if (childType == KiteTokenTypes.RPAREN) {
+                break;
+            }
+
+            // Inside parameter list
+            if (inParams) {
+                // Skip whitespace
+                if (isWhitespace(childType)) {
+                    child = child.getNextSibling();
+                    continue;
+                }
+
+                // Identifiers in params: pattern is "type name, type name"
+                // So the parameter NAME is the identifier that comes AFTER another identifier
+                if (childType == KiteTokenTypes.IDENTIFIER) {
+                    if (prevIdentifier != null) {
+                        // This is the parameter name (previous was the type)
+                        if (parameterName.equals(child.getText())) {
+                            LOG.info("[findParameterInFunction] Found parameter: " + parameterName);
+                            return child;
+                        }
+                        prevIdentifier = null; // Reset after finding a param name
+                    } else {
+                        // This is the type
+                        prevIdentifier = child;
+                    }
+                }
+
+                // Comma resets the type/name pair tracking
+                if (childType == KiteTokenTypes.COMMA) {
+                    prevIdentifier = null;
+                }
+            }
+
             child = child.getNextSibling();
         }
 
