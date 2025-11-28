@@ -77,9 +77,9 @@ public class KiteCompletionContributor extends CompletionContributor {
                     }
 
                     // Check if we're inside a resource block - add schema properties first
-                    String schemaName = getEnclosingResourceTypeName(position);
-                    if (schemaName != null) {
-                        addSchemaPropertyCompletions(parameters.getOriginalFile(), result, schemaName);
+                    ResourceContext resourceContext = getEnclosingResourceContext(position);
+                    if (resourceContext != null) {
+                        addSchemaPropertyCompletions(parameters.getOriginalFile(), result, resourceContext);
                     }
 
                     // Add keyword completions
@@ -870,11 +870,24 @@ public class KiteCompletionContributor extends CompletionContributor {
     // ========== Schema Property Completion ==========
 
     /**
-     * Get the resource type name if we're inside a resource block.
+     * Context information about an enclosing resource block.
+     */
+    private static class ResourceContext {
+        final String schemaName;
+        final PsiElement resourceDeclaration;
+
+        ResourceContext(String schemaName, PsiElement resourceDeclaration) {
+            this.schemaName = schemaName;
+            this.resourceDeclaration = resourceDeclaration;
+        }
+    }
+
+    /**
+     * Get the resource context if we're inside a resource block.
      * Returns null if not inside a resource block.
      */
     @Nullable
-    private String getEnclosingResourceTypeName(PsiElement position) {
+    private ResourceContext getEnclosingResourceContext(PsiElement position) {
         // Walk up the PSI tree to find an enclosing RESOURCE_DECLARATION
         PsiElement current = position;
         while (current != null) {
@@ -882,7 +895,10 @@ public class KiteCompletionContributor extends CompletionContributor {
                 current.getNode().getElementType() == KiteElementTypes.RESOURCE_DECLARATION) {
                 // Found resource declaration - check if we're inside the braces
                 if (isInsideBraces(position, current)) {
-                    return extractResourceTypeName(current);
+                    String schemaName = extractResourceTypeName(current);
+                    if (schemaName != null) {
+                        return new ResourceContext(schemaName, current);
+                    }
                 }
             }
             current = current.getParent();
@@ -945,17 +961,32 @@ public class KiteCompletionContributor extends CompletionContributor {
 
     /**
      * Add schema property completions with high priority.
+     * Excludes properties that are already defined in the resource block.
+     * Excludes @cloud properties (they are set by the cloud provider).
      */
-    private void addSchemaPropertyCompletions(PsiFile file, @NotNull CompletionResultSet result, String schemaName) {
-        Map<String, String> schemaProperties = findSchemaProperties(file, schemaName);
+    private void addSchemaPropertyCompletions(PsiFile file, @NotNull CompletionResultSet result, ResourceContext resourceContext) {
+        Map<String, SchemaPropertyInfo> schemaProperties = findSchemaProperties(file, resourceContext.schemaName);
 
-        for (Map.Entry<String, String> entry : schemaProperties.entrySet()) {
+        // Collect already-defined properties in the resource block
+        Set<String> existingProperties = collectExistingPropertyNames(resourceContext.resourceDeclaration);
+
+        for (Map.Entry<String, SchemaPropertyInfo> entry : schemaProperties.entrySet()) {
             String propertyName = entry.getKey();
-            String propertyType = entry.getValue();
+            SchemaPropertyInfo propInfo = entry.getValue();
+
+            // Skip properties that are already defined in the resource
+            if (existingProperties.contains(propertyName)) {
+                continue;
+            }
+
+            // Skip @cloud properties - they are set by the cloud provider, not by the user
+            if (propInfo.isCloud) {
+                continue;
+            }
 
             // Create lookup element with high priority
             LookupElementBuilder element = LookupElementBuilder.create(propertyName)
-                    .withTypeText(propertyType)
+                    .withTypeText(propInfo.type)
                     .withIcon(KiteStructureViewIcons.PROPERTY)
                     .withBoldness(true)
                     .withInsertHandler((ctx, item) -> {
@@ -970,11 +1001,44 @@ public class KiteCompletionContributor extends CompletionContributor {
     }
 
     /**
-     * Find schema properties by name. Returns a map of property name to type.
+     * Collect the names of properties already defined in a resource block.
+     */
+    private Set<String> collectExistingPropertyNames(PsiElement resourceDecl) {
+        Set<String> propertyNames = new HashSet<>();
+        int braceDepth = 0;
+
+        PsiElement child = resourceDecl.getFirstChild();
+        while (child != null) {
+            if (child.getNode() != null) {
+                IElementType type = child.getNode().getElementType();
+
+                if (type == KiteTokenTypes.LBRACE) {
+                    braceDepth++;
+                } else if (type == KiteTokenTypes.RBRACE) {
+                    braceDepth--;
+                } else if (braceDepth == 1 && type == KiteTokenTypes.IDENTIFIER) {
+                    // Check if this identifier is followed by = (it's a property definition)
+                    PsiElement next = skipWhitespaceForward(child.getNextSibling());
+                    if (next != null && next.getNode() != null) {
+                        IElementType nextType = next.getNode().getElementType();
+                        if (nextType == KiteTokenTypes.ASSIGN || nextType == KiteTokenTypes.PLUS_ASSIGN) {
+                            propertyNames.add(child.getText());
+                        }
+                    }
+                }
+            }
+            child = child.getNextSibling();
+        }
+
+        return propertyNames;
+    }
+
+    /**
+     * Find schema properties by name. Returns a map of property name to SchemaPropertyInfo.
      * Searches in current file and imported files.
      */
-    private Map<String, String> findSchemaProperties(PsiFile file, String schemaName) {
-        Map<String, String> properties = new HashMap<>();
+    private Map<String, SchemaPropertyInfo> findSchemaProperties(PsiFile file, String schemaName) {
+        Map<String, SchemaPropertyInfo> properties = new HashMap<>();
 
         // Search in current file
         findSchemaPropertiesRecursive(file, schemaName, properties);
@@ -990,7 +1054,7 @@ public class KiteCompletionContributor extends CompletionContributor {
     /**
      * Recursively search for a schema and extract its properties.
      */
-    private void findSchemaPropertiesRecursive(PsiElement element, String schemaName, Map<String, String> properties) {
+    private void findSchemaPropertiesRecursive(PsiElement element, String schemaName, Map<String, SchemaPropertyInfo> properties) {
         if (element == null || element.getNode() == null) return;
 
         if (element.getNode().getElementType() == KiteElementTypes.SCHEMA_DECLARATION) {
@@ -1015,7 +1079,7 @@ public class KiteCompletionContributor extends CompletionContributor {
      * Search for schema properties in imported files.
      */
     private void findSchemaPropertiesInImports(PsiFile file, String schemaName,
-                                               Map<String, String> properties, Set<String> visited) {
+                                               Map<String, SchemaPropertyInfo> properties, Set<String> visited) {
         List<PsiFile> importedFiles = KiteImportHelper.getImportedFiles(file);
 
         for (PsiFile importedFile : importedFiles) {
@@ -1060,12 +1124,27 @@ public class KiteCompletionContributor extends CompletionContributor {
     }
 
     /**
-     * Extract property definitions from a schema.
-     * Pattern inside schema: type propertyName [= defaultValue]
+     * Information about a schema property.
      */
-    private void extractSchemaProperties(PsiElement schemaDecl, Map<String, String> properties) {
+    private static class SchemaPropertyInfo {
+        final String type;
+        final boolean isCloud;
+
+        SchemaPropertyInfo(String type, boolean isCloud) {
+            this.type = type;
+            this.isCloud = isCloud;
+        }
+    }
+
+    /**
+     * Extract property definitions from a schema.
+     * Pattern inside schema: [@cloud] type propertyName [= defaultValue]
+     * Properties with @cloud annotation are marked as cloud properties.
+     */
+    private void extractSchemaProperties(PsiElement schemaDecl, Map<String, SchemaPropertyInfo> properties) {
         boolean insideBraces = false;
         String currentType = null;
+        boolean isCloudProperty = false;
 
         PsiElement child = schemaDecl.getFirstChild();
         while (child != null) {
@@ -1086,16 +1165,35 @@ public class KiteCompletionContributor extends CompletionContributor {
                         continue;
                     }
 
+                    // Check for @cloud annotation
+                    if (type == KiteTokenTypes.AT) {
+                        // Look at next sibling to see if it's "cloud"
+                        PsiElement next = skipWhitespaceForward(child.getNextSibling());
+                        if (next != null && next.getNode() != null &&
+                            next.getNode().getElementType() == KiteTokenTypes.IDENTIFIER &&
+                            "cloud".equals(next.getText())) {
+                            isCloudProperty = true;
+                        }
+                        child = child.getNextSibling();
+                        continue;
+                    }
+
                     // Track type -> name pattern
                     if (type == KiteTokenTypes.IDENTIFIER) {
                         String text = child.getText();
+                        // Skip "cloud" if we just saw @
+                        if ("cloud".equals(text) && isCloudProperty) {
+                            child = child.getNextSibling();
+                            continue;
+                        }
                         if (currentType == null) {
                             // First identifier is the type
                             currentType = text;
                         } else {
                             // Second identifier is the property name
-                            properties.put(text, currentType);
+                            properties.put(text, new SchemaPropertyInfo(currentType, isCloudProperty));
                             currentType = null;
+                            isCloudProperty = false; // Reset for next property
                         }
                     }
 

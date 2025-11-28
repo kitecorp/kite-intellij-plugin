@@ -381,6 +381,9 @@
         <codeInsight.parameterInfo language="Kite"
                                    implementationClass="io.kite.intellij.parameterinfo.KiteParameterInfoHandler"/>
 
+        <!-- Quote auto-pairing (typing " or ' automatically inserts closing quote) -->
+        <typedHandler implementation="io.kite.intellij.KiteQuoteHandler"/>
+
     </extensions>
 
     <!-- Actions -->

@@ -41,6 +41,11 @@ public class KiteTypeCheckingAnnotator implements Annotator {
             "input", "output", "resource", "component", "schema"
     );
 
+    // Set of built-in global functions that don't need to be declared
+    private static final Set<String> BUILTIN_FUNCTIONS = Set.of(
+            "print", "println"
+    );
+
     @Override
     public void annotate(@NotNull PsiElement element, @NotNull AnnotationHolder holder) {
         // Only process at file level to avoid redundant checks
@@ -234,6 +239,11 @@ public class KiteTypeCheckingAnnotator implements Annotator {
 
             // Skip if it's a keyword, builtin type, or declared name
             if (KEYWORDS.contains(name) || BUILTIN_TYPES.contains(name)) {
+                return;
+            }
+
+            // Skip built-in global functions (print, println, etc.)
+            if (BUILTIN_FUNCTIONS.contains(name)) {
                 return;
             }
 
