@@ -71,6 +71,17 @@ Shows inline hints in the editor:
 - Parameter name hints in function calls (e.g., `greet("alice")` shows `name:`)
 - Configurable via Settings > Editor > Inlay Hints > Kite
 
+### Type Checking / Error Highlighting
+
+Real-time validation with warnings and errors:
+
+- Undefined reference detection: warns when identifiers don't resolve to any declaration
+- Type mismatch detection: error when assigned value type doesn't match declared type
+- Checks variable, input, and output declarations with explicit types
+- Supports string, number, boolean, null, object, and array types
+- Skips property access (handled by reference resolution)
+- Skips type annotations and declaration names
+
 ### Force Clean Builds
 
 ```bash
@@ -91,5 +102,6 @@ killall -9 java  # Kill lingering IDE instances
 | Quick Documentation | `documentation/KiteDocumentationProvider.java` |
 | Parameter Info      | `parameterinfo/KiteParameterInfoHandler.java`  |
 | Inlay Hints         | `hints/KiteInlayHintsProvider.java`            |
+| Type Checking       | `highlighting/KiteTypeCheckingAnnotator.java`  |
 | Structure View      | `structure/KiteStructureViewElement.java`      |
 | References          | `reference/KiteReferenceContributor.java`      |

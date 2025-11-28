@@ -204,10 +204,10 @@ Created 4 comprehensive test files demonstrating all language features:
   - `sch` → `schema Name { }`
   - `fun` → `fun name() { }`
 
-- [ ] **Type Checking/Error Highlighting**: Real-time type analysis
-  - Highlight type mismatches
-  - Warn about undefined references
-  - Check decorator argument types
+- [x] **Type Checking/Error Highlighting**: Real-time type analysis ✅
+    - Highlight type mismatches (error when assigned value type doesn't match declared type)
+    - Warn about undefined references (identifiers that don't resolve to any declaration)
+    - Supports string, number, boolean, null, object, and array types
 
 ### Medium Value, Lower Complexity
 
