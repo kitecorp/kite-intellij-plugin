@@ -120,6 +120,23 @@
 
     <!-- Short summary of new features and bugfixes in the latest version -->
     <change-notes><![CDATA[
+    <b>0.14.0</b>
+    <ul>
+      <li><b>Code Completion Improvements</b> - Context-aware autocomplete in resource blocks
+        <ul>
+          <li>Before <code>=</code>: shows only schema properties relevant to the resource type</li>
+          <li>After <code>=</code>: shows variables, inputs, outputs, resources, components, and functions as values</li>
+          <li>Functions now display with correct names (not return types)</li>
+        </ul>
+      </li>
+      <li><b>Syntax Highlighting Fixes</b>
+        <ul>
+          <li>Component definition names (<code>component MyComp { }</code>) now use default text color</li>
+          <li>Component instantiation types (<code>component TypeName instanceName { }</code>) correctly highlighted as types (blue)</li>
+        </ul>
+      </li>
+      <li><b>Structure View Icons</b> - OUTPUT icon now uses distinct lime yellow-green color (vs INPUT amber yellow) for easier differentiation</li>
+    </ul>
     <b>0.13.0</b>
     <ul>
       <li><b>Cross-file Navigation</b> - Go to Declaration across files

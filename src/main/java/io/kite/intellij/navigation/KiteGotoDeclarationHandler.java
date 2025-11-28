@@ -278,6 +278,11 @@ public class KiteGotoDeclarationHandler implements GotoDeclarationHandler {
 
     /**
      * Recursively find all usages of a name.
+     * Includes usages in:
+     * - Regular IDENTIFIER tokens
+     * - INTERP_SIMPLE tokens ($varName)
+     * - INTERP_IDENTIFIER tokens (inside ${...})
+     * - Legacy STRING tokens with interpolation patterns
      */
     private void findUsagesRecursive(PsiElement element, String targetName, PsiElement sourceElement, List<PsiElement> usages) {
         IElementType type = element.getNode().getElementType();
@@ -293,11 +298,68 @@ public class KiteGotoDeclarationHandler implements GotoDeclarationHandler {
             }
         }
 
+        // Check for INTERP_SIMPLE tokens ($varName)
+        if (type == KiteTokenTypes.INTERP_SIMPLE) {
+            String text = element.getText();
+            if (text.startsWith("$") && text.length() > 1) {
+                String varName = text.substring(1);
+                if (targetName.equals(varName) && element != sourceElement) {
+                    usages.add(element);
+                }
+            }
+        }
+
+        // Check for INTERP_IDENTIFIER tokens (inside ${...})
+        if (type == KiteTokenTypes.INTERP_IDENTIFIER && targetName.equals(element.getText())) {
+            if (element != sourceElement) {
+                usages.add(element);
+            }
+        }
+
+        // Check legacy STRING tokens for interpolation patterns
+        if (type == KiteTokenTypes.STRING) {
+            findUsagesInString(element, targetName, sourceElement, usages);
+        }
+
         // Recurse into children
         PsiElement child = element.getFirstChild();
         while (child != null) {
             findUsagesRecursive(child, targetName, sourceElement, usages);
             child = child.getNextSibling();
+        }
+    }
+
+    /**
+     * Find usages of a name within a STRING token (interpolations).
+     * Handles both ${varName} and $varName patterns.
+     */
+    private void findUsagesInString(PsiElement stringElement, String targetName, PsiElement sourceElement, List<PsiElement> usages) {
+        String text = stringElement.getText();
+
+        // Check ${...} interpolations
+        Matcher braceMatcher = BRACE_INTERPOLATION_PATTERN.matcher(text);
+        while (braceMatcher.find()) {
+            String content = braceMatcher.group(1);
+            String varName = extractFirstIdentifier(content);
+            if (targetName.equals(varName)) {
+                usages.add(stringElement);
+                return; // Only add once per string
+            }
+        }
+
+        // Check $var interpolations
+        Matcher simpleMatcher = SIMPLE_INTERPOLATION_PATTERN.matcher(text);
+        while (simpleMatcher.find()) {
+            int matchStart = simpleMatcher.start();
+            // Skip if this is part of ${...}
+            if (matchStart + 1 < text.length() && text.charAt(matchStart + 1) == '{') {
+                continue;
+            }
+            String varName = simpleMatcher.group(1);
+            if (targetName.equals(varName)) {
+                usages.add(stringElement);
+                return; // Only add once per string
+            }
         }
     }
 
