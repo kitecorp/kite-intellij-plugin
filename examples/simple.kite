@@ -28,9 +28,10 @@ schema DatabaseConfig {
 @tags({Environment: "production", Team: "platform"})
 resource DatabaseConfig photos {
   host = "my-photos-bucket"
-  port = 123
+  port = formattedNames
 }
-
+input string inname = "asd"
+output string outname = "asda"
 resource CommonConfig common {
   name = "asd"
 }

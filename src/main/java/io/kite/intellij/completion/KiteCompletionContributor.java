@@ -76,10 +76,19 @@ public class KiteCompletionContributor extends CompletionContributor {
                         return;
                     }
 
-                    // Check if we're inside a resource block - add schema properties first
+                    // Check if we're inside a resource block
                     ResourceContext resourceContext = getEnclosingResourceContext(position);
                     if (resourceContext != null) {
-                        addSchemaPropertyCompletions(parameters.getOriginalFile(), result, resourceContext);
+                        // Check if we're on the LEFT side of = (property name) or RIGHT side (value)
+                        if (isBeforeAssignment(position)) {
+                            // LEFT side: only schema properties (non-@cloud)
+                            addSchemaPropertyCompletions(parameters.getOriginalFile(), result, resourceContext);
+                            return;
+                        } else {
+                            // RIGHT side: variables, resources, components, functions
+                            addValueCompletions(parameters.getOriginalFile(), result);
+                            return;
+                        }
                     }
 
                     // Add keyword completions
@@ -857,6 +866,25 @@ public class KiteCompletionContributor extends CompletionContributor {
             return null;
         }
 
+        // Function special case: "fun functionName(...) returnType {"
+        // The function name is the first identifier after 'fun'
+        if (declarationType == KiteElementTypes.FUNCTION_DECLARATION) {
+            boolean foundFun = false;
+            PsiElement child = declaration.getFirstChild();
+            while (child != null) {
+                IElementType childType = child.getNode().getElementType();
+                if (childType == KiteTokenTypes.FUN) {
+                    foundFun = true;
+                } else if (foundFun && childType == KiteTokenTypes.IDENTIFIER) {
+                    return child.getText();
+                } else if (childType == KiteTokenTypes.LPAREN) {
+                    break; // Stop at opening paren if no identifier found
+                }
+                child = child.getNextSibling();
+            }
+            return null;
+        }
+
         // For other declarations: find the last identifier before '=' or '{'
         String lastIdentifier = null;
         PsiElement child = declaration.getFirstChild();
@@ -1010,6 +1038,217 @@ public class KiteCompletionContributor extends CompletionContributor {
 
         return lbraceOffset != -1 && rbraceOffset != -1 &&
                posOffset > lbraceOffset && posOffset < rbraceOffset;
+    }
+
+    /**
+     * Check if the cursor is before the assignment operator (on the left side of =).
+     * Returns true if we're typing a property name, false if we're typing a value.
+     * <p>
+     * We check by walking backward on the same line - if we find '=' before newline, we're on right side.
+     */
+    private boolean isBeforeAssignment(PsiElement position) {
+        // Walk backward to see if there's an '=' on the same line before us
+        PsiElement current = position.getPrevSibling();
+        while (current != null) {
+            if (current.getNode() != null) {
+                IElementType type = current.getNode().getElementType();
+
+                // If we hit a newline, we're at the start of a new property - on left side
+                if (type == KiteTokenTypes.NL || type == KiteTokenTypes.NEWLINE) {
+                    return true;
+                }
+
+                // If we hit an '=', we're on the right side (value position)
+                if (type == KiteTokenTypes.ASSIGN) {
+                    return false;
+                }
+            }
+            current = current.getPrevSibling();
+        }
+
+        // Also check parent's siblings
+        PsiElement parent = position.getParent();
+        if (parent != null) {
+            current = parent.getPrevSibling();
+            while (current != null) {
+                if (current.getNode() != null) {
+                    IElementType type = current.getNode().getElementType();
+
+                    if (type == KiteTokenTypes.NL || type == KiteTokenTypes.NEWLINE) {
+                        return true;
+                    }
+
+                    if (type == KiteTokenTypes.ASSIGN) {
+                        return false;
+                    }
+                }
+                current = current.getPrevSibling();
+            }
+        }
+
+        // Default to left side (property name position)
+        return true;
+    }
+
+    /**
+     * Add value completions for the right side of assignments in resource blocks.
+     * Shows variables, inputs, outputs, resources, components, and functions in that priority order.
+     * Includes items from imported files.
+     */
+    private void addValueCompletions(PsiFile file, @NotNull CompletionResultSet result) {
+        Set<String> addedNames = new HashSet<>();
+
+        // 1. Variables (highest priority)
+        collectDeclarations(file, (name, declarationType, element) -> {
+            if (declarationType == KiteElementTypes.VARIABLE_DECLARATION && !addedNames.contains(name)) {
+                addedNames.add(name);
+                LookupElementBuilder lookup = LookupElementBuilder.create(name)
+                        .withTypeText("variable")
+                        .withIcon(KiteStructureViewIcons.VARIABLE);
+                result.addElement(PrioritizedLookupElement.withPriority(lookup, 500.0));
+            }
+        });
+
+        // 2. Inputs
+        collectDeclarations(file, (name, declarationType, element) -> {
+            if (declarationType == KiteElementTypes.INPUT_DECLARATION && !addedNames.contains(name)) {
+                addedNames.add(name);
+                LookupElementBuilder lookup = LookupElementBuilder.create(name)
+                        .withTypeText("input")
+                        .withIcon(KiteStructureViewIcons.INPUT);
+                result.addElement(PrioritizedLookupElement.withPriority(lookup, 450.0));
+            }
+        });
+
+        // 3. Outputs
+        collectDeclarations(file, (name, declarationType, element) -> {
+            if (declarationType == KiteElementTypes.OUTPUT_DECLARATION && !addedNames.contains(name)) {
+                addedNames.add(name);
+                LookupElementBuilder lookup = LookupElementBuilder.create(name)
+                        .withTypeText("output")
+                        .withIcon(KiteStructureViewIcons.OUTPUT);
+                result.addElement(PrioritizedLookupElement.withPriority(lookup, 400.0));
+            }
+        });
+
+        // 4. Resources
+        collectDeclarations(file, (name, declarationType, element) -> {
+            if (declarationType == KiteElementTypes.RESOURCE_DECLARATION && !addedNames.contains(name)) {
+                addedNames.add(name);
+                LookupElementBuilder lookup = LookupElementBuilder.create(name)
+                        .withTypeText("resource")
+                        .withIcon(KiteStructureViewIcons.RESOURCE);
+                result.addElement(PrioritizedLookupElement.withPriority(lookup, 300.0));
+            }
+        });
+
+        // 5. Components
+        collectDeclarations(file, (name, declarationType, element) -> {
+            if (declarationType == KiteElementTypes.COMPONENT_DECLARATION && !addedNames.contains(name)) {
+                addedNames.add(name);
+                LookupElementBuilder lookup = LookupElementBuilder.create(name)
+                        .withTypeText("component")
+                        .withIcon(KiteStructureViewIcons.COMPONENT);
+                result.addElement(PrioritizedLookupElement.withPriority(lookup, 200.0));
+            }
+        });
+
+        // 6. Functions (lowest priority among these)
+        collectDeclarations(file, (name, declarationType, element) -> {
+            if (declarationType == KiteElementTypes.FUNCTION_DECLARATION && !addedNames.contains(name)) {
+                addedNames.add(name);
+                LookupElementBuilder lookup = LookupElementBuilder.create(name)
+                        .withTypeText("function")
+                        .withIcon(KiteStructureViewIcons.FUNCTION);
+                result.addElement(PrioritizedLookupElement.withPriority(lookup, 100.0));
+            }
+        });
+
+        // Also add from imported files with slightly lower priority
+        addValueCompletionsFromImports(file, result, addedNames);
+    }
+
+    /**
+     * Add value completions from imported files.
+     */
+    private void addValueCompletionsFromImports(PsiFile file, @NotNull CompletionResultSet result, Set<String> addedNames) {
+        List<PsiFile> importedFiles = KiteImportHelper.getImportedFiles(file);
+
+        for (PsiFile importedFile : importedFiles) {
+            if (importedFile == null) continue;
+
+            // Variables from imports
+            collectDeclarations(importedFile, (name, declarationType, element) -> {
+                if (declarationType == KiteElementTypes.VARIABLE_DECLARATION && !addedNames.contains(name)) {
+                    addedNames.add(name);
+                    LookupElementBuilder lookup = LookupElementBuilder.create(name)
+                            .withTypeText("variable")
+                            .withTailText(" (" + importedFile.getName() + ")", true)
+                            .withIcon(KiteStructureViewIcons.VARIABLE);
+                    result.addElement(PrioritizedLookupElement.withPriority(lookup, 450.0));
+                }
+            });
+
+            // Inputs from imports
+            collectDeclarations(importedFile, (name, declarationType, element) -> {
+                if (declarationType == KiteElementTypes.INPUT_DECLARATION && !addedNames.contains(name)) {
+                    addedNames.add(name);
+                    LookupElementBuilder lookup = LookupElementBuilder.create(name)
+                            .withTypeText("input")
+                            .withTailText(" (" + importedFile.getName() + ")", true)
+                            .withIcon(KiteStructureViewIcons.INPUT);
+                    result.addElement(PrioritizedLookupElement.withPriority(lookup, 400.0));
+                }
+            });
+
+            // Outputs from imports
+            collectDeclarations(importedFile, (name, declarationType, element) -> {
+                if (declarationType == KiteElementTypes.OUTPUT_DECLARATION && !addedNames.contains(name)) {
+                    addedNames.add(name);
+                    LookupElementBuilder lookup = LookupElementBuilder.create(name)
+                            .withTypeText("output")
+                            .withTailText(" (" + importedFile.getName() + ")", true)
+                            .withIcon(KiteStructureViewIcons.OUTPUT);
+                    result.addElement(PrioritizedLookupElement.withPriority(lookup, 350.0));
+                }
+            });
+
+            // Resources from imports
+            collectDeclarations(importedFile, (name, declarationType, element) -> {
+                if (declarationType == KiteElementTypes.RESOURCE_DECLARATION && !addedNames.contains(name)) {
+                    addedNames.add(name);
+                    LookupElementBuilder lookup = LookupElementBuilder.create(name)
+                            .withTypeText("resource")
+                            .withTailText(" (" + importedFile.getName() + ")", true)
+                            .withIcon(KiteStructureViewIcons.RESOURCE);
+                    result.addElement(PrioritizedLookupElement.withPriority(lookup, 250.0));
+                }
+            });
+
+            // Components from imports
+            collectDeclarations(importedFile, (name, declarationType, element) -> {
+                if (declarationType == KiteElementTypes.COMPONENT_DECLARATION && !addedNames.contains(name)) {
+                    addedNames.add(name);
+                    LookupElementBuilder lookup = LookupElementBuilder.create(name)
+                            .withTypeText("component")
+                            .withTailText(" (" + importedFile.getName() + ")", true)
+                            .withIcon(KiteStructureViewIcons.COMPONENT);
+                    result.addElement(PrioritizedLookupElement.withPriority(lookup, 150.0));
+                }
+            });
+
+            // Functions from imports
+            collectDeclarations(importedFile, (name, declarationType, element) -> {
+                if (declarationType == KiteElementTypes.FUNCTION_DECLARATION && !addedNames.contains(name)) {
+                    addedNames.add(name);
+                    LookupElementBuilder lookup = LookupElementBuilder.create(name)
+                            .withTypeText("function")
+                            .withTailText(" (" + importedFile.getName() + ")", true)
+                            .withIcon(KiteStructureViewIcons.FUNCTION);
+                    result.addElement(PrioritizedLookupElement.withPriority(lookup, 50.0));
+                }
+            });
+        }
     }
 
     /**
