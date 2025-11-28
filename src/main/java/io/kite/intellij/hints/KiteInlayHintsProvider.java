@@ -360,6 +360,18 @@ public class KiteInlayHintsProvider implements InlayHintsProvider<KiteInlayHints
                 return;
             }
 
+            // Check that this is NOT a function declaration (identifier preceded by 'fun')
+            ASTNode prevSibling = identifierNode.getTreePrev();
+            while (prevSibling != null &&
+                   (prevSibling.getElementType() == KiteTokenTypes.WHITESPACE ||
+                    prevSibling.getElementType() == KiteTokenTypes.NL ||
+                    prevSibling.getElementType() == TokenType.WHITE_SPACE)) {
+                prevSibling = prevSibling.getTreePrev();
+            }
+            if (prevSibling != null && prevSibling.getElementType() == KiteTokenTypes.FUN) {
+                return; // This is a function declaration, not a call
+            }
+
             // This is a function call - find the function declaration to get parameter names
             String functionName = identifierNode.getText();
             PsiFile file = identifier.getContainingFile();
@@ -381,7 +393,9 @@ public class KiteInlayHintsProvider implements InlayHintsProvider<KiteInlayHints
                 // Only show hint if the argument is not already a named argument
                 if (!isNamedArgument(arg)) {
                     int offset = arg.getTextRange().getStartOffset();
-                    InlayPresentation presentation = factory.smallText(paramName + ": ");
+                    // Use roundWithBackground for proper vertical baseline alignment
+                    InlayPresentation text = factory.smallText(paramName + ":");
+                    InlayPresentation presentation = factory.roundWithBackground(text);
                     sink.addInlineElement(offset, true, presentation, false);
                 }
             }
@@ -439,20 +453,22 @@ public class KiteInlayHintsProvider implements InlayHintsProvider<KiteInlayHints
                     }
 
                     if (inParams && childType == KiteTokenTypes.IDENTIFIER) {
-                        // This could be a parameter name or type
-                        // In Kite: fun greet(name string, age number)
-                        // Parameter names come before type identifiers
-                        ASTNode next = child.getTreeNext();
-                        while (next != null &&
-                               (next.getElementType() == KiteTokenTypes.WHITESPACE ||
-                                next.getElementType() == KiteTokenTypes.NL)) {
-                            next = next.getTreeNext();
+                        // Parameters in Kite: fun greet(string name, number age)
+                        // Type comes FIRST, then the name
+                        // So we need to check: if PREVIOUS non-whitespace was an identifier,
+                        // then THIS is the parameter name
+                        ASTNode prev = child.getTreePrev();
+                        while (prev != null &&
+                               (prev.getElementType() == KiteTokenTypes.WHITESPACE ||
+                                prev.getElementType() == KiteTokenTypes.NL ||
+                                prev.getElementType() == TokenType.WHITE_SPACE)) {
+                            prev = prev.getTreePrev();
                         }
 
-                        // If next is an identifier or type keyword, current is the param name
-                        if (next != null &&
-                            (next.getElementType() == KiteTokenTypes.IDENTIFIER ||
-                             isTypeKeyword(next.getElementType()))) {
+                        // If previous is an identifier (the type), current is the param name
+                        if (prev != null &&
+                            (prev.getElementType() == KiteTokenTypes.IDENTIFIER ||
+                             isTypeKeyword(prev.getElementType()))) {
                             params.add(child.getText());
                         }
                     }
@@ -469,20 +485,54 @@ public class KiteInlayHintsProvider implements InlayHintsProvider<KiteInlayHints
 
         /**
          * Collect argument nodes from a function call.
+         * Returns the first token of each argument (for hint placement).
          */
         private List<ASTNode> collectArguments(ASTNode lparenNode) {
             List<ASTNode> arguments = new ArrayList<>();
 
             ASTNode current = lparenNode.getTreeNext();
+            boolean expectingNewArg = true;
+            int parenDepth = 0;
+            int braceDepth = 0;
+            int bracketDepth = 0;
+            boolean inString = false;
+
             while (current != null && current.getElementType() != KiteTokenTypes.RPAREN) {
                 IElementType type = current.getElementType();
 
-                // Skip whitespace, newlines, and commas
-                if (type != KiteTokenTypes.WHITESPACE &&
-                    type != KiteTokenTypes.NL &&
-                    type != KiteTokenTypes.NEWLINE &&
-                    type != KiteTokenTypes.COMMA) {
+                // Track nesting depth
+                if (type == KiteTokenTypes.LPAREN) parenDepth++;
+                else if (type == KiteTokenTypes.RPAREN) parenDepth--;
+                else if (type == KiteTokenTypes.LBRACE) braceDepth++;
+                else if (type == KiteTokenTypes.RBRACE) braceDepth--;
+                else if (type == KiteTokenTypes.LBRACK) bracketDepth++;
+                else if (type == KiteTokenTypes.RBRACK) bracketDepth--;
+
+                // Track string boundaries
+                if (type == KiteTokenTypes.DQUOTE) {
+                    inString = !inString;
+                }
+
+                // Comma at top level marks end of argument
+                if (type == KiteTokenTypes.COMMA && parenDepth == 0 && braceDepth == 0 && bracketDepth == 0 && !inString) {
+                    expectingNewArg = true;
+                    current = current.getTreeNext();
+                    continue;
+                }
+
+                // Skip whitespace and newlines
+                if (type == KiteTokenTypes.WHITESPACE ||
+                    type == KiteTokenTypes.NL ||
+                    type == KiteTokenTypes.NEWLINE ||
+                    type == TokenType.WHITE_SPACE) {
+                    current = current.getTreeNext();
+                    continue;
+                }
+
+                // First non-whitespace token after comma or start is the argument start
+                if (expectingNewArg) {
                     arguments.add(current);
+                    expectingNewArg = false;
                 }
 
                 current = current.getTreeNext();

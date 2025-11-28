@@ -1,0 +1,17 @@
+// ${NAME}.kite
+// Kite Infrastructure as Code
+
+#if (${COMPONENT_NAME} && ${COMPONENT_NAME} != "")
+component ${COMPONENT_NAME} ${NAME} {
+input number port = 8080
+
+resource VM.Instance server {
+size = "t2.micro"
+}
+
+output string endpoint = server.publicIp
+}
+#else
+// Define your infrastructure here
+
+#end

@@ -1,0 +1,169 @@
+<templateSet group="Kite">
+    <!-- Component template -->
+    <template name="comp" value="component $TYPE$ $NAME$ {&#10;    $END$&#10;}" description="Create a component block"
+              toReformat="true" toShortenFQNames="true">
+        <variable name="TYPE" expression="" defaultValue="&quot;TypeName&quot;" alwaysStopAt="true"/>
+        <variable name="NAME" expression="" defaultValue="&quot;name&quot;" alwaysStopAt="true"/>
+        <context>
+            <option name="Kite" value="true"/>
+        </context>
+    </template>
+
+    <!-- Resource template -->
+    <template name="res" value="resource $TYPE$ $NAME$ {&#10;    $END$&#10;}" description="Create a resource block"
+              toReformat="true" toShortenFQNames="true">
+        <variable name="TYPE" expression="" defaultValue="&quot;VM.Instance&quot;" alwaysStopAt="true"/>
+        <variable name="NAME" expression="" defaultValue="&quot;name&quot;" alwaysStopAt="true"/>
+        <context>
+            <option name="Kite" value="true"/>
+        </context>
+    </template>
+
+    <!-- Schema template -->
+    <template name="sch" value="schema $NAME$ {&#10;    $END$&#10;}" description="Create a schema block"
+              toReformat="true" toShortenFQNames="true">
+        <variable name="NAME" expression="" defaultValue="&quot;SchemaName&quot;" alwaysStopAt="true"/>
+        <context>
+            <option name="Kite" value="true"/>
+        </context>
+    </template>
+
+    <!-- Function template -->
+    <template name="fun" value="fun $NAME$($PARAMS$) $RETURN_TYPE$ {&#10;    $END$&#10;}"
+              description="Create a function" toReformat="true" toShortenFQNames="true">
+        <variable name="NAME" expression="" defaultValue="&quot;functionName&quot;" alwaysStopAt="true"/>
+        <variable name="PARAMS" expression="" defaultValue="&quot;&quot;" alwaysStopAt="true"/>
+        <variable name="RETURN_TYPE" expression="" defaultValue="&quot;void&quot;" alwaysStopAt="true"/>
+        <context>
+            <option name="Kite" value="true"/>
+        </context>
+    </template>
+
+    <!-- Input declaration -->
+    <template name="inp" value="input $TYPE$ $NAME$ = $DEFAULT$" description="Create an input declaration"
+              toReformat="true" toShortenFQNames="true">
+        <variable name="TYPE" expression="" defaultValue="&quot;string&quot;" alwaysStopAt="true"/>
+        <variable name="NAME" expression="" defaultValue="&quot;name&quot;" alwaysStopAt="true"/>
+        <variable name="DEFAULT" expression="" defaultValue="&quot;&quot;" alwaysStopAt="true"/>
+        <context>
+            <option name="Kite" value="true"/>
+        </context>
+    </template>
+
+    <!-- Output declaration -->
+    <template name="out" value="output $TYPE$ $NAME$ = $VALUE$" description="Create an output declaration"
+              toReformat="true" toShortenFQNames="true">
+        <variable name="TYPE" expression="" defaultValue="&quot;string&quot;" alwaysStopAt="true"/>
+        <variable name="NAME" expression="" defaultValue="&quot;name&quot;" alwaysStopAt="true"/>
+        <variable name="VALUE" expression="" defaultValue="&quot;&quot;" alwaysStopAt="true"/>
+        <context>
+            <option name="Kite" value="true"/>
+        </context>
+    </template>
+
+    <!-- Variable declaration -->
+    <template name="var" value="var $TYPE$ $NAME$ = $VALUE$" description="Create a variable declaration"
+              toReformat="true" toShortenFQNames="true">
+        <variable name="TYPE" expression="" defaultValue="&quot;string&quot;" alwaysStopAt="true"/>
+        <variable name="NAME" expression="" defaultValue="&quot;name&quot;" alwaysStopAt="true"/>
+        <variable name="VALUE" expression="" defaultValue="&quot;&quot;" alwaysStopAt="true"/>
+        <context>
+            <option name="Kite" value="true"/>
+        </context>
+    </template>
+
+    <!-- For loop -->
+    <template name="for" value="for $ITEM$ in $COLLECTION$ {&#10;    $END$&#10;}" description="Create a for loop"
+              toReformat="true" toShortenFQNames="true">
+        <variable name="ITEM" expression="" defaultValue="&quot;item&quot;" alwaysStopAt="true"/>
+        <variable name="COLLECTION" expression="" defaultValue="&quot;items&quot;" alwaysStopAt="true"/>
+        <context>
+            <option name="Kite" value="true"/>
+        </context>
+    </template>
+
+    <!-- If statement -->
+    <template name="if" value="if $CONDITION$ {&#10;    $END$&#10;}" description="Create an if statement"
+              toReformat="true" toShortenFQNames="true">
+        <variable name="CONDITION" expression="" defaultValue="&quot;condition&quot;" alwaysStopAt="true"/>
+        <context>
+            <option name="Kite" value="true"/>
+        </context>
+    </template>
+
+    <!-- If-else statement -->
+    <template name="ife" value="if $CONDITION$ {&#10;    $END$&#10;} else {&#10;    &#10;}"
+              description="Create an if-else statement" toReformat="true" toShortenFQNames="true">
+        <variable name="CONDITION" expression="" defaultValue="&quot;condition&quot;" alwaysStopAt="true"/>
+        <context>
+            <option name="Kite" value="true"/>
+        </context>
+    </template>
+
+    <!-- Type alias -->
+    <template name="type" value="type $NAME$ = $TYPE$" description="Create a type alias" toReformat="true"
+              toShortenFQNames="true">
+        <variable name="NAME" expression="" defaultValue="&quot;TypeName&quot;" alwaysStopAt="true"/>
+        <variable name="TYPE" expression="" defaultValue="&quot;string&quot;" alwaysStopAt="true"/>
+        <context>
+            <option name="Kite" value="true"/>
+        </context>
+    </template>
+
+    <!-- Import statement -->
+    <template name="imp" value="import $WHAT$ from &quot;$MODULE$&quot;" description="Create an import statement"
+              toReformat="true" toShortenFQNames="true">
+        <variable name="WHAT" expression="" defaultValue="&quot;*&quot;" alwaysStopAt="true"/>
+        <variable name="MODULE" expression="" defaultValue="&quot;module.kite&quot;" alwaysStopAt="true"/>
+        <context>
+            <option name="Kite" value="true"/>
+        </context>
+    </template>
+
+    <!-- Decorator -->
+    <template name="dec" value="@$NAME$($ARGS$)" description="Create a decorator" toReformat="true"
+              toShortenFQNames="true">
+        <variable name="NAME" expression="" defaultValue="&quot;decoratorName&quot;" alwaysStopAt="true"/>
+        <variable name="ARGS" expression="" defaultValue="&quot;&quot;" alwaysStopAt="true"/>
+        <context>
+            <option name="Kite" value="true"/>
+        </context>
+    </template>
+
+    <!-- S3 Bucket resource -->
+    <template name="s3"
+              value="resource S3.Bucket $NAME$ {&#10;    name = &quot;$BUCKET_NAME$&quot;&#10;    region = &quot;$REGION$&quot;&#10;    $END$&#10;}"
+              description="Create an S3 Bucket resource" toReformat="true" toShortenFQNames="true">
+        <variable name="NAME" expression="" defaultValue="&quot;bucket&quot;" alwaysStopAt="true"/>
+        <variable name="BUCKET_NAME" expression="" defaultValue="&quot;my-bucket&quot;" alwaysStopAt="true"/>
+        <variable name="REGION" expression="" defaultValue="&quot;us-east-1&quot;" alwaysStopAt="true"/>
+        <context>
+            <option name="Kite" value="true"/>
+        </context>
+    </template>
+
+    <!-- VM Instance resource -->
+    <template name="vm" value="resource VM.Instance $NAME$ {&#10;    size = &quot;$SIZE$&quot;&#10;    $END$&#10;}"
+              description="Create a VM Instance resource" toReformat="true" toShortenFQNames="true">
+        <variable name="NAME" expression="" defaultValue="&quot;server&quot;" alwaysStopAt="true"/>
+        <variable name="SIZE" expression="" defaultValue="&quot;t2.micro&quot;" alwaysStopAt="true"/>
+        <context>
+            <option name="Kite" value="true"/>
+        </context>
+    </template>
+
+    <!-- Complete component with inputs/outputs -->
+    <template name="compfull"
+              value="component $TYPE$ $NAME$ {&#10;    input $INPUT_TYPE$ $INPUT_NAME$ = $INPUT_DEFAULT$&#10;&#10;    resource VM.Instance server {&#10;        size = &quot;t2.micro&quot;&#10;    }&#10;&#10;    output string endpoint = server.publicIp&#10;    $END$&#10;}"
+              description="Create a complete component with inputs, resource, and output" toReformat="true"
+              toShortenFQNames="true">
+        <variable name="TYPE" expression="" defaultValue="&quot;WebServer&quot;" alwaysStopAt="true"/>
+        <variable name="NAME" expression="" defaultValue="&quot;api&quot;" alwaysStopAt="true"/>
+        <variable name="INPUT_TYPE" expression="" defaultValue="&quot;number&quot;" alwaysStopAt="true"/>
+        <variable name="INPUT_NAME" expression="" defaultValue="&quot;port&quot;" alwaysStopAt="true"/>
+        <variable name="INPUT_DEFAULT" expression="" defaultValue="&quot;8080&quot;" alwaysStopAt="true"/>
+        <context>
+            <option name="Kite" value="true"/>
+        </context>
+    </template>
+</templateSet>

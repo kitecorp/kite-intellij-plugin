@@ -55,6 +55,22 @@ Shows documentation popup for declarations. Supports:
 - Works in string interpolation (`${var}` and `$var`)
 - Colors match editor theme (types=blue, strings=green, numbers=blue)
 
+### Parameter Info (Ctrl+P)
+
+Shows function parameter hints while typing inside function calls:
+
+- Displays parameter names and types from function declaration
+- Highlights current parameter based on cursor position
+- Only shows for function calls, not declarations
+
+### Inlay Hints
+
+Shows inline hints in the editor:
+
+- Type hints for variables without explicit type (e.g., `var x = "hello"` shows `:string`)
+- Parameter name hints in function calls (e.g., `greet("alice")` shows `name:`)
+- Configurable via Settings > Editor > Inlay Hints > Kite
+
 ### Force Clean Builds
 
 ```bash
@@ -64,14 +80,16 @@ killall -9 java  # Kill lingering IDE instances
 
 ## File Structure
 
-| Feature | Main File |
-|---------|-----------|
-| Syntax Highlighting | `highlighting/KiteSyntaxHighlighter.java` |
-| Formatter | `formatter/KiteBlock.java` |
-| Go to Declaration | `navigation/KiteGotoDeclarationHandler.java` |
-| Find Usages | `navigation/KiteNavigatablePsiElement.java` |
-| Code Completion | `completion/KiteCompletionContributor.java` |
-| Breadcrumbs | `KiteBreadcrumbsProvider.java` |
+| Feature             | Main File                                      |
+|---------------------|------------------------------------------------|
+| Syntax Highlighting | `highlighting/KiteSyntaxHighlighter.java`      |
+| Formatter           | `formatter/KiteBlock.java`                     |
+| Go to Declaration   | `navigation/KiteGotoDeclarationHandler.java`   |
+| Find Usages         | `navigation/KiteNavigatablePsiElement.java`    |
+| Code Completion     | `completion/KiteCompletionContributor.java`    |
+| Breadcrumbs         | `KiteBreadcrumbsProvider.java`                 |
 | Quick Documentation | `documentation/KiteDocumentationProvider.java` |
-| Structure View | `structure/KiteStructureViewElement.java` |
-| References | `reference/KiteReferenceContributor.java` |
+| Parameter Info      | `parameterinfo/KiteParameterInfoHandler.java`  |
+| Inlay Hints         | `hints/KiteInlayHintsProvider.java`            |
+| Structure View      | `structure/KiteStructureViewElement.java`      |
+| References          | `reference/KiteReferenceContributor.java`      |

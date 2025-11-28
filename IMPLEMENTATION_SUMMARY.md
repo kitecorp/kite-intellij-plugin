@@ -193,9 +193,10 @@ Created 4 comprehensive test files demonstrating all language features:
 
 ### High Value, Moderate Complexity
 
-- [ ] **Parameter Info (Ctrl+P)**: Show function parameter hints while typing function calls
-  - Display parameter names, types, and default values
+- [x] **Parameter Info (Ctrl+P)**: Show function parameter hints while typing function calls ✅
+    - Display parameter names and types
   - Highlight current parameter being typed
+    - Updates as you move through arguments
 
 - [x] **Live Templates/Snippets**: Code snippets that expand to common patterns
   - `res` → `resource Type name { }`

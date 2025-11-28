@@ -91,11 +91,28 @@
           <li><code>compfull</code> → complete component with inputs, resource, and output</li>
         </ul>
       </li>
+      <li><b>Parameter Info</b> - Press Ctrl+P (Windows/Linux) or Cmd+P (Mac) inside a function call to see parameter hints:
+        <ul>
+          <li>Shows function parameter names and types</li>
+          <li>Highlights the current parameter based on cursor position</li>
+          <li>Updates as you type or move through arguments</li>
+        </ul>
+      </li>
     </ul>
   ]]></description>
 
     <!-- Short summary of new features and bugfixes in the latest version -->
     <change-notes><![CDATA[
+    <b>0.11.0</b>
+    <ul>
+      <li><b>Parameter Info</b> - Press Ctrl+P (Windows/Linux) or Cmd+P (Mac) inside a function call to see parameter hints
+        <ul>
+          <li>Shows function parameter names and types from the declaration</li>
+          <li>Highlights the current parameter based on cursor position</li>
+          <li>Updates as you type or move through arguments</li>
+        </ul>
+      </li>
+    </ul>
     <b>0.10.0</b>
     <ul>
       <li><b>Live Templates</b> - Code snippets that expand to common Kite patterns
@@ -315,6 +332,10 @@
         <!-- Live Templates (code snippets) -->
         <defaultLiveTemplates file="/liveTemplates/Kite.xml"/>
         <liveTemplateContext contextId="Kite" implementation="io.kite.intellij.templates.KiteLiveTemplateContext"/>
+
+        <!-- Parameter Info (Ctrl+P) - Shows function parameter hints -->
+        <codeInsight.parameterInfo language="Kite"
+                                   implementationClass="io.kite.intellij.parameterinfo.KiteParameterInfoHandler"/>
 
     </extensions>
 
