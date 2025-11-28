@@ -108,6 +108,29 @@ public class KiteGotoDeclarationHandler implements GotoDeclarationHandler {
 
         String name = sourceElement.getText();
 
+        // For function parameter declarations, show usages within the function body
+        // e.g., clicking on "instances" in "fun calculateCost(number instances, ...)" shows all usages
+        if (isParameterDeclaration(sourceElement)) {
+            LOG.info("[KiteGotoDecl] Parameter declaration detected: " + name);
+            // Find the enclosing function
+            PsiElement functionDecl = sourceElement.getParent();
+            while (functionDecl != null && !(functionDecl instanceof PsiFile)) {
+                if (functionDecl.getNode() != null &&
+                    functionDecl.getNode().getElementType() == KiteElementTypes.FUNCTION_DECLARATION) {
+                    break;
+                }
+                functionDecl = functionDecl.getParent();
+            }
+            if (functionDecl != null && !(functionDecl instanceof PsiFile)) {
+                List<PsiElement> usages = findParameterUsagesInFunction(functionDecl, name, sourceElement);
+                LOG.info("[KiteGotoDecl] Found " + usages.size() + " parameter usages");
+                if (!usages.isEmpty()) {
+                    return usages.toArray(new PsiElement[0]);
+                }
+            }
+            return null;
+        }
+
         // For declaration names, show a dropdown of all usages
         // e.g., clicking on "server" in "resource VM.Instance server { }" shows all usages of "server"
         if (isDeclarationName(sourceElement)) {
@@ -1122,6 +1145,163 @@ public class KiteGotoDeclarationHandler implements GotoDeclarationHandler {
         }
 
         return null;
+    }
+
+    /**
+     * Check if this identifier is a parameter declaration in a function signature.
+     * Function syntax: fun name(type param1, type param2) returnType { ... }
+     * Parameters are the SECOND identifier in each "type name" pair between parentheses.
+     */
+    private boolean isParameterDeclaration(PsiElement element) {
+        if (element == null || element.getNode() == null) {
+            return false;
+        }
+
+        // Walk up to find if we're inside a FUNCTION_DECLARATION
+        PsiElement functionDecl = element.getParent();
+        while (functionDecl != null && !(functionDecl instanceof PsiFile)) {
+            if (functionDecl.getNode() != null &&
+                functionDecl.getNode().getElementType() == KiteElementTypes.FUNCTION_DECLARATION) {
+                break;
+            }
+            functionDecl = functionDecl.getParent();
+        }
+
+        if (functionDecl == null || functionDecl instanceof PsiFile) {
+            return false;
+        }
+
+        // Check if this element is inside the parameter list (between LPAREN and RPAREN)
+        // and is the NAME part (second identifier) of a "type name" pair
+        boolean foundLParen = false;
+        PsiElement prevIdentifier = null;
+
+        PsiElement child = functionDecl.getFirstChild();
+        while (child != null) {
+            if (child.getNode() == null) {
+                child = child.getNextSibling();
+                continue;
+            }
+
+            IElementType childType = child.getNode().getElementType();
+
+            if (childType == KiteTokenTypes.LPAREN) {
+                foundLParen = true;
+                child = child.getNextSibling();
+                continue;
+            }
+
+            if (childType == KiteTokenTypes.RPAREN) {
+                break;
+            }
+
+            if (foundLParen) {
+                if (isWhitespace(childType)) {
+                    child = child.getNextSibling();
+                    continue;
+                }
+
+                if (childType == KiteTokenTypes.IDENTIFIER) {
+                    if (prevIdentifier != null) {
+                        // This is the parameter NAME (previous was the type)
+                        if (child == element) {
+                            return true;
+                        }
+                        prevIdentifier = null;
+                    } else {
+                        // This is the type
+                        prevIdentifier = child;
+                    }
+                }
+
+                if (childType == KiteTokenTypes.COMMA) {
+                    prevIdentifier = null;
+                }
+            }
+
+            child = child.getNextSibling();
+        }
+
+        return false;
+    }
+
+    /**
+     * Find all usages of a parameter within the function body.
+     * Returns the list of references to the parameter inside the function.
+     */
+    private List<PsiElement> findParameterUsagesInFunction(PsiElement functionDecl, String parameterName, PsiElement parameterDecl) {
+        List<PsiElement> usages = new ArrayList<>();
+
+        // Find the function body (between { and })
+        PsiElement functionBody = null;
+        boolean foundLBrace = false;
+
+        PsiElement child = functionDecl.getFirstChild();
+        while (child != null) {
+            if (child.getNode() != null && child.getNode().getElementType() == KiteTokenTypes.LBRACE) {
+                foundLBrace = true;
+                // Start searching from after LBRACE
+                child = child.getNextSibling();
+                break;
+            }
+            child = child.getNextSibling();
+        }
+
+        if (!foundLBrace) {
+            return usages;
+        }
+
+        // Search for all usages of the parameter name in the function body
+        while (child != null) {
+            if (child.getNode() != null) {
+                IElementType childType = child.getNode().getElementType();
+
+                // Stop at closing brace
+                if (childType == KiteTokenTypes.RBRACE) {
+                    break;
+                }
+
+                // Check if this is an identifier with the parameter name
+                if (childType == KiteTokenTypes.IDENTIFIER && parameterName.equals(child.getText())) {
+                    // Exclude the parameter declaration itself
+                    if (child != parameterDecl) {
+                        usages.add(new KiteNavigatablePsiElement(child));
+                    }
+                }
+
+                // Recurse into composite elements
+                if (child.getFirstChild() != null) {
+                    findParameterUsagesRecursive(child, parameterName, parameterDecl, usages);
+                }
+            }
+
+            child = child.getNextSibling();
+        }
+
+        return usages;
+    }
+
+    /**
+     * Recursively find parameter usages within an element.
+     */
+    private void findParameterUsagesRecursive(PsiElement element, String parameterName, PsiElement parameterDecl, List<PsiElement> usages) {
+        PsiElement child = element.getFirstChild();
+        while (child != null) {
+            if (child.getNode() != null) {
+                IElementType childType = child.getNode().getElementType();
+
+                if (childType == KiteTokenTypes.IDENTIFIER && parameterName.equals(child.getText())) {
+                    if (child != parameterDecl) {
+                        usages.add(new KiteNavigatablePsiElement(child));
+                    }
+                }
+
+                if (child.getFirstChild() != null) {
+                    findParameterUsagesRecursive(child, parameterName, parameterDecl, usages);
+                }
+            }
+            child = child.getNextSibling();
+        }
     }
 
     /**
