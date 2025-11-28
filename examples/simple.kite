@@ -5,6 +5,7 @@ import * from "common.kite"
 // Using imported type from common.kite
 // Cmd+Click on "Region" should navigate to common.kite
 type Environment = "dev" | "staging" | "prod"
+var Environment env = "dev"
 
 // Using imported variable from common.kite
 // Cmd+Click on "defaultRegion" should navigate to common.kite

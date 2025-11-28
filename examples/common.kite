@@ -11,8 +11,9 @@ schema CommonConfig {
 }
 
 // Shared variable
-var defaultRegion = "us-east-1"
-var appName = "MyApplication"
+var string defaultRegion = "us-east-1"
+var string appName       = "MyApplication"
+output string names = "my-output"
 
 // Shared function
 fun formatName(string prefix, string name) string {

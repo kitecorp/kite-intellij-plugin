@@ -11,11 +11,14 @@ import com.intellij.psi.TokenType;
 import com.intellij.psi.tree.IElementType;
 import io.kite.intellij.psi.KiteElementTypes;
 import io.kite.intellij.psi.KiteTokenTypes;
+import io.kite.intellij.reference.KiteImportHelper;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Parameter info handler for Kite language.
@@ -305,10 +308,52 @@ public class KiteParameterInfoHandler implements ParameterInfoHandler<PsiElement
 
     /**
      * Find function info by searching for the function declaration.
+     * First searches in the current file, then in imported files.
      */
     @Nullable
     private KiteFunctionInfo findFunctionInfo(PsiFile file, String functionName) {
-        return findFunctionInfoRecursive(file.getNode(), functionName);
+        // First, search in the current file
+        KiteFunctionInfo info = findFunctionInfoRecursive(file.getNode(), functionName);
+        if (info != null) {
+            return info;
+        }
+
+        // If not found, search in imported files
+        return findFunctionInfoInImports(file, functionName, new HashSet<>());
+    }
+
+    /**
+     * Search for function info in imported files.
+     */
+    @Nullable
+    private KiteFunctionInfo findFunctionInfoInImports(PsiFile file, String functionName, Set<String> visitedPaths) {
+        List<PsiFile> importedFiles = KiteImportHelper.getImportedFiles(file);
+
+        for (PsiFile importedFile : importedFiles) {
+            if (importedFile == null || importedFile.getVirtualFile() == null) {
+                continue;
+            }
+
+            String filePath = importedFile.getVirtualFile().getPath();
+            if (visitedPaths.contains(filePath)) {
+                continue; // Already visited
+            }
+            visitedPaths.add(filePath);
+
+            // Search in this imported file
+            KiteFunctionInfo info = findFunctionInfoRecursive(importedFile.getNode(), functionName);
+            if (info != null) {
+                return info;
+            }
+
+            // Recursively search in files imported by this file
+            info = findFunctionInfoInImports(importedFile, functionName, visitedPaths);
+            if (info != null) {
+                return info;
+            }
+        }
+
+        return null;
     }
 
     @Nullable

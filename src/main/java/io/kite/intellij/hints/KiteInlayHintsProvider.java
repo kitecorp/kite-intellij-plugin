@@ -13,13 +13,16 @@ import com.intellij.psi.tree.IElementType;
 import io.kite.intellij.KiteLanguage;
 import io.kite.intellij.psi.KiteElementTypes;
 import io.kite.intellij.psi.KiteTokenTypes;
+import io.kite.intellij.reference.KiteImportHelper;
 import org.jetbrains.annotations.Nls;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import javax.swing.*;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Provides inlay hints for the Kite language.
@@ -403,14 +406,52 @@ public class KiteInlayHintsProvider implements InlayHintsProvider<KiteInlayHints
 
         /**
          * Find parameter names for a function by searching for its declaration.
+         * First searches in the current file, then in imported files.
          */
         private List<String> findFunctionParameters(PsiFile file, String functionName) {
             List<String> params = new ArrayList<>();
 
-            // Search the file for function declarations
+            // Search the current file for function declarations
             searchForFunctionDeclaration(file.getNode(), functionName, params);
 
+            // If not found, search in imported files
+            if (params.isEmpty()) {
+                searchFunctionParametersInImports(file, functionName, params, new HashSet<>());
+            }
+
             return params;
+        }
+
+        /**
+         * Search for function parameters in imported files.
+         */
+        private void searchFunctionParametersInImports(PsiFile file, String functionName,
+                                                       List<String> params, Set<String> visitedPaths) {
+            List<PsiFile> importedFiles = KiteImportHelper.getImportedFiles(file);
+
+            for (PsiFile importedFile : importedFiles) {
+                if (importedFile == null || importedFile.getVirtualFile() == null) {
+                    continue;
+                }
+
+                String filePath = importedFile.getVirtualFile().getPath();
+                if (visitedPaths.contains(filePath)) {
+                    continue; // Already visited
+                }
+                visitedPaths.add(filePath);
+
+                // Search in this imported file
+                searchForFunctionDeclaration(importedFile.getNode(), functionName, params);
+                if (!params.isEmpty()) {
+                    return; // Found it
+                }
+
+                // Recursively search in files imported by this file
+                searchFunctionParametersInImports(importedFile, functionName, params, visitedPaths);
+                if (!params.isEmpty()) {
+                    return; // Found it
+                }
+            }
         }
 
         /**
