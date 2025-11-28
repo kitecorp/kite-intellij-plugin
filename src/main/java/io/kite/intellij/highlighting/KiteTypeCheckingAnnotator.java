@@ -488,7 +488,38 @@ public class KiteTypeCheckingAnnotator implements Annotator {
             return true;
         }
 
+        // Custom type aliases (non-built-in types) - be lenient
+        // If the declared type is not a built-in type, it's likely a type alias
+        // (e.g., type Environment = "dev" | "staging" | "prod")
+        // We can't fully resolve type aliases, so allow compatible primitive values
+        if (!isBuiltinType(normalizedDeclared)) {
+            // Custom types that look like they could be string unions (PascalCase names)
+            // should accept string values
+            if ("string".equals(normalizedValue)) {
+                return true;
+            }
+            // Also accept numbers and booleans for custom types
+            // (the user knows what they're doing with their type aliases)
+            if ("number".equals(normalizedValue) || "boolean".equals(normalizedValue)) {
+                return true;
+            }
+        }
+
         return false;
+    }
+
+    /**
+     * Check if a type name is a built-in type.
+     */
+    private boolean isBuiltinType(String typeName) {
+        return "string".equals(typeName) ||
+               "number".equals(typeName) ||
+               "boolean".equals(typeName) ||
+               "any".equals(typeName) ||
+               "object".equals(typeName) ||
+               "void".equals(typeName) ||
+               "null".equals(typeName) ||
+               "array".equals(typeName);
     }
 
     /**

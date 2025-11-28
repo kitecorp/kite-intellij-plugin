@@ -776,10 +776,19 @@ public class KiteInlayHintsProvider implements InlayHintsProvider<KiteInlayHints
             int parenDepth = 0;
             int braceDepth = 0;
             int bracketDepth = 0;
-            boolean inString = false;
+            int stringDepth = 0; // Track nested string depth instead of toggle
 
-            while (current != null && current.getElementType() != KiteTokenTypes.RPAREN) {
+            System.err.println("[InlayHints] collectArguments starting after LPAREN");
+
+            while (current != null) {
                 IElementType type = current.getElementType();
+                System.err.println("[InlayHints]   Token: " + type + " = '" + current.getText().replace("\n", "\\n") + "' expectingNewArg=" + expectingNewArg + " stringDepth=" + stringDepth);
+
+                // Exit when we hit the closing RPAREN at depth 0
+                if (type == KiteTokenTypes.RPAREN && parenDepth == 0 && stringDepth == 0) {
+                    System.err.println("[InlayHints]   Found closing RPAREN, exiting");
+                    break;
+                }
 
                 // Track nesting depth
                 if (type == KiteTokenTypes.LPAREN) parenDepth++;
@@ -789,13 +798,21 @@ public class KiteInlayHintsProvider implements InlayHintsProvider<KiteInlayHints
                 else if (type == KiteTokenTypes.LBRACK) bracketDepth++;
                 else if (type == KiteTokenTypes.RBRACK) bracketDepth--;
 
-                // Track string boundaries
+                // Track string boundaries - handle both tokenization styles
+                // STRING/SINGLE_STRING are atomic, DQUOTE/STRING_DQUOTE mark interpolated string boundaries
                 if (type == KiteTokenTypes.DQUOTE) {
-                    inString = !inString;
+                    // Opening quote - enter string
+                    stringDepth = 1;
+                } else if (type == KiteTokenTypes.STRING_DQUOTE) {
+                    // Closing quote - exit string
+                    stringDepth = 0;
                 }
+                // Skip over STRING_TEXT and INTERP tokens - they're inside strings
+                // STRING and SINGLE_STRING are atomic and don't affect string depth
 
                 // Comma at top level marks end of argument
-                if (type == KiteTokenTypes.COMMA && parenDepth == 0 && braceDepth == 0 && bracketDepth == 0 && !inString) {
+                if (type == KiteTokenTypes.COMMA && parenDepth == 0 && braceDepth == 0 && bracketDepth == 0 && stringDepth == 0) {
+                    System.err.println("[InlayHints]   Found COMMA at top level, expecting new arg");
                     expectingNewArg = true;
                     current = current.getTreeNext();
                     continue;
@@ -810,8 +827,19 @@ public class KiteInlayHintsProvider implements InlayHintsProvider<KiteInlayHints
                     continue;
                 }
 
-                // First non-whitespace token after comma or start is the argument start
+                // Skip string content tokens - they're part of the string argument, not new arguments
+                if (type == KiteTokenTypes.STRING_TEXT ||
+                    type == KiteTokenTypes.INTERP_START ||
+                    type == KiteTokenTypes.INTERP_END ||
+                    type == KiteTokenTypes.INTERP_IDENTIFIER ||
+                    type == KiteTokenTypes.INTERP_SIMPLE) {
+                    current = current.getTreeNext();
+                    continue;
+                }
+
+                // First non-whitespace, non-string-content token after comma or start is the argument start
                 if (expectingNewArg) {
+                    System.err.println("[InlayHints]   Adding argument: " + type);
                     arguments.add(current);
                     expectingNewArg = false;
                 }
@@ -819,6 +847,7 @@ public class KiteInlayHintsProvider implements InlayHintsProvider<KiteInlayHints
                 current = current.getTreeNext();
             }
 
+            System.err.println("[InlayHints] collectArguments returning " + arguments.size() + " arguments");
             return arguments;
         }
 

@@ -217,6 +217,7 @@ public class KiteCompletionContributor extends CompletionContributor {
 
     /**
      * Add property completions for object.property access (supports chained access like server.tag.)
+     * For resources, shows all schema properties with initialized ones bold and first.
      */
     private void addPropertyCompletions(@NotNull CompletionParameters parameters, @NotNull CompletionResultSet result) {
         PsiElement position = parameters.getPosition();
@@ -231,6 +232,12 @@ public class KiteCompletionContributor extends CompletionContributor {
         PsiElement declaration = findDeclaration(file, rootName);
 
         if (declaration == null) return;
+
+        // Check if this is a resource declaration - if so, show all schema properties
+        if (declaration.getNode().getElementType() == KiteElementTypes.RESOURCE_DECLARATION && chain.size() == 1) {
+            addResourcePropertyCompletions(file, result, declaration);
+            return;
+        }
 
         // Check if this is a component instantiation (e.g., "component WebServer serviceA { ... }")
         // If so, we need to get outputs from the component TYPE declaration, not the instance
@@ -264,6 +271,78 @@ public class KiteCompletionContributor extends CompletionContributor {
                     .withIcon(KiteStructureViewIcons.PROPERTY)
             );
         });
+    }
+
+    /**
+     * Add property completions for resource property access (photos.host).
+     * Shows all schema properties with:
+     * - Initialized properties shown bold and first in the list
+     * - Uninitialized properties shown normally
+     * - Cloud properties are included (they can be read, just not set)
+     */
+    private void addResourcePropertyCompletions(PsiFile file, @NotNull CompletionResultSet result, PsiElement resourceDecl) {
+        // Get the schema/type name for this resource
+        String schemaName = extractResourceTypeName(resourceDecl);
+        if (schemaName == null) return;
+
+        // Get all schema properties
+        Map<String, SchemaPropertyInfo> schemaProperties = findSchemaProperties(file, schemaName);
+
+        // Get properties that are initialized in the resource
+        Set<String> initializedProperties = collectExistingPropertyNames(resourceDecl);
+
+        // Add initialized properties first (bold, higher priority)
+        for (String propertyName : initializedProperties) {
+            SchemaPropertyInfo propInfo = schemaProperties.get(propertyName);
+            String typeText = propInfo != null ? propInfo.type : "property";
+
+            LookupElementBuilder element = LookupElementBuilder.create(propertyName)
+                    .withTypeText(typeText)
+                    .withIcon(KiteStructureViewIcons.PROPERTY)
+                    .withBoldness(true);
+
+            // Higher priority for initialized properties
+            result.addElement(PrioritizedLookupElement.withPriority(element, 200.0));
+        }
+
+        // Add remaining schema properties (not bold, lower priority)
+        for (Map.Entry<String, SchemaPropertyInfo> entry : schemaProperties.entrySet()) {
+            String propertyName = entry.getKey();
+
+            // Skip if already added as initialized
+            if (initializedProperties.contains(propertyName)) {
+                continue;
+            }
+
+            SchemaPropertyInfo propInfo = entry.getValue();
+            String typeText = propInfo.type;
+
+            // Add cloud indicator to type text
+            if (propInfo.isCloud) {
+                typeText = typeText + " (cloud)";
+            }
+
+            LookupElementBuilder element = LookupElementBuilder.create(propertyName)
+                    .withTypeText(typeText)
+                    .withIcon(KiteStructureViewIcons.PROPERTY)
+                    .withBoldness(false);
+
+            // Lower priority for non-initialized properties
+            result.addElement(PrioritizedLookupElement.withPriority(element, 100.0));
+        }
+
+        // Also add any custom properties defined in the resource but not in schema
+        // (in case the schema doesn't capture all properties)
+        for (String propertyName : initializedProperties) {
+            if (!schemaProperties.containsKey(propertyName)) {
+                LookupElementBuilder element = LookupElementBuilder.create(propertyName)
+                        .withTypeText("property")
+                        .withIcon(KiteStructureViewIcons.PROPERTY)
+                        .withBoldness(true);
+
+                result.addElement(PrioritizedLookupElement.withPriority(element, 200.0));
+            }
+        }
     }
 
     /**

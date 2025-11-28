@@ -144,8 +144,11 @@ public class KiteGotoDeclarationHandler implements GotoDeclarationHandler {
 
         // For declaration names, show a dropdown of all usages
         // e.g., clicking on "server" in "resource VM.Instance server { }" shows all usages of "server"
-        if (isDeclarationName(sourceElement)) {
+        boolean isDeclName = isDeclarationName(sourceElement);
+        LOG.info("[KiteGotoDecl] isDeclarationName(" + name + ") = " + isDeclName);
+        if (isDeclName) {
             List<PsiElement> usages = findUsages(file, name, sourceElement);
+            LOG.info("[KiteGotoDecl] Found " + usages.size() + " usages for declaration: " + name);
             if (!usages.isEmpty()) {
                 return usages.toArray(new PsiElement[0]);
             }
@@ -1350,6 +1353,13 @@ public class KiteGotoDeclarationHandler implements GotoDeclarationHandler {
                 nextType == KiteTokenTypes.COLON) {
                 // This identifier is followed by = or { or : - it's a declaration/property name
                 LOG.info("[isDeclarationName] '" + element.getText() + "' followed by " + nextType + " -> returning true");
+                return true;
+            }
+            // Special case for function declarations: identifier followed by ( is a declaration name
+            // ONLY if preceded by 'fun' keyword
+            if (nextType == KiteTokenTypes.LPAREN && prev != null &&
+                prev.getNode().getElementType() == KiteTokenTypes.FUN) {
+                LOG.info("[isDeclarationName] '" + element.getText() + "' is function name (fun ... LPAREN) -> returning true");
                 return true;
             }
         }

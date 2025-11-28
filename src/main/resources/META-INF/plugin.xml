@@ -384,6 +384,10 @@
         <!-- Quote auto-pairing (typing " or ' automatically inserts closing quote) -->
         <typedHandler implementation="io.kite.intellij.KiteQuoteHandler"/>
 
+        <!-- Line markers for declarations (gutter icons showing usages) -->
+        <codeInsight.lineMarkerProvider language="Kite"
+                                        implementationClass="io.kite.intellij.navigation.KiteLineMarkerProvider"/>
+
     </extensions>
 
     <!-- Actions -->

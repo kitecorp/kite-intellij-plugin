@@ -5,15 +5,17 @@ import * from "common.kite"
 // Using imported type from common.kite
 // Cmd+Click on "Region" should navigate to common.kite
 type Environment = "dev" | "staging" | "prod"
-var Environment env = "dev"
+var Environment env = "$myRegion"
 
 // Using imported variable from common.kite
 // Cmd+Click on "defaultRegion" should navigate to common.kite
 var myRegion = defaultRegion
+var myRegions = myRegion
 
 // Using imported function from common.kite
 // Cmd+Click on "formatName" should navigate to common.kite
 var formattedName = formatName("app", appName)
+var formattedNames = formatName("apps", appName)
 
 schema DatabaseConfig {
   string host
@@ -33,8 +35,14 @@ resource CommonConfig common {
   name = "asd"
 }
 
+var p = common.name
+
 fun calculateCost(number instances, string name) number {
   var baseCost = 0.10
   print(instances)
   return instances * baseCost
 }
+
+// Test: Cmd+Click on "calculateCost" above should show these usages:
+var cost1 = calculateCost(5, "test")
+var cost2 = calculateCost(10, "production")
