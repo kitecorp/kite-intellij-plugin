@@ -23,6 +23,10 @@ import java.util.regex.Pattern;
  * <p>
  * Supports Kite import syntax:
  * - import * from "path/to/file.kite"
+ * <p>
+ * Note: URL imports (http://, https://) should be handled by the Kite language
+ * runtime, which downloads and caches files locally. The plugin then reads
+ * from the local cache (e.g., ~/.kite/providers/).
  */
 public class KiteImportHelper {
 

@@ -29,6 +29,10 @@ resource DatabaseConfig photos {
   port = 123
 }
 
+resource CommonConfig common {
+  name = "asd"
+}
+
 fun calculateCost(number instances, string name) number {
   var baseCost = 0.10
   print(instances)
