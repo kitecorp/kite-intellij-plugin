@@ -9,11 +9,12 @@ import com.intellij.psi.PsiWhiteSpace;
 import com.intellij.psi.tree.IElementType;
 import com.intellij.ui.JBColor;
 import io.kite.intellij.KiteLanguage;
-import java.awt.Color;
 import io.kite.intellij.psi.KiteElementTypes;
 import io.kite.intellij.psi.KiteTokenTypes;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+
+import java.awt.*;
 
 /**
  * Documentation provider for Kite language.
@@ -966,6 +967,10 @@ public class KiteDocumentationProvider extends AbstractDocumentationProvider {
 
             if (childType == KiteTokenTypes.INPUT || childType == KiteTokenTypes.OUTPUT) {
                 foundKeyword = true;
+            } else if (foundKeyword && !foundType && childType == KiteTokenTypes.ANY) {
+                // Handle 'any' keyword as a type
+                varType = "any";
+                foundType = true;
             } else if (foundKeyword && !foundType && childType == KiteTokenTypes.IDENTIFIER) {
                 // First identifier after keyword is the type
                 varType = child.getText();

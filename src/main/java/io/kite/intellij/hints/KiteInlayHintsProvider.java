@@ -478,6 +478,12 @@ public class KiteInlayHintsProvider implements InlayHintsProvider<KiteInlayHints
                     continue;
                 }
 
+                // Handle 'any' keyword as a type
+                if (childType == KiteTokenTypes.ANY) {
+                    currentType = "any";
+                    continue;
+                }
+
                 // Track type -> name pattern
                 if (childType == KiteTokenTypes.IDENTIFIER) {
                     String text = child.getText();

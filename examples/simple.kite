@@ -9,12 +9,12 @@ var Environment env = "$myRegion"
 
 // Using imported variable from common.kite
 // Cmd+Click on "defaultRegion" should navigate to common.kite
-var myRegion = defaultRegion
+var myRegion  = defaultRegion
 var myRegions = myRegion
 
 // Using imported function from common.kite
 // Cmd+Click on "formatName" should navigate to common.kite
-var formattedName = formatName("app", appName)
+var formattedName  = formatName("app", appName)
 var formattedNames = formatName("apps", appName)
 
 schema DatabaseConfig {
@@ -44,6 +44,12 @@ fun calculateCost(number instances, string name) number {
   print(instances)
   return instances * baseCost
 }
+fun calculateCostAny(any instances, any name) any {
+  var baseCost = 0.10
+  print(instances)
+  return instances * baseCost
+}
+calculateCostAny(5, "asd")
 
 // Test: Cmd+Click on "calculateCost" above should show these usages:
 var cost1 = calculateCost(5, "test")

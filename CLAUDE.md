@@ -75,6 +75,43 @@ The annotator skips validation for:
 - **Type annotations**: built-in types and capitalized type names
 - **Property access**: handled by reference resolution
 
+### Handling `any` Type Keyword
+
+The `any` keyword is tokenized as `KiteTokenTypes.ANY`, NOT as `IDENTIFIER`. This is important when parsing type
+positions.
+
+**Files that need special ANY handling:**
+
+| File                             | Method                           | Purpose                                                       |
+|----------------------------------|----------------------------------|---------------------------------------------------------------|
+| `KiteSyntaxHighlighter.java`     | `getTokenHighlights()`           | Returns IDENTIFIER_KEYS (not KEYWORD_KEYS) so it's not purple |
+| `KiteAnnotator.java`             | `annotate()`                     | Colors ANY with TYPE_NAME (blue) like other types             |
+| `KiteTypeCheckingAnnotator.java` | `isPropertyDefinition()`         | Recognizes `any propertyName` as valid property               |
+| `KiteTypeCheckingAnnotator.java` | `extractSchemaProperties()`      | Extracts `any` typed properties from schemas                  |
+| `KiteCompletionContributor.java` | `extractSchemaProperties()`      | Autocomplete for `any` typed properties                       |
+| `KiteInlayHintsProvider.java`    | `extractSchemaProperties()`      | Inlay hints for `any` typed properties                        |
+| `KiteDocumentationProvider.java` | `formatMemberDeclarationParts()` | Quick docs for `input any`/`output any`                       |
+
+**Files that DON'T need ANY handling:**
+
+Reference/navigation files (KiteReference, KiteReferenceContributor, KiteGotoDeclarationHandler) use the "last
+identifier before = or {" pattern to find declaration **names**. Since names are always IDENTIFIER tokens, they work
+correctly without ANY handling.
+
+**Pattern for adding ANY support:**
+
+```java
+// Handle 'any' keyword as a type
+if (childType == KiteTokenTypes.ANY) {
+    currentType = "any";
+    continue;
+}
+// Then handle regular IDENTIFIER for other types
+if (childType == KiteTokenTypes.IDENTIFIER) {
+    // existing type handling...
+}
+```
+
 ### Inlay Hints
 
 Two types of inlay hints:
