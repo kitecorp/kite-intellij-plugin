@@ -1,7 +1,5 @@
 package io.kite.intellij.structure;
 
-import com.intellij.util.ui.JBUI;
-
 import javax.swing.*;
 import java.awt.*;
 import java.awt.geom.Ellipse2D;
@@ -20,8 +18,8 @@ public class KiteStructureViewIcons {
     public static final Icon FUNCTION = createIcon('F', new Color(255, 152, 0));
     public static final Icon TYPE = createIcon('T', new Color(54, 120, 244));
     public static final Icon VARIABLE = createIcon('V', new Color(155, 101, 246));
-    public static final Icon INPUT = createIcon('I', new Color(255, 193, 7));
-    public static final Icon OUTPUT = createIcon('O', new Color(255, 193, 7));
+    public static final Icon INPUT = createIcon('I', new Color(255, 193, 7));     // Amber yellow
+    public static final Icon OUTPUT = createIcon('O', new Color(205, 220, 57));   // Lime yellow-green
     public static final Icon IMPORT = createIcon('M', new Color(119, 78, 44));
     public static final Icon PROPERTY = createIcon('P', new Color(100, 149, 237));  // Cornflower blue
 
