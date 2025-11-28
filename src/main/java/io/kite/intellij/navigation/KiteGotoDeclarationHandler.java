@@ -3,20 +3,23 @@ package io.kite.intellij.navigation;
 import com.intellij.codeInsight.navigation.actions.GotoDeclarationHandler;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.editor.Editor;
+import com.intellij.openapi.project.Project;
+import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiFile;
+import com.intellij.psi.PsiManager;
 import com.intellij.psi.TokenType;
+import com.intellij.psi.search.FileTypeIndex;
+import com.intellij.psi.search.GlobalSearchScope;
 import com.intellij.psi.tree.IElementType;
+import io.kite.intellij.KiteFileType;
 import io.kite.intellij.KiteLanguage;
 import io.kite.intellij.psi.KiteElementTypes;
 import io.kite.intellij.psi.KiteTokenTypes;
 import io.kite.intellij.reference.KiteImportHelper;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -188,13 +191,29 @@ public class KiteGotoDeclarationHandler implements GotoDeclarationHandler {
     }
 
     /**
-     * Find all usages (references) of a name in the file.
+     * Find all usages (references) of a name in the file and in files that import this file.
      * Used when clicking on a declaration name to show where it's used.
      * Returns wrapped elements with custom presentation for the popup.
      */
     private List<PsiElement> findUsages(PsiElement element, String targetName, PsiElement sourceElement) {
         List<PsiElement> rawUsages = new ArrayList<>();
+        PsiFile containingFile = sourceElement.getContainingFile();
+
+        // Search in current file
         findUsagesRecursive(element, targetName, sourceElement, rawUsages);
+        LOG.info("[findUsages] Found " + rawUsages.size() + " usages in current file");
+
+        // Also search in files that import this file (cross-file usages)
+        if (containingFile != null) {
+            List<PsiFile> importingFiles = findFilesThatImport(containingFile);
+            LOG.info("[findUsages] Found " + importingFiles.size() + " files that import " + containingFile.getName());
+
+            for (PsiFile importingFile : importingFiles) {
+                int before = rawUsages.size();
+                findUsagesRecursive(importingFile, targetName, null, rawUsages);
+                LOG.info("[findUsages] Found " + (rawUsages.size() - before) + " usages in " + importingFile.getName());
+            }
+        }
 
         // Wrap each usage in a navigatable element with custom presentation
         List<PsiElement> wrappedUsages = new ArrayList<>();
@@ -202,6 +221,59 @@ public class KiteGotoDeclarationHandler implements GotoDeclarationHandler {
             wrappedUsages.add(new KiteNavigatablePsiElement(usage));
         }
         return wrappedUsages;
+    }
+
+    /**
+     * Find all Kite files in the project that import the given file.
+     * This is a reverse lookup - given a file, find which files import it.
+     */
+    private List<PsiFile> findFilesThatImport(PsiFile targetFile) {
+        List<PsiFile> importingFiles = new ArrayList<>();
+
+        if (targetFile == null || targetFile.getVirtualFile() == null) {
+            return importingFiles;
+        }
+
+        Project project = targetFile.getProject();
+        String targetFileName = targetFile.getVirtualFile().getName();
+        String targetFilePath = targetFile.getVirtualFile().getPath();
+
+        LOG.info("[findFilesThatImport] Looking for files that import: " + targetFileName);
+
+        // Get all Kite files in the project
+        Collection<VirtualFile> kiteFiles = FileTypeIndex.getFiles(
+                KiteFileType.INSTANCE,
+                GlobalSearchScope.projectScope(project)
+        );
+
+        LOG.info("[findFilesThatImport] Found " + kiteFiles.size() + " Kite files in project");
+
+        PsiManager psiManager = PsiManager.getInstance(project);
+
+        for (VirtualFile vFile : kiteFiles) {
+            // Skip the target file itself
+            if (vFile.getPath().equals(targetFilePath)) {
+                continue;
+            }
+
+            PsiFile psiFile = psiManager.findFile(vFile);
+            if (psiFile == null) {
+                continue;
+            }
+
+            // Check if this file imports the target file
+            List<PsiFile> imports = KiteImportHelper.getImportedFiles(psiFile);
+            for (PsiFile importedFile : imports) {
+                if (importedFile != null && importedFile.getVirtualFile() != null &&
+                    importedFile.getVirtualFile().getPath().equals(targetFilePath)) {
+                    LOG.info("[findFilesThatImport] " + psiFile.getName() + " imports " + targetFileName);
+                    importingFiles.add(psiFile);
+                    break;
+                }
+            }
+        }
+
+        return importingFiles;
     }
 
     /**
