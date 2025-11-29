@@ -273,7 +273,7 @@ public class KiteDocumentationProvider extends AbstractDocumentationProvider {
 
     private static String escapeHtmlStatic(String text) {
         if (text == null) return "";
-        return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;");
+        return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\n", "<br>");
     }
 
     private static String getSectionBackgroundColorStatic() {
