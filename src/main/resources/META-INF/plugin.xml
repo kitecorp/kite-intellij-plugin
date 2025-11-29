@@ -312,120 +312,122 @@
     <extensions defaultExtensionNs="com.intellij">
         <!-- File type registration -->
         <fileType name="Kite"
-                  implementationClass="io.kite.intellij.KiteFileType"
+                  implementationClass="cloud.kitelang.intellij.KiteFileType"
                   fieldName="INSTANCE"
                   language="Kite"
                   extensions="kite"/>
 
         <!-- Parser definition -->
         <lang.parserDefinition language="Kite"
-                               implementationClass="io.kite.intellij.parser.KiteParserDefinition"/>
+                               implementationClass="cloud.kitelang.intellij.parser.KiteParserDefinition"/>
 
         <!-- Syntax highlighter -->
         <lang.syntaxHighlighterFactory language="Kite"
-                                       implementationClass="io.kite.intellij.highlighting.KiteSyntaxHighlighterFactory"/>
+                                       implementationClass="cloud.kitelang.intellij.highlighting.KiteSyntaxHighlighterFactory"/>
 
         <!-- Color settings page -->
-        <colorSettingsPage implementation="io.kite.intellij.highlighting.KiteColorSettingsPage"/>
+        <colorSettingsPage implementation="cloud.kitelang.intellij.highlighting.KiteColorSettingsPage"/>
 
         <!-- Annotator for semantic highlighting -->
         <annotator language="Kite"
-                   implementationClass="io.kite.intellij.highlighting.KiteAnnotator"/>
+                   implementationClass="cloud.kitelang.intellij.highlighting.KiteAnnotator"/>
 
         <!-- Annotator for duplicate declaration detection -->
         <annotator language="Kite"
-                   implementationClass="io.kite.intellij.highlighting.KiteDuplicateDeclarationAnnotator"/>
+                   implementationClass="cloud.kitelang.intellij.highlighting.KiteDuplicateDeclarationAnnotator"/>
 
         <!-- Annotator for type checking and undefined reference detection -->
         <annotator language="Kite"
-                   implementationClass="io.kite.intellij.highlighting.KiteTypeCheckingAnnotator"/>
+                   implementationClass="cloud.kitelang.intellij.highlighting.KiteTypeCheckingAnnotator"/>
 
         <!-- Structure view -->
         <lang.psiStructureViewFactory language="Kite"
-                                       implementationClass="io.kite.intellij.structure.KiteStructureViewBuilderFactory"/>
+                                      implementationClass="cloud.kitelang.intellij.structure.KiteStructureViewBuilderFactory"/>
 
         <!-- Commenter for comment/uncomment actions -->
         <lang.commenter language="Kite"
-                        implementationClass="io.kite.intellij.KiteCommenter"/>
+                        implementationClass="cloud.kitelang.intellij.KiteCommenter"/>
 
         <!-- Code folding support -->
         <lang.foldingBuilder language="Kite"
-                             implementationClass="io.kite.intellij.KiteFoldingBuilder"/>
+                             implementationClass="cloud.kitelang.intellij.KiteFoldingBuilder"/>
 
         <!-- Code formatter -->
         <lang.formatter language="Kite"
-                        implementationClass="io.kite.intellij.formatter.KiteFormattingModelBuilder"/>
+                        implementationClass="cloud.kitelang.intellij.formatter.KiteFormattingModelBuilder"/>
 
         <!-- Code style settings -->
-        <langCodeStyleSettingsProvider implementation="io.kite.intellij.KiteLanguageCodeStyleSettingsProvider"/>
+        <langCodeStyleSettingsProvider implementation="cloud.kitelang.intellij.KiteLanguageCodeStyleSettingsProvider"/>
 
         <!-- Brace matching -->
         <lang.braceMatcher language="Kite"
-                           implementationClass="io.kite.intellij.KiteBraceMatcher"/>
+                           implementationClass="cloud.kitelang.intellij.KiteBraceMatcher"/>
 
         <!-- Go to Declaration (Cmd+Click) -->
         <psi.referenceContributor language="Kite"
-                                   implementation="io.kite.intellij.reference.KiteReferenceContributor"/>
+                                  implementation="cloud.kitelang.intellij.reference.KiteReferenceContributor"/>
 
         <!-- Go to Declaration handler -->
-        <gotoDeclarationHandler implementation="io.kite.intellij.navigation.KiteGotoDeclarationHandler"/>
+        <gotoDeclarationHandler implementation="cloud.kitelang.intellij.navigation.KiteGotoDeclarationHandler"/>
 
         <!-- Icon provider for navigation popups -->
-        <iconProvider implementation="io.kite.intellij.navigation.KiteNavigationIconProvider"/>
+        <iconProvider implementation="cloud.kitelang.intellij.navigation.KiteNavigationIconProvider"/>
 
         <!-- Highlight usages handler for identifier highlighting -->
-        <highlightUsagesHandlerFactory implementation="io.kite.intellij.highlighting.KiteHighlightUsagesHandlerFactory"/>
+        <highlightUsagesHandlerFactory
+                implementation="cloud.kitelang.intellij.highlighting.KiteHighlightUsagesHandlerFactory"/>
 
         <!-- Code completion -->
         <completion.contributor language="Kite"
-                                implementationClass="io.kite.intellij.completion.KiteCompletionContributor"/>
+                                implementationClass="cloud.kitelang.intellij.completion.KiteCompletionContributor"/>
 
         <!-- Breadcrumbs navigation -->
-        <breadcrumbsInfoProvider implementation="io.kite.intellij.KiteBreadcrumbsProvider"/>
+        <breadcrumbsInfoProvider implementation="cloud.kitelang.intellij.KiteBreadcrumbsProvider"/>
 
         <!-- Rename refactoring support -->
         <lang.refactoringSupport language="Kite"
-                                  implementationClass="io.kite.intellij.refactoring.KiteRefactoringSupportProvider"/>
+                                 implementationClass="cloud.kitelang.intellij.refactoring.KiteRefactoringSupportProvider"/>
 
         <!-- Names validator for identifiers -->
         <lang.namesValidator language="Kite"
-                             implementationClass="io.kite.intellij.refactoring.KiteNamesValidator"/>
+                             implementationClass="cloud.kitelang.intellij.refactoring.KiteNamesValidator"/>
 
         <!-- Element manipulator for identifier renaming -->
         <lang.elementManipulator forClass="com.intellij.psi.impl.source.tree.LeafPsiElement"
-                                  implementationClass="io.kite.intellij.refactoring.KiteIdentifierManipulator"/>
+                                 implementationClass="cloud.kitelang.intellij.refactoring.KiteIdentifierManipulator"/>
 
         <!-- Custom rename handler for Kite identifiers -->
-        <renameHandler implementation="io.kite.intellij.refactoring.KiteRenameHandler"/>
+        <renameHandler implementation="cloud.kitelang.intellij.refactoring.KiteRenameHandler"/>
 
         <!-- Quick documentation (Ctrl+Q / F1) -->
         <lang.documentationProvider language="Kite"
-                                     implementationClass="io.kite.intellij.documentation.KiteDocumentationProvider"/>
+                                    implementationClass="cloud.kitelang.intellij.documentation.KiteDocumentationProvider"/>
 
         <!-- Inlay hints (type hints and parameter name hints) -->
         <codeInsight.inlayProvider language="Kite"
-                                   implementationClass="io.kite.intellij.hints.KiteInlayHintsProvider"/>
+                                   implementationClass="cloud.kitelang.intellij.hints.KiteInlayHintsProvider"/>
 
         <!-- TODO/FIXME highlighting in comments -->
-        <indexPatternBuilder implementation="io.kite.intellij.search.KiteIndexPatternBuilder"/>
+        <indexPatternBuilder implementation="cloud.kitelang.intellij.search.KiteIndexPatternBuilder"/>
 
         <!-- Internal file template for creating new Kite files -->
         <internalFileTemplate name="Kite File"/>
 
         <!-- Live Templates (code snippets) -->
         <defaultLiveTemplates file="/liveTemplates/Kite.xml"/>
-        <liveTemplateContext contextId="Kite" implementation="io.kite.intellij.templates.KiteLiveTemplateContext"/>
+        <liveTemplateContext contextId="Kite"
+                             implementation="cloud.kitelang.intellij.templates.KiteLiveTemplateContext"/>
 
         <!-- Parameter Info (Ctrl+P) - Shows function parameter hints -->
         <codeInsight.parameterInfo language="Kite"
-                                   implementationClass="io.kite.intellij.parameterinfo.KiteParameterInfoHandler"/>
+                                   implementationClass="cloud.kitelang.intellij.parameterinfo.KiteParameterInfoHandler"/>
 
         <!-- Quote auto-pairing (typing " or ' automatically inserts closing quote) -->
-        <typedHandler implementation="io.kite.intellij.KiteQuoteHandler"/>
+        <typedHandler implementation="cloud.kitelang.intellij.KiteQuoteHandler"/>
 
         <!-- Line markers for declarations (gutter icons showing usages) -->
         <codeInsight.lineMarkerProvider language="Kite"
-                                        implementationClass="io.kite.intellij.navigation.KiteLineMarkerProvider"/>
+                                        implementationClass="cloud.kitelang.intellij.navigation.KiteLineMarkerProvider"/>
 
     </extensions>
 
@@ -433,7 +435,7 @@
     <actions>
         <!-- Add "New > Kite File" action to the New menu -->
         <action id="Kite.NewKiteFile"
-                class="io.kite.intellij.actions.CreateKiteFileAction"
+                class="cloud.kitelang.intellij.actions.CreateKiteFileAction"
                 text="Kite File"
                 description="Create a new Kite infrastructure file">
             <add-to-group group-id="NewGroup" anchor="after" relative-to-action="NewFile"/>
