@@ -235,10 +235,11 @@ public class KiteDocumentationProvider extends AbstractDocumentationProvider {
 
         // Argument info table
         sb.append("<div style=\"margin-bottom: 8px; background-color: ").append(getSectionBackgroundColorStatic()).append("; padding: 8px; border-radius: 4px;\">");
-        sb.append("<table style=\"border-collapse: collapse; width: 100%;\">");
+        sb.append("<span style=\"font-weight: bold;\">Arguments:</span>");
+        sb.append("<table style=\"border-collapse: collapse; width: 100%; margin-top: 4px;\">");
 
         // Argument type
-        sb.append("<tr><td style=\"padding: 2px 8px 2px 0; color: #888;\">Argument:</td>");
+        sb.append("<tr><td style=\"padding: 2px 8px 2px 0; color: #888;\">Type:</td>");
         sb.append("<td style=\"padding: 2px 0;\"><code>").append(escapeHtmlStatic(doc.argumentType)).append("</code></td></tr>");
 
         // Targets
@@ -254,9 +255,9 @@ public class KiteDocumentationProvider extends AbstractDocumentationProvider {
         sb.append("</table>");
         sb.append("</div>");
 
-        // Example with syntax highlighting
-        sb.append("<div style=\"margin-bottom: 8px; background-color: ").append(getSectionBackgroundColorStatic()).append("; padding: 8px; border-radius: 4px;\">");
-        sb.append("<span>Example:</span>");
+        // Example with syntax highlighting (uses different background to distinguish from info section)
+        sb.append("<div style=\"margin-bottom: 8px; background-color: ").append(getCodeBackgroundColorStatic()).append("; padding: 8px; border-radius: 4px;\">");
+        sb.append("<span style=\"font-weight: bold;\">Example:</span>");
         sb.append("<pre style=\"margin: 4px 0 0 0; padding: 0; font-family: monospace; background: transparent;\">");
         sb.append(colorizeDecoratorExampleStatic(doc.example));
         sb.append("</pre>");
@@ -274,6 +275,11 @@ public class KiteDocumentationProvider extends AbstractDocumentationProvider {
 
     private static String getSectionBackgroundColorStatic() {
         return JBColor.isBright() ? "#F5F5F5" : "#2D2D2D";
+    }
+
+    // Slightly different background for code examples to distinguish from info sections
+    private static String getCodeBackgroundColorStatic() {
+        return JBColor.isBright() ? "#EBEBEB" : "#383838";
     }
 
     // Colorize decorator example using tokenized approach to avoid regex interference
