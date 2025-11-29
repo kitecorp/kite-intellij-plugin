@@ -1,0 +1,10 @@
+// Shared configuration and utilities
+var defaultRegion = "us-west-2"
+var appName       = "my-app"
+
+type Environment = "dev" | "staging" | "prod"
+
+schema BaseConfig {
+    string name
+    string env = "dev"
+}

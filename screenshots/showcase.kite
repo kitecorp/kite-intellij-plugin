@@ -1,0 +1,50 @@
+// Kite Infrastructure as Code
+import * from "shared.kite"
+
+// Schema definition with typed properties
+schema ServerConfig {
+    string   host
+    number   port     = 8080
+    boolean  ssl      = true
+    string[] tags
+}
+
+// Reusable component with inputs and outputs
+component WebServer {
+    input string   name
+    input string   region   = "us-east-1"
+    input number   replicas = 3
+
+    @cloud(["aws", "gcp"])
+    resource ServerConfig server {
+        host = "api.${name}.example.com"
+        port = 443
+        ssl  = true
+        tags = ["web", "production"]
+    }
+
+    output string endpoint = server.host
+    output number port     = server.port
+}
+
+// Variables with type inference
+var environment = "production"
+var maxRetries  = 5
+var isEnabled   = true
+
+// Function with typed parameters and return type
+fun calculateCost(number instances, number hours) number {
+    var rate = 0.10
+    return instances * hours * rate
+}
+
+// Component instantiation
+component WebServer api {
+    name     = "payments"
+    region   = defaultRegion
+    replicas = 5
+}
+
+// Using the component output
+var apiEndpoint = api.endpoint
+var totalCost   = calculateCost(api.replicas, 720)

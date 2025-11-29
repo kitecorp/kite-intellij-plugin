@@ -205,10 +205,20 @@ public class KiteBlock extends AbstractBlock {
      * Creates blocks for all tokens, calculating padding for alignment.
      * Groups consecutive similar declarations and aligns within each group.
      *
+     * For schema declarations, uses two-phase alignment:
+     * 1. Align property names (padding after type identifiers)
+     * 2. Align '=' signs (padding after property names)
+     *
      * @param alignToken The token type to align (COLON or ASSIGN)
      */
     private List<Block> buildAlignedChildren(IElementType alignToken) {
         List<Block> blocks = new ArrayList<>();
+
+        // For schema declarations, use two-phase alignment
+        if (myNode.getElementType() == KiteElementTypes.SCHEMA_DECLARATION) {
+            schemaAlignmentInfo = collectSchemaAlignmentInfo();
+            return buildSchemaAlignedChildren();
+        }
 
         // First pass: identify alignment groups and their max key lengths
         List<AlignmentGroup> groups = identifyAlignmentGroups(alignToken);
@@ -216,7 +226,6 @@ public class KiteBlock extends AbstractBlock {
         // Second pass: build blocks with appropriate padding
         ASTNode child = myNode.getFirstChildNode();
         ASTNode previousIdentifier = null;
-        ASTNode previousTypeIdentifier = null;  // For schema properties: the type before the property name
         int braceDepth = 0;  // Track nesting depth instead of boolean
         boolean insideParens = false;
         boolean insideBrackets = false;  // Track array brackets separately
@@ -255,14 +264,6 @@ public class KiteBlock extends AbstractBlock {
                     if (childType == KiteTokenTypes.IDENTIFIER) {
                         ASTNode nextToken = findNextToken(child, alignToken);
                         if (nextToken != null) {
-                            // This identifier is followed by align token (e.g., property name before "=")
-                            // For schemas, the previous identifier was the type
-                            if (myNode.getElementType() == KiteElementTypes.SCHEMA_DECLARATION) {
-                                previousTypeIdentifier = previousIdentifier;
-                            }
-                            previousIdentifier = child;
-                        } else {
-                            // Not followed by align token - might be a type identifier in schema
                             previousIdentifier = child;
                         }
                     }
@@ -273,30 +274,180 @@ public class KiteBlock extends AbstractBlock {
                         // Find which group this identifier belongs to
                         AlignmentGroup group = findGroupForIdentifier(groups, previousIdentifier);
                         if (group != null) {
-                            int keyLength;
-                            if (myNode.getElementType() == KiteElementTypes.SCHEMA_DECLARATION && previousTypeIdentifier != null) {
-                                // For schemas: key length is type + space + propName
-                                keyLength = previousTypeIdentifier.getTextLength() + 1 + previousIdentifier.getTextLength();
-                            } else {
-                                keyLength = previousIdentifier.getTextLength();
-                            }
+                            int keyLength = previousIdentifier.getTextLength();
                             // For ASSIGN, always have at least 1 space; for COLON, longest key has 0 spaces
                             int extraSpace = (alignToken == KiteTokenTypes.ASSIGN) ? 1 : 0;
                             padding = group.maxKeyLength - keyLength + extraSpace;
                         }
                         previousIdentifier = null;
-                        previousTypeIdentifier = null;
                     }
 
                     blocks.add(new KiteBlock(
+                            child,
+                            null,
+                            null,
+                            childIndent,
+                            spacingBuilder,
+                            padding
+                    ));
+                }
+
+                // Update brace depth AFTER processing current element
+                if (childType == KiteTokenTypes.LBRACE) {
+                    braceDepth++;
+                } else if (childType == KiteTokenTypes.RBRACE) {
+                    braceDepth--;
+                }
+
+                // Track brackets separately from braces
+                if (childType == KiteTokenTypes.LBRACK) {
+                    insideBrackets = true;
+                } else if (childType == KiteTokenTypes.RBRACK) {
+                    insideBrackets = false;
+                }
+
+                // Update insideParens state AFTER processing current element
+                if (childType == KiteTokenTypes.LPAREN) {
+                    insideParens = true;
+                } else if (childType == KiteTokenTypes.RPAREN) {
+                    insideParens = false;
+                }
+            }
+
+            child = child.getTreeNext();
+        }
+
+        return blocks;
+    }
+
+    /**
+     * Builds children for schema declarations with two-phase alignment:
+     * 1. Padding after type to align property names
+     * 2. Padding after property name to align '=' signs
+     * <p>
+     * Uses index-based tracking instead of object identity for robustness.
+     */
+    private List<Block> buildSchemaAlignedChildren() {
+        List<Block> blocks = new ArrayList<>();
+
+        // Pass 1: Collect alignment info - track indices and lengths
+        // We track "type tokens" which can be IDENTIFIER or built-in type keywords (like ANY)
+        int maxTypeLength = 0;
+        int maxPropertyLength = 0;
+        List<Integer> typeIndices = new ArrayList<>();      // Index of type tokens in iteration order
+        List<Integer> propertyIndices = new ArrayList<>();  // Index of property identifiers
+        List<Integer> typeLengths = new ArrayList<>();      // Visual length of each type (including [])
+        List<Integer> propertyLengths = new ArrayList<>();  // Length of each property name
+
+        ASTNode child = myNode.getFirstChildNode();
+        int currentTypeIndex = -1;
+        int currentTypeLength = 0;
+        boolean inSchemaBody = false;
+        int typeTokenIndex = 0;  // Count type tokens (IDENTIFIER or built-in type keywords)
+
+        while (child != null) {
+            IElementType childType = child.getElementType();
+
+            if (!shouldSkipToken(childType) && child.getTextLength() > 0) {
+                if (childType == KiteTokenTypes.LBRACE && !inSchemaBody) {
+                    inSchemaBody = true;
+                } else if (childType == KiteTokenTypes.RBRACE) {
+                    inSchemaBody = false;
+                }
+
+                // Check for type tokens: IDENTIFIER or built-in type keywords (like ANY)
+                boolean isTypeToken = childType == KiteTokenTypes.IDENTIFIER || isBuiltInTypeKeyword(childType);
+
+                if (inSchemaBody && isTypeToken) {
+                    if (currentTypeIndex == -1) {
+                        // First type token in a pair - this is the type
+                        currentTypeIndex = typeTokenIndex;
+                        currentTypeLength = child.getTextLength();
+                    } else {
+                        // Second token in a pair - this is the property name
+                        typeIndices.add(currentTypeIndex);
+                        typeLengths.add(currentTypeLength);
+                        maxTypeLength = Math.max(maxTypeLength, currentTypeLength);
+
+                        propertyIndices.add(typeTokenIndex);
+                        propertyLengths.add(child.getTextLength());
+                        maxPropertyLength = Math.max(maxPropertyLength, child.getTextLength());
+
+                        currentTypeIndex = -1;  // Reset for next pair
+                        currentTypeLength = 0;
+                    }
+                    typeTokenIndex++;
+                }
+
+                // ARRAY_LITERAL element (the [] brackets) - add to current type length
+                if (inSchemaBody && currentTypeIndex != -1 && childType == KiteElementTypes.ARRAY_LITERAL) {
+                    currentTypeLength += child.getTextLength();  // Adds 2 for "[]"
+                }
+            }
+
+            child = child.getTreeNext();
+        }
+
+        // Pass 2: Build blocks with appropriate padding
+        child = myNode.getFirstChildNode();
+        inSchemaBody = false;
+        int braceDepth = 0;
+        boolean insideParens = false;
+        boolean insideBrackets = false;
+        typeTokenIndex = 0;  // Reset counter
+        int pairIndex = 0;    // Which type/property pair we're on
+        int currentTypeLengthForPadding = 0;
+
+        while (child != null) {
+            IElementType childType = child.getElementType();
+
+            if (!shouldSkipToken(childType) && child.getTextLength() > 0) {
+                boolean insideBraces = braceDepth > 0;
+                Indent childIndent = getChildIndent(childType, insideBraces, insideParens, insideBrackets, braceDepth);
+
+                Integer padding = null;
+
+                if (childType == KiteTokenTypes.LBRACE && !inSchemaBody) {
+                    inSchemaBody = true;
+                } else if (childType == KiteTokenTypes.RBRACE) {
+                    inSchemaBody = false;
+                }
+
+                // Check for type tokens: IDENTIFIER or built-in type keywords (like ANY)
+                boolean isTypeToken = childType == KiteTokenTypes.IDENTIFIER || isBuiltInTypeKeyword(childType);
+
+                if (inSchemaBody && isTypeToken) {
+                    // Check if this type token index matches a type or property
+                    if (pairIndex < typeIndices.size() && typeIndices.get(pairIndex) == typeTokenIndex) {
+                        // This is a type token - remember its length for the property padding
+                        currentTypeLengthForPadding = typeLengths.get(pairIndex);
+                    } else if (pairIndex < propertyIndices.size() && propertyIndices.get(pairIndex) == typeTokenIndex) {
+                        // This is a property identifier - add padding before it to align property names
+                        int typePadding = maxTypeLength - currentTypeLengthForPadding + 1;
+                        padding = typePadding;
+                        pairIndex++;  // Move to next pair after processing property
+                    }
+                    typeTokenIndex++;
+                }
+
+                // Calculate padding for '=' to align equals signs
+                if (inSchemaBody && childType == KiteTokenTypes.ASSIGN && pairIndex > 0) {
+                    // Use the property length from the previous pair
+                    int propIdx = pairIndex - 1;
+                    if (propIdx < propertyLengths.size()) {
+                        int propPadding = maxPropertyLength - propertyLengths.get(propIdx) + 1;
+                        padding = propPadding;
+                    }
+                }
+
+                blocks.add(new KiteBlock(
                         child,
                         null,
                         null,
                         childIndent,
                         spacingBuilder,
                         padding
-                    ));
-                }
+                ));
 
                 // Update brace depth AFTER processing current element
                 if (childType == KiteTokenTypes.LBRACE) {
@@ -763,6 +914,21 @@ public class KiteBlock extends AbstractBlock {
     }
 
     /**
+     * For schema properties, we need to track both type and property name for two-stage alignment.
+     */
+    private static class SchemaPropertyInfo {
+        ASTNode typeIdentifier;
+        ASTNode propertyIdentifier;
+        boolean hasDefaultValue;
+    }
+
+    private static class SchemaAlignmentInfo {
+        int maxTypeLength = 0;
+        int maxPropertyLength = 0;
+        List<SchemaPropertyInfo> properties = new ArrayList<>();
+    }
+
+    /**
      * Identifies groups of consecutive similar declarations.
      * For object literals and decorator args: creates one group (align all together).
      * For block declarations: groups consecutive similar declarations, separated by blank lines.
@@ -879,6 +1045,79 @@ public class KiteBlock extends AbstractBlock {
         collectSchemaPropertyIdentifiers(myNode, currentGroup);
 
         return groups;
+    }
+
+    // Store schema alignment info at instance level for use during block building
+    private SchemaAlignmentInfo schemaAlignmentInfo = null;
+
+    /**
+     * Collects schema alignment info with both type and property name lengths.
+     */
+    private SchemaAlignmentInfo collectSchemaAlignmentInfo() {
+        SchemaAlignmentInfo info = new SchemaAlignmentInfo();
+
+        // Flatten all tokens first
+        List<ASTNode> allTokens = new ArrayList<>();
+        flattenTokens(myNode, allTokens);
+
+        ASTNode typeIdentifier = null;
+        boolean inSchemaBody = false;
+
+        for (int i = 0; i < allTokens.size(); i++) {
+            ASTNode token = allTokens.get(i);
+            IElementType tokenType = token.getElementType();
+
+            // Skip whitespace
+            if (tokenType == TokenType.WHITE_SPACE) {
+                continue;
+            }
+
+            // Track when we're inside the schema body
+            if (tokenType == KiteTokenTypes.LBRACE) {
+                inSchemaBody = true;
+            } else if (tokenType == KiteTokenTypes.RBRACE) {
+                break;
+            } else if (inSchemaBody && tokenType == KiteTokenTypes.IDENTIFIER) {
+                if (typeIdentifier != null) {
+                    // This is the property name (second identifier)
+                    SchemaPropertyInfo prop = new SchemaPropertyInfo();
+                    prop.typeIdentifier = typeIdentifier;
+                    prop.propertyIdentifier = token;
+                    prop.hasDefaultValue = hasAssignAfter(allTokens, token);
+
+                    info.properties.add(prop);
+                    info.maxTypeLength = Math.max(info.maxTypeLength, typeIdentifier.getTextLength());
+                    info.maxPropertyLength = Math.max(info.maxPropertyLength, token.getTextLength());
+
+                    typeIdentifier = null; // Reset for next pair
+                } else {
+                    // This is the type identifier
+                    typeIdentifier = token;
+                }
+            }
+            // Reset typeIdentifier at end of property
+            else if (tokenType == KiteTokenTypes.ASSIGN ||
+                     tokenType == KiteTokenTypes.NL ||
+                     tokenType == KiteTokenTypes.NEWLINE ||
+                     tokenType == KiteTokenTypes.SEMICOLON) {
+                typeIdentifier = null;
+            }
+        }
+
+        return info;
+    }
+
+    /**
+     * Finds the SchemaPropertyInfo for a given type or property identifier.
+     */
+    private SchemaPropertyInfo findSchemaProperty(ASTNode identifier) {
+        if (schemaAlignmentInfo == null) return null;
+        for (SchemaPropertyInfo prop : schemaAlignmentInfo.properties) {
+            if (prop.typeIdentifier == identifier || prop.propertyIdentifier == identifier) {
+                return prop;
+            }
+        }
+        return null;
     }
 
     /**
@@ -1362,12 +1601,14 @@ public class KiteBlock extends AbstractBlock {
             }
         }
 
-        // Use custom padding for aligned tokens (colons or equals)
+        // Use custom padding for aligned tokens (colons, equals, or identifiers for schema properties)
         if (child2 instanceof KiteBlock kiteBlock2) {
             IElementType tokenType = kiteBlock2.myNode.getElementType();
 
             if (kiteBlock2.alignmentPadding != null &&
-                (tokenType == KiteTokenTypes.COLON || tokenType == KiteTokenTypes.ASSIGN)) {
+                (tokenType == KiteTokenTypes.COLON ||
+                 tokenType == KiteTokenTypes.ASSIGN ||
+                 tokenType == KiteTokenTypes.IDENTIFIER)) {
                 return Spacing.createSpacing(kiteBlock2.alignmentPadding, kiteBlock2.alignmentPadding, 0, true, 0);
             }
         }
@@ -1391,6 +1632,14 @@ public class KiteBlock extends AbstractBlock {
                type == KiteTokenTypes.FOR ||
                type == KiteTokenTypes.WHILE ||
                type == KiteTokenTypes.RETURN;
+    }
+
+    /**
+     * Checks if the token type is a built-in type keyword (like 'any').
+     * These keywords can appear as type identifiers in schema property declarations.
+     */
+    private boolean isBuiltInTypeKeyword(IElementType type) {
+        return type == KiteTokenTypes.ANY;
     }
 
     @Override

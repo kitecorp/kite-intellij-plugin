@@ -1,0 +1,24 @@
+// Code completion showcase
+import * from "shared.kite"
+
+schema Database {
+    string host
+    number port
+    boolean ssl
+}
+
+var region = defaultRegion
+
+// Type here for type completion: var string
+// Type here for value completion after =: var x =
+
+resource Database db {
+    // Type here for property completion
+}
+
+fun greet(string name, number age) string {
+    return "Hello ${name}"
+}
+
+// Type inside () for parameter hints: greet()
+var result = greet("Alice", 30)

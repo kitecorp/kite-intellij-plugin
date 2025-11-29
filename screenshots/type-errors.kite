@@ -1,0 +1,25 @@
+// Type checking example - demonstrates error highlighting
+
+schema Config {
+    string name
+    number port
+}
+
+// Type error: assigning number to string
+var string serverName = 123
+
+// Type error: assigning string to number
+var number maxConnections = "unlimited"
+
+// Correct types - no errors
+var string appName = "web-server"
+var number timeout = 30
+
+// Undefined reference warning
+var endpoint = unknownVariable
+
+// Resource type checking
+resource Config server {
+    name = 456
+    port = "8080"
+}
