@@ -7,18 +7,17 @@ schema Database {
     boolean ssl
 }
 
+fun greet(string name, number age) string {
+  return "Hello ${name}"
+}
+
 var region = defaultRegion
 
-// Type here for type completion: var string
-// Type here for value completion after =: var x =
+// Type inside () for parameter hints: greet()
+var result = greet("Alice", 30)
 
 resource Database db {
     // Type here for property completion
 }
 
-fun greet(string name, number age) string {
-    return "Hello ${name}"
-}
 
-// Type inside () for parameter hints: greet()
-var result = greet("Alice", 30)

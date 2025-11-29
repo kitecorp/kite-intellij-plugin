@@ -172,6 +172,15 @@ public class KiteInlayHintsProvider implements InlayHintsProvider<KiteInlayHints
                 collectResourcePropertyTypeHints(element, sink);
             }
 
+            // Show type hints for COMPONENT instantiation input assignments
+            if (settings.showTypeHints && elementType == KiteElementTypes.COMPONENT_DECLARATION) {
+                // Check if this is a component instantiation (has two identifiers: type and instance name)
+                if (isComponentInstantiation(element.getNode())) {
+                    System.err.println("[InlayHints] Found COMPONENT instantiation");
+                    collectComponentInputTypeHints(element, sink);
+                }
+            }
+
             // Show parameter hints for function calls
             if (settings.showParameterHints) {
                 // Function calls are identifiers followed by parentheses with arguments
@@ -512,6 +521,270 @@ public class KiteInlayHintsProvider implements InlayHintsProvider<KiteInlayHints
                    type == KiteTokenTypes.NL ||
                    type == KiteTokenTypes.NEWLINE ||
                    type == TokenType.WHITE_SPACE;
+        }
+
+        /**
+         * Check if a COMPONENT_DECLARATION is a component instantiation (not a definition).
+         * Instantiation: component TypeName instanceName { ... } (two identifiers)
+         * Definition: component TypeName { ... } (one identifier)
+         */
+        private boolean isComponentInstantiation(ASTNode componentNode) {
+            int identifierCount = 0;
+            boolean foundComponent = false;
+
+            for (ASTNode child : componentNode.getChildren(null)) {
+                IElementType type = child.getElementType();
+
+                if (type == KiteTokenTypes.COMPONENT) {
+                    foundComponent = true;
+                    continue;
+                }
+
+                if (foundComponent && type == KiteTokenTypes.IDENTIFIER) {
+                    identifierCount++;
+                }
+
+                if (type == KiteTokenTypes.LBRACE) {
+                    break;
+                }
+            }
+
+            // Two identifiers means it's an instantiation (TypeName instanceName)
+            return identifierCount == 2;
+        }
+
+        /**
+         * Get the component type name from a component instantiation.
+         * Pattern: component TypeName instanceName { ... }
+         * Returns the first identifier after COMPONENT keyword.
+         */
+        @Nullable
+        private String getComponentTypeName(ASTNode componentNode) {
+            boolean foundComponent = false;
+            for (ASTNode child : componentNode.getChildren(null)) {
+                IElementType childType = child.getElementType();
+
+                if (childType == KiteTokenTypes.COMPONENT) {
+                    foundComponent = true;
+                    continue;
+                }
+
+                if (foundComponent && childType == KiteTokenTypes.IDENTIFIER) {
+                    return child.getText(); // First identifier is the type name
+                }
+
+                if (childType == KiteTokenTypes.LBRACE) {
+                    break;
+                }
+            }
+            return null;
+        }
+
+        /**
+         * Collect type hints for component instantiation input assignments.
+         * Looks up the input types from the component definition.
+         * <p>
+         * Example: component WebServer api { name = "payments" } shows ":string" after "name"
+         */
+        private void collectComponentInputTypeHints(PsiElement componentInstantiation, InlayHintsSink sink) {
+            ASTNode node = componentInstantiation.getNode();
+            if (node == null) return;
+
+            System.err.println("[InlayHints] collectComponentInputTypeHints called");
+
+            // Get the component type name (first identifier after COMPONENT keyword)
+            String componentTypeName = getComponentTypeName(node);
+            System.err.println("[InlayHints] Component type name: " + componentTypeName);
+            if (componentTypeName == null) return;
+
+            // Find the component definition and get input types
+            PsiFile file = componentInstantiation.getContainingFile();
+            if (file == null) return;
+
+            java.util.Map<String, String> inputTypes = findComponentInputTypes(file, componentTypeName);
+            System.err.println("[InlayHints] Component input types found: " + inputTypes);
+            if (inputTypes.isEmpty()) return;
+
+            // Find input assignments inside the component body
+            boolean insideBraces = false;
+            for (ASTNode child : node.getChildren(null)) {
+                IElementType childType = child.getElementType();
+
+                if (childType == KiteTokenTypes.LBRACE) {
+                    insideBraces = true;
+                    continue;
+                }
+                if (childType == KiteTokenTypes.RBRACE) {
+                    break;
+                }
+
+                // Look for input assignments: identifier = value
+                if (insideBraces && childType == KiteTokenTypes.IDENTIFIER) {
+                    String inputName = child.getText();
+
+                    // Check if followed by =
+                    ASTNode next = child.getTreeNext();
+                    while (next != null && isWhitespaceToken(next.getElementType())) {
+                        next = next.getTreeNext();
+                    }
+
+                    if (next != null && next.getElementType() == KiteTokenTypes.ASSIGN) {
+                        // This is an input assignment - look up the type from component definition
+                        String inputType = inputTypes.get(inputName);
+                        if (inputType != null) {
+                            int offset = child.getTextRange().getEndOffset();
+                            PresentationFactory factory = new PresentationFactory(editor);
+                            InlayPresentation text = factory.smallText(":" + inputType);
+                            InlayPresentation presentation = factory.roundWithBackground(text);
+                            sink.addInlineElement(offset, true, presentation, false);
+                        }
+                    }
+                }
+            }
+        }
+
+        /**
+         * Find component input types by searching for the component definition.
+         * Returns a map of input name to type.
+         */
+        private java.util.Map<String, String> findComponentInputTypes(PsiFile file, String componentTypeName) {
+            java.util.Map<String, String> inputTypes = new java.util.HashMap<>();
+
+            // Search in current file
+            findComponentInputTypesRecursive(file.getNode(), componentTypeName, inputTypes);
+
+            // If not found, search in imported files
+            if (inputTypes.isEmpty()) {
+                findComponentInputTypesInImports(file, componentTypeName, inputTypes, new HashSet<>());
+            }
+
+            return inputTypes;
+        }
+
+        /**
+         * Recursively search for a component definition and extract its input types.
+         */
+        private void findComponentInputTypesRecursive(ASTNode node, String componentTypeName, java.util.Map<String, String> inputTypes) {
+            if (node == null) return;
+
+            if (node.getElementType() == KiteElementTypes.COMPONENT_DECLARATION) {
+                // Check if this is the component definition (not instantiation) we're looking for
+                if (!isComponentInstantiation(node)) {
+                    String name = getComponentTypeName(node);
+                    if (componentTypeName.equals(name)) {
+                        extractComponentInputTypes(node, inputTypes);
+                        return;
+                    }
+                }
+            }
+
+            // Recurse into children
+            for (ASTNode child : node.getChildren(null)) {
+                findComponentInputTypesRecursive(child, componentTypeName, inputTypes);
+                if (!inputTypes.isEmpty()) return; // Found it
+            }
+        }
+
+        /**
+         * Search for component input types in imported files.
+         */
+        private void findComponentInputTypesInImports(PsiFile file, String componentTypeName,
+                                                      java.util.Map<String, String> inputTypes, Set<String> visited) {
+            List<PsiFile> importedFiles = KiteImportHelper.getImportedFiles(file);
+
+            for (PsiFile importedFile : importedFiles) {
+                if (importedFile == null || importedFile.getVirtualFile() == null) continue;
+
+                String path = importedFile.getVirtualFile().getPath();
+                if (visited.contains(path)) continue;
+                visited.add(path);
+
+                findComponentInputTypesRecursive(importedFile.getNode(), componentTypeName, inputTypes);
+                if (!inputTypes.isEmpty()) return;
+
+                // Recursively check imports
+                findComponentInputTypesInImports(importedFile, componentTypeName, inputTypes, visited);
+                if (!inputTypes.isEmpty()) return;
+            }
+        }
+
+        /**
+         * Extract input declarations from a component definition.
+         * Pattern inside component: input type name [= defaultValue]
+         */
+        private void extractComponentInputTypes(ASTNode componentNode, java.util.Map<String, String> inputTypes) {
+            boolean insideBraces = false;
+
+            for (ASTNode child : componentNode.getChildren(null)) {
+                IElementType childType = child.getElementType();
+
+                if (childType == KiteTokenTypes.LBRACE) {
+                    insideBraces = true;
+                    continue;
+                }
+                if (childType == KiteTokenTypes.RBRACE) {
+                    break;
+                }
+
+                if (!insideBraces) continue;
+
+                // Look for INPUT_DECLARATION elements
+                if (childType == KiteElementTypes.INPUT_DECLARATION) {
+                    extractInputDeclaration(child, inputTypes);
+                }
+            }
+        }
+
+        /**
+         * Extract type and name from an input declaration.
+         * Pattern: input type name [= defaultValue]
+         */
+        private void extractInputDeclaration(ASTNode inputDeclNode, java.util.Map<String, String> inputTypes) {
+            boolean foundInput = false;
+            String currentType = null;
+
+            for (ASTNode child : inputDeclNode.getChildren(null)) {
+                IElementType childType = child.getElementType();
+
+                // Skip whitespace
+                if (isWhitespaceToken(childType)) continue;
+
+                if (childType == KiteTokenTypes.INPUT) {
+                    foundInput = true;
+                    continue;
+                }
+
+                if (!foundInput) continue;
+
+                // Handle 'any' keyword as type
+                if (childType == KiteTokenTypes.ANY) {
+                    currentType = "any";
+                    continue;
+                }
+
+                // Handle array suffix []
+                if (childType == KiteElementTypes.ARRAY_LITERAL && currentType != null) {
+                    currentType = currentType + "[]";
+                    continue;
+                }
+
+                // Track type -> name pattern
+                if (childType == KiteTokenTypes.IDENTIFIER) {
+                    if (currentType == null) {
+                        // First identifier is the type
+                        currentType = child.getText();
+                    } else {
+                        // Second identifier is the input name
+                        inputTypes.put(child.getText(), currentType);
+                        return; // Done with this input declaration
+                    }
+                }
+
+                // Stop at = (rest is default value)
+                if (childType == KiteTokenTypes.ASSIGN) {
+                    return;
+                }
+            }
         }
 
         /**
