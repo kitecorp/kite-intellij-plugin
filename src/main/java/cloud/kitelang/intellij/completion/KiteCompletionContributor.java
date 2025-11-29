@@ -150,6 +150,13 @@ public class KiteCompletionContributor extends CompletionContributor {
                         return;
                     }
 
+                    // Check if we're inside decorator argument parentheses
+                    String decoratorName = getEnclosingDecoratorName(position);
+                    if (decoratorName != null) {
+                        addDecoratorArgumentCompletions(result, decoratorName);
+                        return;
+                    }
+
                     // Check if we're after a dot (property access)
                     if (isPropertyAccessContext(position)) {
                         addPropertyCompletions(parameters, result);
@@ -430,6 +437,289 @@ public class KiteCompletionContributor extends CompletionContributor {
 
             result.addElement(PrioritizedLookupElement.withPriority(element, priority));
         }
+    }
+
+    /**
+     * Get the decorator name if cursor is inside decorator argument parentheses.
+     * Returns null if not inside decorator arguments.
+     * <p>
+     * Example: @minValue(|) -> returns "minValue"
+     *
+     * @validate(regex: "|") -> returns "validate"
+     */
+    @Nullable
+    private String getEnclosingDecoratorName(PsiElement position) {
+        // Walk backwards through siblings and parents to find LPAREN
+        PsiElement current = position;
+        int parenDepth = 0;
+
+        while (current != null) {
+            if (current.getNode() != null) {
+                IElementType type = current.getNode().getElementType();
+
+                if (type == KiteTokenTypes.RPAREN) {
+                    parenDepth++;
+                } else if (type == KiteTokenTypes.LPAREN) {
+                    if (parenDepth == 0) {
+                        // Found the opening paren, look for identifier before it (decorator name)
+                        PsiElement prev = current.getPrevSibling();
+                        while (prev != null && isWhitespace(prev)) {
+                            prev = prev.getPrevSibling();
+                        }
+                        if (prev != null && prev.getNode() != null &&
+                            prev.getNode().getElementType() == KiteTokenTypes.IDENTIFIER) {
+                            // Check if this is preceded by @ (it's a decorator)
+                            PsiElement beforeIdent = prev.getPrevSibling();
+                            while (beforeIdent != null && isWhitespace(beforeIdent)) {
+                                beforeIdent = beforeIdent.getPrevSibling();
+                            }
+                            if (beforeIdent != null && beforeIdent.getNode() != null &&
+                                beforeIdent.getNode().getElementType() == KiteTokenTypes.AT) {
+                                return prev.getText();
+                            }
+                        }
+                        return null;
+                    }
+                    parenDepth--;
+                }
+            }
+
+            // Move to previous sibling or parent
+            PsiElement prev = current.getPrevSibling();
+            if (prev == null) {
+                current = current.getParent();
+            } else {
+                current = prev;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Add completions specific to decorator arguments.
+     * Different decorators get different completions:
+     * - @validate -> regex:, preset:
+     * - @provider, @provisionOn -> cloud provider strings
+     * - @tags -> object syntax helpers
+     * - @allowed -> array syntax helpers
+     * - @existing -> reference type helpers
+     * - @dependsOn -> resource/component references
+     */
+    private void addDecoratorArgumentCompletions(@NotNull CompletionResultSet result, String decoratorName) {
+        switch (decoratorName) {
+            case "validate" -> addValidateCompletions(result);
+            case "provider", "provisionOn" -> addProviderCompletions(result);
+            case "tags" -> addTagsCompletions(result);
+            case "allowed" -> addAllowedCompletions(result);
+            case "existing" -> addExistingCompletions(result);
+            case "dependsOn" -> addDependsOnCompletions(result);
+            case "description" -> addDescriptionCompletions(result);
+            // For simple numeric decorators like @minValue, @maxValue, @count, @minLength, @maxLength
+            // don't add any special completions - user should type numbers
+        }
+    }
+
+    /**
+     * Add completions for @validate decorator arguments.
+     * Supports named arguments: regex: "pattern" or preset: "presetName"
+     */
+    private void addValidateCompletions(@NotNull CompletionResultSet result) {
+        // Named argument: regex
+        result.addElement(PrioritizedLookupElement.withPriority(
+                LookupElementBuilder.create("regex: \"\"")
+                        .withPresentableText("regex:")
+                        .withTailText(" \"pattern\"", true)
+                        .withTypeText("named arg", true)
+                        .withInsertHandler((ctx, item) -> {
+                            // Position cursor inside the quotes
+                            ctx.getEditor().getCaretModel().moveToOffset(ctx.getTailOffset() - 1);
+                        }),
+                200.0));
+
+        // Named argument: preset with common values
+        String[] presets = {"email", "url", "uuid", "ipv4", "hostname", "phone", "date"};
+        for (String preset : presets) {
+            result.addElement(PrioritizedLookupElement.withPriority(
+                    LookupElementBuilder.create("preset: \"" + preset + "\"")
+                            .withPresentableText("preset: \"" + preset + "\"")
+                            .withTypeText("validation preset", true),
+                    150.0));
+        }
+
+        // Generic preset option for custom presets
+        result.addElement(PrioritizedLookupElement.withPriority(
+                LookupElementBuilder.create("preset: \"\"")
+                        .withPresentableText("preset:")
+                        .withTailText(" \"presetName\"", true)
+                        .withTypeText("named arg", true)
+                        .withInsertHandler((ctx, item) -> {
+                            // Position cursor inside the quotes
+                            ctx.getEditor().getCaretModel().moveToOffset(ctx.getTailOffset() - 1);
+                        }),
+                100.0));
+    }
+
+    /**
+     * Add completions for @provider and @provisionOn decorator arguments.
+     */
+    private void addProviderCompletions(@NotNull CompletionResultSet result) {
+        // Cloud provider strings
+        String[] providers = {"aws", "azure", "gcp", "cloudflare", "kubernetes", "docker"};
+        for (String provider : providers) {
+            result.addElement(PrioritizedLookupElement.withPriority(
+                    LookupElementBuilder.create("\"" + provider + "\"")
+                            .withTypeText("cloud provider", true),
+                    200.0));
+        }
+
+        // Array syntax for multiple providers
+        result.addElement(PrioritizedLookupElement.withPriority(
+                LookupElementBuilder.create("[\"aws\", \"azure\"]")
+                        .withTailText(" (multiple)", true)
+                        .withTypeText("array", true)
+                        .withInsertHandler((ctx, item) -> {
+                            // Position cursor inside the first string
+                            int startOffset = ctx.getStartOffset();
+                            ctx.getEditor().getCaretModel().moveToOffset(startOffset + 2);
+                        }),
+                150.0));
+    }
+
+    /**
+     * Add completions for @tags decorator arguments.
+     */
+    private void addTagsCompletions(@NotNull CompletionResultSet result) {
+        // Object syntax for key-value tags
+        result.addElement(PrioritizedLookupElement.withPriority(
+                LookupElementBuilder.create("{}")
+                        .withTailText(" object", true)
+                        .withTypeText("tags object", true)
+                        .withInsertHandler((ctx, item) -> {
+                            ctx.getDocument().replaceString(ctx.getStartOffset(), ctx.getTailOffset(), "{}");
+                            ctx.getEditor().getCaretModel().moveToOffset(ctx.getStartOffset() + 1);
+                        }),
+                200.0));
+
+        // Common tag keys
+        result.addElement(PrioritizedLookupElement.withPriority(
+                LookupElementBuilder.create("{Environment: \"production\"}")
+                        .withTypeText("example", true),
+                150.0));
+        result.addElement(PrioritizedLookupElement.withPriority(
+                LookupElementBuilder.create("{Name: \"\"}")
+                        .withTypeText("common tag", true)
+                        .withInsertHandler((ctx, item) -> {
+                            ctx.getEditor().getCaretModel().moveToOffset(ctx.getTailOffset() - 2);
+                        }),
+                150.0));
+        result.addElement(PrioritizedLookupElement.withPriority(
+                LookupElementBuilder.create("{Project: \"\"}")
+                        .withTypeText("common tag", true)
+                        .withInsertHandler((ctx, item) -> {
+                            ctx.getEditor().getCaretModel().moveToOffset(ctx.getTailOffset() - 2);
+                        }),
+                150.0));
+    }
+
+    /**
+     * Add completions for @allowed decorator arguments.
+     */
+    private void addAllowedCompletions(@NotNull CompletionResultSet result) {
+        // Array syntax
+        result.addElement(PrioritizedLookupElement.withPriority(
+                LookupElementBuilder.create("[]")
+                        .withTailText(" array of allowed values", true)
+                        .withTypeText("array", true)
+                        .withInsertHandler((ctx, item) -> {
+                            ctx.getEditor().getCaretModel().moveToOffset(ctx.getTailOffset() - 1);
+                        }),
+                200.0));
+
+        // String array example
+        result.addElement(PrioritizedLookupElement.withPriority(
+                LookupElementBuilder.create("[\"value1\", \"value2\"]")
+                        .withTypeText("string array", true)
+                        .withInsertHandler((ctx, item) -> {
+                            // Position cursor inside first string
+                            int startOffset = ctx.getStartOffset();
+                            ctx.getEditor().getCaretModel().moveToOffset(startOffset + 2);
+                        }),
+                150.0));
+
+        // Number array example
+        result.addElement(PrioritizedLookupElement.withPriority(
+                LookupElementBuilder.create("[1, 2, 3]")
+                        .withTypeText("number array", true),
+                150.0));
+    }
+
+    /**
+     * Add completions for @existing decorator arguments.
+     */
+    private void addExistingCompletions(@NotNull CompletionResultSet result) {
+        // Reference format hints
+        result.addElement(PrioritizedLookupElement.withPriority(
+                LookupElementBuilder.create("\"arn:aws:...\"")
+                        .withTypeText("ARN reference", true)
+                        .withInsertHandler((ctx, item) -> {
+                            ctx.getDocument().replaceString(ctx.getStartOffset(), ctx.getTailOffset(), "\"arn:aws:\"");
+                            ctx.getEditor().getCaretModel().moveToOffset(ctx.getTailOffset() - 1);
+                        }),
+                200.0));
+        result.addElement(PrioritizedLookupElement.withPriority(
+                LookupElementBuilder.create("\"https://...\"")
+                        .withTypeText("URL reference", true)
+                        .withInsertHandler((ctx, item) -> {
+                            ctx.getDocument().replaceString(ctx.getStartOffset(), ctx.getTailOffset(), "\"https://\"");
+                            ctx.getEditor().getCaretModel().moveToOffset(ctx.getTailOffset() - 1);
+                        }),
+                200.0));
+        result.addElement(PrioritizedLookupElement.withPriority(
+                LookupElementBuilder.create("\"id:...\"")
+                        .withTypeText("ID reference", true)
+                        .withInsertHandler((ctx, item) -> {
+                            ctx.getDocument().replaceString(ctx.getStartOffset(), ctx.getTailOffset(), "\"\"");
+                            ctx.getEditor().getCaretModel().moveToOffset(ctx.getTailOffset() - 1);
+                        }),
+                200.0));
+        result.addElement(PrioritizedLookupElement.withPriority(
+                LookupElementBuilder.create("{tags: {}}")
+                        .withTypeText("tag reference", true)
+                        .withInsertHandler((ctx, item) -> {
+                            ctx.getEditor().getCaretModel().moveToOffset(ctx.getTailOffset() - 2);
+                        }),
+                150.0));
+    }
+
+    /**
+     * Add completions for @dependsOn decorator arguments.
+     */
+    private void addDependsOnCompletions(@NotNull CompletionResultSet result) {
+        // Array syntax for multiple dependencies
+        result.addElement(PrioritizedLookupElement.withPriority(
+                LookupElementBuilder.create("[]")
+                        .withTailText(" array of resources", true)
+                        .withTypeText("array", true)
+                        .withInsertHandler((ctx, item) -> {
+                            ctx.getEditor().getCaretModel().moveToOffset(ctx.getTailOffset() - 1);
+                        }),
+                200.0));
+    }
+
+    /**
+     * Add completions for @description decorator arguments.
+     */
+    private void addDescriptionCompletions(@NotNull CompletionResultSet result) {
+        // Just provide a quote helper
+        result.addElement(PrioritizedLookupElement.withPriority(
+                LookupElementBuilder.create("\"\"")
+                        .withTailText(" description text", true)
+                        .withTypeText("string", true)
+                        .withInsertHandler((ctx, item) -> {
+                            ctx.getEditor().getCaretModel().moveToOffset(ctx.getTailOffset() - 1);
+                        }),
+                200.0));
     }
 
     /**

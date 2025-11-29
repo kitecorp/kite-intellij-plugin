@@ -24,7 +24,7 @@ schema DatabaseConfig {
   boolean sslu = false
 }
 
-@provisionOn(["aws"])
+@provider(["aws"])
 @tags({Environment: "production", Team: "platform"})
 resource DatabaseConfig photos {
   host = "my-photos-bucket"
