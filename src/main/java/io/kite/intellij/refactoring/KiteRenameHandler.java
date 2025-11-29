@@ -2,14 +2,14 @@ package io.kite.intellij.refactoring;
 
 import com.intellij.openapi.actionSystem.CommonDataKeys;
 import com.intellij.openapi.actionSystem.DataContext;
-import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.command.WriteCommandAction;
 import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.Messages;
-import com.intellij.psi.*;
-import com.intellij.psi.search.GlobalSearchScope;
-import com.intellij.psi.search.searches.ReferencesSearch;
+import com.intellij.psi.PsiElement;
+import com.intellij.psi.PsiFile;
+import com.intellij.psi.PsiFileFactory;
+import com.intellij.psi.TokenType;
 import com.intellij.psi.tree.IElementType;
 import com.intellij.refactoring.rename.RenameHandler;
 import io.kite.intellij.KiteFileType;
@@ -19,7 +19,8 @@ import io.kite.intellij.psi.KiteTokenTypes;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Custom rename handler for Kite language.
@@ -344,7 +345,6 @@ public class KiteRenameHandler implements RenameHandler {
                     successCount++;
                 } catch (Exception e) {
                     failCount++;
-                    System.err.println("[KiteRename] Failed to rename element: " + e.getMessage());
                 }
             } else {
                 failCount++;

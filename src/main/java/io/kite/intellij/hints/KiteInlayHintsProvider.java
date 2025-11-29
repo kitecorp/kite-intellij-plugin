@@ -168,7 +168,6 @@ public class KiteInlayHintsProvider implements InlayHintsProvider<KiteInlayHints
 
             // Show type hints for RESOURCE property assignments
             if (settings.showTypeHints && elementType == KiteElementTypes.RESOURCE_DECLARATION) {
-                System.err.println("[InlayHints] Found RESOURCE_DECLARATION element");
                 collectResourcePropertyTypeHints(element, sink);
             }
 
@@ -176,7 +175,6 @@ public class KiteInlayHintsProvider implements InlayHintsProvider<KiteInlayHints
             if (settings.showTypeHints && elementType == KiteElementTypes.COMPONENT_DECLARATION) {
                 // Check if this is a component instantiation (has two identifiers: type and instance name)
                 if (isComponentInstantiation(element.getNode())) {
-                    System.err.println("[InlayHints] Found COMPONENT instantiation");
                     collectComponentInputTypeHints(element, sink);
                 }
             }
@@ -202,12 +200,10 @@ public class KiteInlayHintsProvider implements InlayHintsProvider<KiteInlayHints
             ASTNode node = varDeclaration.getNode();
             if (node == null) return;
 
-            System.err.println("[InlayHints] collectTypeHints called for: " + node.getText().replace("\n", "\\n"));
 
             // Check if type is already explicitly specified
             // VAR_DECLARATION structure: VAR <type>? <name> = <value>
             ASTNode[] children = node.getChildren(null);
-            System.err.println("[InlayHints] Found " + children.length + " children");
 
             boolean hasExplicitType = false;
             ASTNode nameNode = null;
@@ -217,7 +213,6 @@ public class KiteInlayHintsProvider implements InlayHintsProvider<KiteInlayHints
 
             for (ASTNode child : children) {
                 IElementType childType = child.getElementType();
-                System.err.println("[InlayHints]   Child: " + childType + " = '" + child.getText().replace("\n", "\\n") + "'");
 
                 // Skip whitespace and newlines (both Kite tokens and IntelliJ's built-in whitespace)
                 if (childType == KiteTokenTypes.WHITESPACE ||
@@ -293,11 +288,9 @@ public class KiteInlayHintsProvider implements InlayHintsProvider<KiteInlayHints
             ASTNode node = resourceDeclaration.getNode();
             if (node == null) return;
 
-            System.err.println("[InlayHints] collectResourcePropertyTypeHints called");
 
             // Get the resource type name (first identifier after RESOURCE keyword)
             String schemaName = getResourceTypeName(node);
-            System.err.println("[InlayHints] Resource type/schema name: " + schemaName);
             if (schemaName == null) return;
 
             // Find the matching schema
@@ -305,7 +298,6 @@ public class KiteInlayHintsProvider implements InlayHintsProvider<KiteInlayHints
             if (file == null) return;
 
             java.util.Map<String, String> schemaProperties = findSchemaProperties(file, schemaName);
-            System.err.println("[InlayHints] Schema properties found: " + schemaProperties);
             if (schemaProperties.isEmpty()) return;
 
             // Find property assignments inside the resource body
@@ -590,11 +582,9 @@ public class KiteInlayHintsProvider implements InlayHintsProvider<KiteInlayHints
             ASTNode node = componentInstantiation.getNode();
             if (node == null) return;
 
-            System.err.println("[InlayHints] collectComponentInputTypeHints called");
 
             // Get the component type name (first identifier after COMPONENT keyword)
             String componentTypeName = getComponentTypeName(node);
-            System.err.println("[InlayHints] Component type name: " + componentTypeName);
             if (componentTypeName == null) return;
 
             // Find the component definition and get input types
@@ -602,7 +592,6 @@ public class KiteInlayHintsProvider implements InlayHintsProvider<KiteInlayHints
             if (file == null) return;
 
             java.util.Map<String, String> inputTypes = findComponentInputTypes(file, componentTypeName);
-            System.err.println("[InlayHints] Component input types found: " + inputTypes);
             if (inputTypes.isEmpty()) return;
 
             // Find input assignments inside the component body
@@ -1057,15 +1046,12 @@ public class KiteInlayHintsProvider implements InlayHintsProvider<KiteInlayHints
             int bracketDepth = 0;
             int stringDepth = 0; // Track nested string depth instead of toggle
 
-            System.err.println("[InlayHints] collectArguments starting after LPAREN");
 
             while (current != null) {
                 IElementType type = current.getElementType();
-                System.err.println("[InlayHints]   Token: " + type + " = '" + current.getText().replace("\n", "\\n") + "' expectingNewArg=" + expectingNewArg + " stringDepth=" + stringDepth);
 
                 // Exit when we hit the closing RPAREN at depth 0
                 if (type == KiteTokenTypes.RPAREN && parenDepth == 0 && stringDepth == 0) {
-                    System.err.println("[InlayHints]   Found closing RPAREN, exiting");
                     break;
                 }
 
@@ -1091,7 +1077,6 @@ public class KiteInlayHintsProvider implements InlayHintsProvider<KiteInlayHints
 
                 // Comma at top level marks end of argument
                 if (type == KiteTokenTypes.COMMA && parenDepth == 0 && braceDepth == 0 && bracketDepth == 0 && stringDepth == 0) {
-                    System.err.println("[InlayHints]   Found COMMA at top level, expecting new arg");
                     expectingNewArg = true;
                     current = current.getTreeNext();
                     continue;
@@ -1118,7 +1103,6 @@ public class KiteInlayHintsProvider implements InlayHintsProvider<KiteInlayHints
 
                 // First non-whitespace, non-string-content token after comma or start is the argument start
                 if (expectingNewArg) {
-                    System.err.println("[InlayHints]   Adding argument: " + type);
                     arguments.add(current);
                     expectingNewArg = false;
                 }
@@ -1126,7 +1110,6 @@ public class KiteInlayHintsProvider implements InlayHintsProvider<KiteInlayHints
                 current = current.getTreeNext();
             }
 
-            System.err.println("[InlayHints] collectArguments returning " + arguments.size() + " arguments");
             return arguments;
         }
 

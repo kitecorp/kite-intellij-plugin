@@ -36,29 +36,24 @@ public class KiteReference extends PsiReferenceBase<PsiElement> implements PsiPo
     public ResolveResult @NotNull [] multiResolve(boolean incompleteCode) {
         List<ResolveResult> results = new ArrayList<>();
 
-        System.err.println("[KiteRef] multiResolve called for: '" + name + "'");
 
         // Check if this is a property access (identifier after a DOT)
         List<String> propertyChain = getPropertyAccessChain();
 
         if (propertyChain != null) {
-            System.err.println("[KiteRef] Property access detected, chain: " + propertyChain + ", property: '" + name + "'");
             // This is property access: resolve within the object's declaration scope
             resolvePropertyAccessChain(propertyChain, results);
         } else {
-            System.err.println("[KiteRef] Simple identifier, searching declarations");
             // Simple identifier: search declarations in file scope
             PsiFile file = myElement.getContainingFile();
             findDeclarations(file, name, results);
 
             // If not found locally, search in imported files
             if (results.isEmpty()) {
-                System.err.println("[KiteRef] Not found locally, searching imported files");
                 findDeclarationsInImportedFiles(file, name, results, new HashSet<>());
             }
         }
 
-        System.err.println("[KiteRef] Found " + results.size() + " results");
         return results.toArray(new ResolveResult[0]);
     }
 
@@ -142,39 +137,30 @@ public class KiteReference extends PsiReferenceBase<PsiElement> implements PsiPo
     private void resolvePropertyAccessChain(List<String> chain, List<ResolveResult> results) {
         PsiFile file = myElement.getContainingFile();
 
-        System.err.println("[KiteRef] ============================================");
-        System.err.println("[KiteRef] resolvePropertyAccessChain: chain=" + chain + ", target='" + name + "'");
 
         // Start with the first element in the chain (e.g., "server")
         String rootName = chain.get(0);
         PsiElement currentScope = findDeclarationElement(file, rootName);
 
         if (currentScope == null) {
-            System.err.println("[KiteRef] Root declaration not found: " + rootName);
             return;
         }
 
-        System.err.println("[KiteRef] Found root declaration: " + currentScope.getNode().getElementType());
-        System.err.println("[KiteRef] Root declaration text preview: " + currentScope.getText().substring(0, Math.min(100, currentScope.getText().length())) + "...");
 
         // Special case: If the root is a component INSTANCE, we need to look up properties
         // in the component TYPE definition instead
         if (currentScope.getNode().getElementType() == KiteElementTypes.COMPONENT_DECLARATION) {
             String componentTypeName = getComponentTypeName(currentScope);
             if (componentTypeName != null) {
-                System.err.println("[KiteRef] Root is a component instance of type: " + componentTypeName);
                 // Find the component type definition
                 PsiElement componentTypeDef = findComponentTypeDefinition(file, componentTypeName);
                 if (componentTypeDef != null) {
-                    System.err.println("[KiteRef] Found component type definition, searching for output: " + name);
                     // For component instances, properties come from outputs (and inputs) of the type definition
                     findOutputOrInputInComponent(componentTypeDef, name, results);
                     if (!results.isEmpty()) {
-                        System.err.println("[KiteRef] Found " + results.size() + " results in component type definition");
                         return;
                     }
                 } else {
-                    System.err.println("[KiteRef] Component type definition not found for: " + componentTypeName);
                 }
             }
         }
@@ -182,38 +168,26 @@ public class KiteReference extends PsiReferenceBase<PsiElement> implements PsiPo
         // Navigate through the rest of the chain (e.g., ["tag"] for server.tag.Name)
         for (int i = 1; i < chain.size(); i++) {
             String propertyName = chain.get(i);
-            System.err.println("[KiteRef] ---- Step " + i + ": Looking for property '" + propertyName + "' ----");
-            System.err.println("[KiteRef] Current scope type: " + currentScope.getNode().getElementType());
 
             // Find the property and get its value (should be an object literal)
             PsiElement propertyValue = findPropertyValue(currentScope, propertyName);
 
             if (propertyValue == null) {
-                System.err.println("[KiteRef] FAIL: Property '" + propertyName + "' not found in scope!");
-                System.err.println("[KiteRef] Dumping scope children:");
                 dumpPsiChildren(currentScope, 0);
                 return;
             }
 
-            System.err.println("[KiteRef] Found property value type: " + propertyValue.getNode().getElementType());
-            System.err.println("[KiteRef] Property value text: " + propertyValue.getText().substring(0, Math.min(80, propertyValue.getText().length())));
 
             // The value should be an object literal to continue traversing
             if (propertyValue.getNode().getElementType() == KiteElementTypes.OBJECT_LITERAL) {
                 currentScope = propertyValue;
-                System.err.println("[KiteRef] SUCCESS: Advanced to nested OBJECT_LITERAL");
             } else {
-                System.err.println("[KiteRef] Property value is not OBJECT_LITERAL, can't traverse deeper");
                 return;
             }
         }
 
         // Now find the target property (e.g., "Name") in the final scope
-        System.err.println("[KiteRef] ---- Final step: Finding target '" + name + "' in final scope ----");
-        System.err.println("[KiteRef] Final scope type: " + currentScope.getNode().getElementType());
         findPropertyInScope(currentScope, name, results);
-        System.err.println("[KiteRef] Results count: " + results.size());
-        System.err.println("[KiteRef] ============================================");
     }
 
     /**
@@ -241,12 +215,10 @@ public class KiteReference extends PsiReferenceBase<PsiElement> implements PsiPo
 
         // If we have 2 identifiers, first is type, second is instance name
         if (identifiers.size() >= 2) {
-            System.err.println("[KiteRef] getComponentTypeName: Found instance with type=" + identifiers.get(0) + ", name=" + identifiers.get(1));
             return identifiers.get(0);
         }
 
         // Only 1 identifier = this is a type definition, not an instance
-        System.err.println("[KiteRef] getComponentTypeName: Found type definition (not an instance)");
         return null;
     }
 
@@ -272,7 +244,6 @@ public class KiteReference extends PsiReferenceBase<PsiElement> implements PsiPo
 
             // Type definition has exactly 1 identifier before {
             if (identifiers.size() == 1 && identifiers.get(0).equals(typeName)) {
-                System.err.println("[KiteRef] findComponentTypeDefinition: Found type definition for " + typeName);
                 return scope;
             }
         }
@@ -299,7 +270,6 @@ public class KiteReference extends PsiReferenceBase<PsiElement> implements PsiPo
             if (childType == KiteElementTypes.OUTPUT_DECLARATION || childType == KiteElementTypes.INPUT_DECLARATION) {
                 PsiElement nameElement = findNameInDeclaration(child, childType);
                 if (nameElement != null && propertyName.equals(nameElement.getText())) {
-                    System.err.println("[KiteRef] findOutputOrInputInComponent: Found " + childType + " named " + propertyName);
                     results.add(new PsiElementResolveResult(nameElement));
                     return;
                 }
@@ -325,7 +295,6 @@ public class KiteReference extends PsiReferenceBase<PsiElement> implements PsiPo
             String text = child.getText();
             if (text.length() > 40) text = text.substring(0, 40) + "...";
             text = text.replace("\n", "\\n");
-            System.err.println("[KiteRef] " + indent + type + ": \"" + text + "\"");
             if (depth < 3 && child.getFirstChild() != null) {
                 dumpPsiChildren(child, depth + 1);
             }
@@ -339,7 +308,6 @@ public class KiteReference extends PsiReferenceBase<PsiElement> implements PsiPo
     private PsiElement findPropertyValue(PsiElement scope, String propertyName) {
         // If scope is already an OBJECT_LITERAL, we're conceptually "inside braces"
         boolean startInsideBraces = (scope.getNode().getElementType() == KiteElementTypes.OBJECT_LITERAL);
-        System.err.println("[KiteRef] findPropertyValue: scope=" + scope.getNode().getElementType() + ", startInsideBraces=" + startInsideBraces);
         return findPropertyValueRecursive(scope, propertyName, startInsideBraces);
     }
 
@@ -348,7 +316,6 @@ public class KiteReference extends PsiReferenceBase<PsiElement> implements PsiPo
         PsiElement child = element.getFirstChild();
         boolean currentInsideBraces = insideBraces;
 
-        System.err.println("[KiteRef] findPropertyValueRecursive: looking for '" + propertyName + "', insideBraces=" + insideBraces + ", element=" + element.getNode().getElementType());
 
         while (child != null) {
             IElementType childType = child.getNode().getElementType();
@@ -356,27 +323,22 @@ public class KiteReference extends PsiReferenceBase<PsiElement> implements PsiPo
             // Track brace state
             if (childType == KiteTokenTypes.LBRACE) {
                 currentInsideBraces = true;
-                System.err.println("[KiteRef]   -> LBRACE: now inside braces");
             } else if (childType == KiteTokenTypes.RBRACE) {
                 currentInsideBraces = false;
-                System.err.println("[KiteRef]   -> RBRACE: now outside braces");
             }
 
             // Look for property assignments
             if (currentInsideBraces && childType == KiteTokenTypes.IDENTIFIER) {
                 String identText = child.getText();
-                System.err.println("[KiteRef]   -> IDENTIFIER '" + identText + "' (looking for '" + propertyName + "')");
                 if (propertyName.equals(identText)) {
                     // Check if followed by = or :
                     PsiElement next = skipWhitespaceForward(child.getNextSibling());
                     if (next != null) {
                         IElementType nextType = next.getNode().getElementType();
-                        System.err.println("[KiteRef]   -> next token: " + nextType);
                         if (nextType == KiteTokenTypes.ASSIGN || nextType == KiteTokenTypes.COLON) {
                             // Get the value after = or :
                             PsiElement value = skipWhitespaceForward(next.getNextSibling());
                             if (value != null) {
-                                System.err.println("[KiteRef]   -> FOUND! Value type: " + value.getNode().getElementType());
                                 return value;
                             }
                         }
@@ -388,9 +350,7 @@ public class KiteReference extends PsiReferenceBase<PsiElement> implements PsiPo
             // This is the KEY FIX: we should NOT descend into nested objects when searching
             // for properties at the current level
             if (childType == KiteElementTypes.OBJECT_LITERAL) {
-                System.err.println("[KiteRef]   -> Skipping nested OBJECT_LITERAL (not recursing)");
             } else if (child.getFirstChild() != null && !isDeclarationType(childType)) {
-                System.err.println("[KiteRef]   -> Recursing into: " + childType);
                 PsiElement result = findPropertyValueRecursive(child, propertyName, currentInsideBraces);
                 if (result != null) {
                     return result;
@@ -400,7 +360,6 @@ public class KiteReference extends PsiReferenceBase<PsiElement> implements PsiPo
             child = child.getNextSibling();
         }
 
-        System.err.println("[KiteRef] findPropertyValueRecursive: property '" + propertyName + "' NOT FOUND");
         return null;
     }
 
@@ -435,7 +394,6 @@ public class KiteReference extends PsiReferenceBase<PsiElement> implements PsiPo
                     PsiElement next = skipWhitespaceForward(child.getNextSibling());
                     if (next != null && next.getNode().getElementType() == KiteTokenTypes.COLON) {
                         if (child != myElement) {
-                            System.err.println("[KiteRef] MATCH in object literal: '" + identText + "'");
                             results.add(new PsiElementResolveResult(child));
                         }
                     }
@@ -460,17 +418,14 @@ public class KiteReference extends PsiReferenceBase<PsiElement> implements PsiPo
         String objectName = objectElement.getText();
         PsiFile file = myElement.getContainingFile();
 
-        System.err.println("[KiteRef] resolvePropertyAccess: looking for object '" + objectName + "'");
 
         // First, find the declaration of the object
         PsiElement objectDeclaration = findDeclarationElement(file, objectName);
 
         if (objectDeclaration != null) {
-            System.err.println("[KiteRef] Found object declaration: " + objectDeclaration.getNode().getElementType());
             // Search for the property within the object's declaration body
             findPropertyInDeclaration(objectDeclaration, name, results);
         } else {
-            System.err.println("[KiteRef] Object declaration NOT FOUND!");
         }
     }
 
@@ -496,28 +451,23 @@ public class KiteReference extends PsiReferenceBase<PsiElement> implements PsiPo
             // Track when we enter/exit braces
             if (childType == KiteTokenTypes.LBRACE) {
                 currentInsideBraces = true;
-                System.err.println("[KiteRef] Entered braces");
             } else if (childType == KiteTokenTypes.RBRACE) {
                 currentInsideBraces = false;
-                System.err.println("[KiteRef] Exited braces");
             }
 
             // Check for property patterns only inside the braces
             if (currentInsideBraces && childType == KiteTokenTypes.IDENTIFIER) {
                 String identText = child.getText();
-                System.err.println("[KiteRef] Found identifier inside braces: '" + identText + "'");
                 if (propertyName.equals(identText)) {
                     // Check if this identifier is followed by = or : (property assignment)
                     PsiElement next = skipWhitespaceForward(child.getNextSibling());
                     if (next != null) {
                         IElementType nextType = next.getNode().getElementType();
-                        System.err.println("[KiteRef] Next token after '" + identText + "': " + nextType);
                         if (nextType == KiteTokenTypes.ASSIGN ||
                             nextType == KiteTokenTypes.COLON ||
                             nextType == KiteTokenTypes.PLUS_ASSIGN) {
                             // Found property assignment: identifier = value or identifier: value
                             if (child != myElement) {
-                                System.err.println("[KiteRef] MATCH FOUND: '" + identText + "' at " + child.getTextOffset());
                                 results.add(new PsiElementResolveResult(child));
                             }
                         }
@@ -529,7 +479,6 @@ public class KiteReference extends PsiReferenceBase<PsiElement> implements PsiPo
             if (currentInsideBraces && isDeclarationType(childType)) {
                 PsiElement declName = findNameInDeclaration(child, childType);
                 if (declName != null && propertyName.equals(declName.getText()) && declName != myElement) {
-                    System.err.println("[KiteRef] MATCH in declaration: " + declName.getText());
                     results.add(new PsiElementResolveResult(declName));
                 }
             }
@@ -700,15 +649,9 @@ public class KiteReference extends PsiReferenceBase<PsiElement> implements PsiPo
             }
             visited.add(filePath);
 
-            System.err.println("[KiteRef] Searching in imported file: " + filePath);
 
             // Search for declarations in this imported file
             findDeclarationsInFile(importedFile, targetName, results);
-
-            // If found, we can stop (or continue to find all if there are multiple matches)
-            if (!results.isEmpty()) {
-                System.err.println("[KiteRef] Found declaration in imported file: " + filePath);
-            }
 
             // Also recursively check imports in the imported file
             findDeclarationsInImportedFiles(importedFile, targetName, results, visited);

@@ -53,14 +53,12 @@ public class KiteImportHelper {
     private static List<PsiFile> getImportedFiles(@NotNull PsiFile file, @NotNull Set<String> visitedPaths) {
         List<PsiFile> importedFiles = new ArrayList<>();
 
-        System.err.println("[KiteImport] getImportedFiles called for: " + file.getName());
 
         // Add this file to visited to prevent circular imports
         VirtualFile vFile = file.getVirtualFile();
         if (vFile != null) {
             String path = vFile.getPath();
             if (visitedPaths.contains(path)) {
-                System.err.println("[KiteImport] Already visited: " + path);
                 return importedFiles; // Already visited, prevent infinite loop
             }
             visitedPaths.add(path);
@@ -71,11 +69,9 @@ public class KiteImportHelper {
 
         // If PSI approach didn't find anything, try text-based fallback
         if (importedFiles.isEmpty()) {
-            System.err.println("[KiteImport] PSI approach found nothing, trying text-based fallback");
             findImportsFromText(file, importedFiles);
         }
 
-        System.err.println("[KiteImport] Found " + importedFiles.size() + " imported files");
         return importedFiles;
     }
 
@@ -89,14 +85,11 @@ public class KiteImportHelper {
 
         while (matcher.find()) {
             String importPath = matcher.group(1);
-            System.err.println("[KiteImport] Text fallback found import: " + importPath);
 
             PsiFile importedFile = resolveFilePath(importPath, file);
             if (importedFile != null) {
-                System.err.println("[KiteImport] Text fallback resolved to: " + importedFile.getName());
                 importedFiles.add(importedFile);
             } else {
-                System.err.println("[KiteImport] Text fallback could not resolve: " + importPath);
             }
         }
     }
@@ -112,13 +105,10 @@ public class KiteImportHelper {
 
         // Check for IMPORT_STATEMENT composite element
         if (type == KiteElementTypes.IMPORT_STATEMENT) {
-            System.err.println("[KiteImport] Found IMPORT_STATEMENT element!");
             PsiFile importedFile = resolveImport(element, containingFile);
             if (importedFile != null) {
-                System.err.println("[KiteImport] Resolved to: " + importedFile.getName());
                 importedFiles.add(importedFile);
             } else {
-                System.err.println("[KiteImport] Could not resolve import");
             }
             return; // Don't recurse into children of import statement
         }
@@ -126,15 +116,12 @@ public class KiteImportHelper {
         // Alternative: Look for IMPORT keyword token and parse from there
         // This handles cases where IMPORT_STATEMENT element isn't properly created
         if (type == KiteTokenTypes.IMPORT) {
-            System.err.println("[KiteImport] Found IMPORT keyword token!");
             // The import statement syntax is: import * from "path"
             // We need to find the string path that follows
             String importPath = extractImportPathFromKeyword(element);
             if (importPath != null) {
-                System.err.println("[KiteImport] Extracted path from keyword: " + importPath);
                 PsiFile importedFile = resolveFilePath(importPath, containingFile);
                 if (importedFile != null) {
-                    System.err.println("[KiteImport] Resolved to: " + importedFile.getName());
                     importedFiles.add(importedFile);
                 }
             }
@@ -173,7 +160,6 @@ public class KiteImportHelper {
 
             // Look for "from" keyword
             if (type == KiteTokenTypes.FROM || "from".equals(text)) {
-                System.err.println("[KiteImport] Found FROM keyword");
                 foundFrom = true;
                 sibling = sibling.getNextSibling();
                 continue;
@@ -181,7 +167,6 @@ public class KiteImportHelper {
 
             // After FROM, look for the string literal
             if (foundFrom) {
-                System.err.println("[KiteImport] After FROM, checking: type=" + type + ", text=" + text);
 
                 // Check for quoted string
                 if (text.startsWith("\"") && text.endsWith("\"") && text.length() >= 2) {
@@ -242,8 +227,6 @@ public class KiteImportHelper {
      */
     @Nullable
     public static String extractImportPath(@NotNull PsiElement importStatement) {
-        System.err.println("[KiteImport] extractImportPath called");
-        System.err.println("[KiteImport] Import statement text: " + importStatement.getText());
 
         boolean foundFrom = false;
 
@@ -251,36 +234,30 @@ public class KiteImportHelper {
             if (child.getNode() == null) continue;
 
             IElementType type = child.getNode().getElementType();
-            System.err.println("[KiteImport] Child type: " + type + ", text: " + child.getText());
 
             if (type == KiteTokenTypes.FROM) {
-                System.err.println("[KiteImport] Found FROM keyword");
                 foundFrom = true;
                 continue;
             }
 
             // After FROM, look for the string literal
             if (foundFrom) {
-                System.err.println("[KiteImport] Looking for string after FROM, type=" + type);
                 // Handle various string token types
                 if (type == KiteTokenTypes.STRING ||
                     type == KiteTokenTypes.SINGLE_STRING ||
                     type == KiteTokenTypes.DQUOTE) {
                     String result = extractStringContent(child);
-                    System.err.println("[KiteImport] Extracted string content: " + result);
                     return result;
                 }
 
                 // For composite elements, recurse to find string content
                 String path = extractStringFromElement(child);
                 if (path != null) {
-                    System.err.println("[KiteImport] Extracted from element: " + path);
                     return path;
                 }
             }
         }
 
-        System.err.println("[KiteImport] Could not extract import path");
         return null;
     }
 
@@ -446,7 +423,6 @@ public class KiteImportHelper {
             String packagePath = importPath.replace('.', '/') + ".kite";
             targetFile = providerDir.findFileByRelativePath(packagePath);
             if (targetFile != null && targetFile.exists()) {
-                System.err.println("[KiteImport] Resolved package path: " + importPath + " → " + packagePath);
                 return targetFile;
             }
 
@@ -460,7 +436,6 @@ public class KiteImportHelper {
                 if (folder != null && folder.isDirectory()) {
                     targetFile = folder.findChild(fileName);
                     if (targetFile != null && targetFile.exists()) {
-                        System.err.println("[KiteImport] Resolved package path: " + importPath + " → " + folderPath + "/" + fileName);
                         return targetFile;
                     }
                 }
