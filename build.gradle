@@ -36,12 +36,11 @@ java {
 // Configure IntelliJ Platform Plugin
 intellijPlatform {
     pluginConfiguration {
-        id = 'cloud.kitelang.intellij'
-        name = 'Kite Language'
+        // id and name are defined in plugin.xml - do not override here
         version = project.version
 
         ideaVersion {
-            sinceBuild = '241'
+            sinceBuild = '231'  // IntelliJ 2023.1+
             untilBuild = '252.*'
         }
     }
@@ -54,6 +53,12 @@ intellijPlatform {
 
     publishing {
         token = providers.environmentVariable("PUBLISH_TOKEN")
+    }
+
+    pluginVerification {
+        ides {
+            recommended()
+        }
     }
 }
 

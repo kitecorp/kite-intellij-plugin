@@ -120,6 +120,12 @@
 
     <!-- Short summary of new features and bugfixes in the latest version -->
     <change-notes><![CDATA[
+    <b>0.20.0</b>
+    <ul>
+      <li><b>IntelliJ 2023+ Support</b> - Extended backwards compatibility to IntelliJ IDEA 2023.1+ (builds 231.* - 252.*)</li>
+      <li><b>Gradle 9 & Plugin 2.x Migration</b> - Upgraded build system to Gradle 9.2.1 and IntelliJ Platform Gradle Plugin 2.10.5</li>
+      <li><b>Updated Plugin ID</b> - Changed plugin identifier to <code>cloud.kitelang.kite</code></li>
+    </ul>
     <b>0.18.0</b>
     <ul>
       <li><b>IntelliJ 2025 Compatibility</b> - Extended support for IntelliJ IDEA 2025.1 and 2025.2 (builds 251.* - 252.*)</li>
