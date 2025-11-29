@@ -61,29 +61,44 @@ public class KiteCompletionContributor extends CompletionContributor {
     private static final String CATEGORY_RESOURCE = "resource";
     private static final String CATEGORY_METADATA = "metadata";
 
-    // Decorator definitions with name, description, template, and category
-    private static final DecoratorInfo[] DECORATORS = {
-            // Validation decorators
-            new DecoratorInfo("minValue", "Minimum numeric value", "(n)", "minValue($END$)", CATEGORY_VALIDATION),
-            new DecoratorInfo("maxValue", "Maximum numeric value", "(n)", "maxValue($END$)", CATEGORY_VALIDATION),
-            new DecoratorInfo("minLength", "Minimum string/array length", "(n)", "minLength($END$)", CATEGORY_VALIDATION),
-            new DecoratorInfo("maxLength", "Maximum string/array length", "(n)", "maxLength($END$)", CATEGORY_VALIDATION),
-            new DecoratorInfo("nonEmpty", "Must not be empty", "", "nonEmpty", CATEGORY_VALIDATION),
-            new DecoratorInfo("validate", "Custom regex validation", "(regex: \"...\")", "validate(regex: \"$END$\")", CATEGORY_VALIDATION),
-            new DecoratorInfo("allowed", "Allowed values whitelist", "([...])", "allowed([$END$])", CATEGORY_VALIDATION),
-            new DecoratorInfo("unique", "Array elements must be unique", "", "unique", CATEGORY_VALIDATION),
+    // Target types for decorators
+    private static final int TARGET_INPUT = 1;
+    private static final int TARGET_OUTPUT = 2;
+    private static final int TARGET_RESOURCE = 4;
+    private static final int TARGET_COMPONENT = 8;
+    private static final int TARGET_VAR = 16;
+    private static final int TARGET_SCHEMA = 32;
+    private static final int TARGET_SCHEMA_PROPERTY = 64;
+    private static final int TARGET_FUN = 128;
 
-            // Resource decorators
-            new DecoratorInfo("existing", "Reference existing resource", "(\"ref\")", "existing(\"$END$\")", CATEGORY_RESOURCE),
-            new DecoratorInfo("sensitive", "Mark as sensitive data", "", "sensitive", CATEGORY_RESOURCE),
-            new DecoratorInfo("dependsOn", "Explicit dependencies", "(res) or ([...])", "dependsOn($END$)", CATEGORY_RESOURCE),
-            new DecoratorInfo("tags", "Cloud provider tags", "({...})", "tags({$END$})", CATEGORY_RESOURCE),
-            new DecoratorInfo("provider", "Target cloud providers", "(\"...\") or ([...])", "provider(\"$END$\")", CATEGORY_RESOURCE),
+    // Common target combinations
+    private static final int TARGET_INPUT_OUTPUT = TARGET_INPUT | TARGET_OUTPUT;
+    private static final int TARGET_RESOURCE_COMPONENT = TARGET_RESOURCE | TARGET_COMPONENT;
+    private static final int TARGET_ALL = TARGET_INPUT | TARGET_OUTPUT | TARGET_RESOURCE | TARGET_COMPONENT | TARGET_VAR | TARGET_SCHEMA | TARGET_SCHEMA_PROPERTY | TARGET_FUN;
+
+    // Decorator definitions with name, description, template, category, and valid targets
+    private static final DecoratorInfo[] DECORATORS = {
+            // Validation decorators - input/output only
+            new DecoratorInfo("minValue", "Minimum numeric value", "(n)", "minValue($END$)", CATEGORY_VALIDATION, TARGET_INPUT_OUTPUT),
+            new DecoratorInfo("maxValue", "Maximum numeric value", "(n)", "maxValue($END$)", CATEGORY_VALIDATION, TARGET_INPUT_OUTPUT),
+            new DecoratorInfo("minLength", "Minimum string/array length", "(n)", "minLength($END$)", CATEGORY_VALIDATION, TARGET_INPUT_OUTPUT),
+            new DecoratorInfo("maxLength", "Maximum string/array length", "(n)", "maxLength($END$)", CATEGORY_VALIDATION, TARGET_INPUT_OUTPUT),
+            new DecoratorInfo("nonEmpty", "Must not be empty", "", "nonEmpty", CATEGORY_VALIDATION, TARGET_INPUT),
+            new DecoratorInfo("validate", "Custom regex validation", "(regex: \"...\")", "validate(regex: \"$END$\")", CATEGORY_VALIDATION, TARGET_INPUT_OUTPUT),
+            new DecoratorInfo("allowed", "Allowed values whitelist", "([...])", "allowed([$END$])", CATEGORY_VALIDATION, TARGET_INPUT),
+            new DecoratorInfo("unique", "Array elements must be unique", "", "unique", CATEGORY_VALIDATION, TARGET_INPUT),
+
+            // Resource decorators - resource/component only
+            new DecoratorInfo("existing", "Reference existing resource", "(\"ref\")", "existing(\"$END$\")", CATEGORY_RESOURCE, TARGET_RESOURCE),
+            new DecoratorInfo("sensitive", "Mark as sensitive data", "", "sensitive", CATEGORY_RESOURCE, TARGET_INPUT_OUTPUT),
+            new DecoratorInfo("dependsOn", "Explicit dependencies", "(res) or ([...])", "dependsOn($END$)", CATEGORY_RESOURCE, TARGET_RESOURCE_COMPONENT),
+            new DecoratorInfo("tags", "Cloud provider tags", "({...})", "tags({$END$})", CATEGORY_RESOURCE, TARGET_RESOURCE_COMPONENT),
+            new DecoratorInfo("provider", "Target cloud providers", "(\"...\") or ([...])", "provider(\"$END$\")", CATEGORY_RESOURCE, TARGET_RESOURCE_COMPONENT),
 
             // Metadata decorators
-            new DecoratorInfo("description", "Documentation text", "(\"...\")", "description(\"$END$\")", CATEGORY_METADATA),
-            new DecoratorInfo("count", "Create N instances", "(n)", "count($END$)", CATEGORY_METADATA),
-            new DecoratorInfo("cloud", "Set by cloud provider", "", "cloud", CATEGORY_METADATA),
+            new DecoratorInfo("description", "Documentation text", "(\"...\")", "description(\"$END$\")", CATEGORY_METADATA, TARGET_ALL),
+            new DecoratorInfo("count", "Create N instances", "(n)", "count($END$)", CATEGORY_METADATA, TARGET_RESOURCE_COMPONENT),
+            new DecoratorInfo("cloud", "Set by cloud provider", "", "cloud", CATEGORY_METADATA, TARGET_SCHEMA_PROPERTY),
     };
 
     /**
@@ -95,17 +110,23 @@ public class KiteCompletionContributor extends CompletionContributor {
         final String tailText;   // Shows argument format like "(n)" or "([...])"
         final String template;   // Template with $END$ marker for cursor position
         final String category;   // Category for grouping
+        final int targets;       // Bitmask of valid target declaration types
 
-        DecoratorInfo(String name, String description, String tailText, String template, String category) {
+        DecoratorInfo(String name, String description, String tailText, String template, String category, int targets) {
             this.name = name;
             this.description = description;
             this.tailText = tailText;
             this.template = template;
             this.category = category;
+            this.targets = targets;
         }
 
         boolean hasArgs() {
             return !tailText.isEmpty();
+        }
+
+        boolean canApplyTo(int targetType) {
+            return (targets & targetType) != 0;
         }
     }
 
@@ -123,7 +144,8 @@ public class KiteCompletionContributor extends CompletionContributor {
 
                     // Check if we're after @ (decorator context)
                     if (isDecoratorContext(position)) {
-                        addDecoratorCompletions(result);
+                        int targetType = detectDecoratorTargetType(parameters);
+                        addDecoratorCompletions(result, targetType);
                         return;
                     }
 
@@ -192,10 +214,201 @@ public class KiteCompletionContributor extends CompletionContributor {
     }
 
     /**
-     * Add decorator completions with nice formatting
+     * Detect the target type that a decorator at the current position would apply to.
+     * Uses text-based lookahead on the ORIGINAL file (before dummy identifier insertion)
+     * to find the first declaration keyword after the current position.
      */
-    private void addDecoratorCompletions(@NotNull CompletionResultSet result) {
+    private int detectDecoratorTargetType(CompletionParameters parameters) {
+        PsiElement position = parameters.getPosition();
+
+        // First, check if we're inside a schema body - if so, decorators apply to properties
+        if (isInsideSchemaBody(position)) {
+            System.out.println("[DECORATOR DEBUG] Inside schema body, returning TARGET_SCHEMA_PROPERTY");
+            return TARGET_SCHEMA_PROPERTY;
+        }
+
+        // Use the ORIGINAL file text (without the dummy identifier "IntelliJRulezz")
+        // This is the actual file content before completion was triggered
+        PsiFile originalFile = parameters.getOriginalFile();
+        if (originalFile == null) {
+            System.out.println("[DECORATOR DEBUG] originalFile is null, returning TARGET_ALL");
+            return TARGET_ALL;
+        }
+
+        String text = originalFile.getText();
+        // Use the offset in the original file, not the position's offset (which includes dummy)
+        int startOffset = parameters.getOffset();
+
+        System.out.println("[DECORATOR DEBUG] startOffset=" + startOffset + ", textLength=" + text.length());
+        if (startOffset < text.length()) {
+            int previewEnd = Math.min(startOffset + 50, text.length());
+            String preview = text.substring(startOffset, previewEnd).replace("\n", "\\n");
+            System.out.println("[DECORATOR DEBUG] text from offset: \"" + preview + "\"");
+        }
+
+        // Scan forward from cursor position to find the declaration keyword
+        int i = startOffset;
+        while (i < text.length()) {
+            char c = text.charAt(i);
+
+            // Skip whitespace
+            if (Character.isWhitespace(c)) {
+                i++;
+                continue;
+            }
+
+            // Skip line comments
+            if (c == '/' && i + 1 < text.length() && text.charAt(i + 1) == '/') {
+                while (i < text.length() && text.charAt(i) != '\n') i++;
+                continue;
+            }
+
+            // Check for declaration keyword or identifier
+            if (Character.isLetter(c) || c == '_') {
+                int wordStart = i;
+                while (i < text.length() && (Character.isLetterOrDigit(text.charAt(i)) || text.charAt(i) == '_')) {
+                    i++;
+                }
+                String word = text.substring(wordStart, i);
+                System.out.println("[DECORATOR DEBUG] Found word: \"" + word + "\"");
+
+                // Check if this word is a declaration keyword
+                switch (word) {
+                    case "input":
+                        System.out.println("[DECORATOR DEBUG] Matched 'input', returning TARGET_INPUT");
+                        return TARGET_INPUT;
+                    case "output":
+                        System.out.println("[DECORATOR DEBUG] Matched 'output', returning TARGET_OUTPUT");
+                        return TARGET_OUTPUT;
+                    case "resource":
+                        System.out.println("[DECORATOR DEBUG] Matched 'resource', returning TARGET_RESOURCE");
+                        return TARGET_RESOURCE;
+                    case "component":
+                        System.out.println("[DECORATOR DEBUG] Matched 'component', returning TARGET_COMPONENT");
+                        return TARGET_COMPONENT;
+                    case "var":
+                        System.out.println("[DECORATOR DEBUG] Matched 'var', returning TARGET_VAR");
+                        return TARGET_VAR;
+                    case "schema":
+                        System.out.println("[DECORATOR DEBUG] Matched 'schema', returning TARGET_SCHEMA");
+                        return TARGET_SCHEMA;
+                    case "fun":
+                        System.out.println("[DECORATOR DEBUG] Matched 'fun', returning TARGET_FUN");
+                        return TARGET_FUN;
+                }
+
+                // It's some other identifier - continue looking
+                continue;
+            }
+
+            // Skip decorator @ and its name/arguments (another decorator before the declaration)
+            if (c == '@') {
+                i++;
+                // Skip whitespace after @
+                while (i < text.length() && Character.isWhitespace(text.charAt(i))) i++;
+                // Skip decorator name
+                while (i < text.length() && (Character.isLetterOrDigit(text.charAt(i)) || text.charAt(i) == '_')) i++;
+                // Skip whitespace
+                while (i < text.length() && Character.isWhitespace(text.charAt(i))) i++;
+                // Skip decorator arguments if present
+                if (i < text.length() && text.charAt(i) == '(') {
+                    int parenDepth = 1;
+                    i++;
+                    while (i < text.length() && parenDepth > 0) {
+                        if (text.charAt(i) == '(') parenDepth++;
+                        else if (text.charAt(i) == ')') parenDepth--;
+                        i++;
+                    }
+                }
+                continue;
+            }
+
+            // Skip parentheses, brackets, braces (could be decorator arguments)
+            if (c == '(' || c == ')' || c == '[' || c == ']' || c == '{' || c == '}') {
+                i++;
+                continue;
+            }
+
+            // Skip other common characters that might appear
+            if (c == ',' || c == ':' || c == '=' || c == '"' || c == '\'') {
+                i++;
+                continue;
+            }
+
+            // Any other unexpected character - stop searching
+            System.out.println("[DECORATOR DEBUG] Unexpected char '" + c + "' at " + i + ", stopping");
+            break;
+        }
+
+        // Could not determine - show all decorators
+        System.out.println("[DECORATOR DEBUG] Loop ended, returning TARGET_ALL");
+        return TARGET_ALL;
+    }
+
+    /**
+     * Skip past a decorator (@ identifier and optional arguments).
+     */
+    private PsiElement skipPastDecorator(PsiElement atSymbol) {
+        PsiElement current = atSymbol.getNextSibling();
+
+        // Skip whitespace
+        while (current != null && isWhitespace(current)) {
+            current = current.getNextSibling();
+        }
+
+        // Skip identifier (decorator name)
+        if (current != null && current.getNode() != null &&
+            current.getNode().getElementType() == KiteTokenTypes.IDENTIFIER) {
+            current = current.getNextSibling();
+        }
+
+        // Skip whitespace
+        while (current != null && isWhitespace(current)) {
+            current = current.getNextSibling();
+        }
+
+        // Skip arguments if present (parentheses)
+        if (current != null && current.getNode() != null &&
+            current.getNode().getElementType() == KiteTokenTypes.LPAREN) {
+            int parenDepth = 1;
+            current = current.getNextSibling();
+            while (current != null && parenDepth > 0) {
+                IElementType type = current.getNode() != null ? current.getNode().getElementType() : null;
+                if (type == KiteTokenTypes.LPAREN) parenDepth++;
+                if (type == KiteTokenTypes.RPAREN) parenDepth--;
+                current = current.getNextSibling();
+            }
+        }
+
+        return current;
+    }
+
+    /**
+     * Check if position is inside a schema body (between { and }).
+     */
+    private boolean isInsideSchemaBody(PsiElement position) {
+        PsiElement current = position;
+        while (current != null) {
+            if (current.getNode() != null &&
+                current.getNode().getElementType() == KiteElementTypes.SCHEMA_DECLARATION) {
+                return true;
+            }
+            current = current.getParent();
+        }
+        return false;
+    }
+
+    /**
+     * Add decorator completions with nice formatting.
+     * Only shows decorators that are valid for the detected target type.
+     */
+    private void addDecoratorCompletions(@NotNull CompletionResultSet result, int targetType) {
         for (DecoratorInfo decorator : DECORATORS) {
+            // Skip decorators that don't apply to this target
+            if (!decorator.canApplyTo(targetType)) {
+                continue;
+            }
+
             LookupElementBuilder element = LookupElementBuilder.create(decorator.name)
                     .withIcon(KiteStructureViewIcons.DECORATOR)
                     .withTypeText(decorator.category, true)
