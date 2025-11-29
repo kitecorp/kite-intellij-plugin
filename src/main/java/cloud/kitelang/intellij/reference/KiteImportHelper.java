@@ -42,8 +42,10 @@ public class KiteImportHelper {
     }
 
     // Pattern to match import statements: import * from "path" or import * from 'path'
+    // Uses negative lookbehind to exclude commented lines (// at start of line or with leading whitespace)
     private static final Pattern IMPORT_PATTERN = Pattern.compile(
-            "import\\s+\\*\\s+from\\s+[\"']([^\"']+)[\"']"
+            "^\\s*import\\s+\\*\\s+from\\s+[\"']([^\"']+)[\"']",
+            Pattern.MULTILINE
     );
 
     /**

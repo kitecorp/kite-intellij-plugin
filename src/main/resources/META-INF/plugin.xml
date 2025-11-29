@@ -113,6 +113,7 @@
       <li><b>Type Checking & Error Highlighting</b> - Real-time validation with warnings and errors:
         <ul>
           <li>Undefined reference detection: warns when identifiers don't resolve to any declaration</li>
+          <li><b>Add Import Quick-fix</b>: hover over undefined symbol and press Alt+Enter to add missing import</li>
           <li>Type mismatch detection: error when assigned value type doesn't match declared type</li>
           <li>Checks variable, input, and output declarations with explicit types</li>
           <li>Supports string, number, boolean, null, object, any, and array types (<code>string[]</code>, <code>number[]</code>, etc.)</li>
@@ -132,6 +133,18 @@
 
     <!-- Short summary of new features and bugfixes in the latest version -->
     <change-notes><![CDATA[
+    <b>0.23.0</b>
+    <ul>
+      <li><b>Add Import Quick-fix</b> - When you use an undefined symbol that exists in another file:
+        <ul>
+          <li>Hover over the undefined symbol and press Alt+Enter</li>
+          <li>Select "Import 'symbolName' from 'path'" to add the import</li>
+          <li>Automatically calculates relative import path from current file</li>
+          <li>Searches all .kite files in the project for matching declarations</li>
+          <li>Inserts import statement after existing imports (or at the top of the file)</li>
+        </ul>
+      </li>
+    </ul>
     <b>0.22.0</b>
     <ul>
       <li><b>Decorator Support</b> - Comprehensive tooling for Kite decorators:

@@ -21,6 +21,10 @@ component WebServer {
     private_ips = ["172.16.10.100"]
   }
 
+  resource NonExistend notExists {
+    size        = instanceType
+  }
+
   output string endpoint = server.size
   output string tag      = server.tag.Name
   output string tagNameA = server.tag.New.a

@@ -1,6 +1,6 @@
 // Simple Kite example
 // Test cross-file navigation: Cmd+Click on imported symbols
-import * from "common.kite"
+//import * from "common.kite"
 
 // Using imported type from common.kite
 // Cmd+Click on "Region" should navigate to common.kite

@@ -3,7 +3,9 @@ package cloud.kitelang.intellij.highlighting;
 import cloud.kitelang.intellij.KiteLanguage;
 import cloud.kitelang.intellij.psi.KiteElementTypes;
 import cloud.kitelang.intellij.psi.KiteTokenTypes;
+import cloud.kitelang.intellij.quickfix.AddImportQuickFix;
 import cloud.kitelang.intellij.reference.KiteImportHelper;
+import com.intellij.codeInspection.ProblemHighlightType;
 import com.intellij.lang.annotation.AnnotationHolder;
 import com.intellij.lang.annotation.Annotator;
 import com.intellij.lang.annotation.HighlightSeverity;
@@ -290,10 +292,33 @@ public class KiteTypeCheckingAnnotator implements Annotator {
 
             // Check if the name is declared
             if (!declaredNames.contains(name)) {
-                holder.newAnnotation(HighlightSeverity.WARNING,
-                                "Cannot resolve symbol '" + name + "'")
-                        .range(element)
-                        .create();
+                PsiFile containingFile = element.getContainingFile();
+                List<AddImportQuickFix.ImportCandidate> candidates =
+                        AddImportQuickFix.findImportCandidates(name, containingFile);
+
+                if (!candidates.isEmpty()) {
+                    // Create annotation with quick-fixes for each import candidate
+                    // Message indicates import is available
+                    String message = "Cannot resolve symbol '" + name + "' - import available";
+                    var builder = holder.newAnnotation(HighlightSeverity.ERROR, message)
+                            .range(element)
+                            .highlightType(ProblemHighlightType.LIKE_UNKNOWN_SYMBOL);
+
+                    // Add a quick-fix for each import candidate
+                    for (AddImportQuickFix.ImportCandidate candidate : candidates) {
+                        builder = builder.withFix(
+                                new AddImportQuickFix(candidate.symbolName, candidate.importPath));
+                    }
+
+                    builder.create();
+                } else {
+                    // No import candidates found, just show the warning
+                    holder.newAnnotation(HighlightSeverity.WARNING,
+                                    "Cannot resolve symbol '" + name + "'")
+                            .range(element)
+                            .highlightType(ProblemHighlightType.LIKE_UNKNOWN_SYMBOL)
+                            .create();
+                }
             }
         }
 
