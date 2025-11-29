@@ -6,6 +6,7 @@ import cloud.kitelang.intellij.psi.KiteTokenTypes;
 import com.intellij.lang.documentation.AbstractDocumentationProvider;
 import com.intellij.openapi.editor.Editor;
 import com.intellij.psi.*;
+import com.intellij.psi.impl.FakePsiElement;
 import com.intellij.psi.tree.IElementType;
 import com.intellij.ui.JBColor;
 import org.jetbrains.annotations.NotNull;
@@ -275,22 +276,104 @@ public class KiteDocumentationProvider extends AbstractDocumentationProvider {
         return JBColor.isBright() ? "#F5F5F5" : "#2D2D2D";
     }
 
-    // Keep colorizeDecoratorExampleStatic for the main Ctrl+Q documentation (not lookup popup)
+    // Colorize decorator example using tokenized approach to avoid regex interference
     private static String colorizeDecoratorExampleStatic(String example) {
-        if (example == null) return "";
-        String escaped = escapeHtmlStatic(example);
-        // Color decorators
-        escaped = escaped.replaceAll("(@\\w+)", "<span style=\"color: " + COLOR_DECORATOR + ";\">$1</span>");
-        // Color keywords
-        escaped = escaped.replaceAll("\\b(input|output|resource|component|schema|var|fun)\\b",
-                "<span style=\"color: " + COLOR_KEYWORD + ";\">$1</span>");
-        // Color types
-        escaped = escaped.replaceAll("\\b(string|number|boolean|object|any)\\b",
-                "<span style=\"color: " + COLOR_TYPE + ";\">$1</span>");
-        // Color strings
-        escaped = escaped.replaceAll("\"([^\"]*)\"", "<span style=\"color: " + COLOR_STRING + ";\">\"$1\"</span>");
-        return escaped;
+        if (example == null || example.isEmpty()) return "";
+
+        StringBuilder result = new StringBuilder();
+        int i = 0;
+        int len = example.length();
+
+        while (i < len) {
+            char c = example.charAt(i);
+
+            // Handle @ symbol (decorator start)
+            if (c == '@') {
+                result.append("<span style=\"color: ").append(COLOR_DECORATOR).append(";\">@");
+                i++;
+                // Capture decorator name
+                int start = i;
+                while (i < len && (Character.isLetterOrDigit(example.charAt(i)) || example.charAt(i) == '_')) {
+                    i++;
+                }
+                result.append(escapeHtmlStatic(example.substring(start, i)));
+                result.append("</span>");
+                continue;
+            }
+
+            // Handle string literals (quoted strings)
+            if (c == '"') {
+                int start = i;
+                i++; // skip opening quote
+                while (i < len && example.charAt(i) != '"') {
+                    if (example.charAt(i) == '\\' && i + 1 < len) {
+                        i++; // skip escaped char
+                    }
+                    i++;
+                }
+                if (i < len) i++; // skip closing quote
+                String str = escapeHtmlStatic(example.substring(start, i));
+                result.append("<span style=\"color: ").append(COLOR_STRING).append(";\">").append(str).append("</span>");
+                continue;
+            }
+
+            // Handle identifiers and keywords
+            if (Character.isLetter(c) || c == '_') {
+                int start = i;
+                while (i < len && (Character.isLetterOrDigit(example.charAt(i)) || example.charAt(i) == '_')) {
+                    i++;
+                }
+                String word = example.substring(start, i);
+
+                if (KEYWORDS_STATIC.contains(word)) {
+                    result.append("<span style=\"color: ").append(COLOR_KEYWORD).append(";\">")
+                            .append(escapeHtmlStatic(word)).append("</span>");
+                } else if (TYPE_NAMES_STATIC.contains(word)) {
+                    result.append("<span style=\"color: ").append(COLOR_TYPE).append(";\">")
+                            .append(escapeHtmlStatic(word)).append("</span>");
+                } else {
+                    result.append(escapeHtmlStatic(word));
+                }
+                continue;
+            }
+
+            // Handle numbers
+            if (Character.isDigit(c)) {
+                int start = i;
+                while (i < len && (Character.isDigit(example.charAt(i)) || example.charAt(i) == '.')) {
+                    i++;
+                }
+                String num = example.substring(start, i);
+                result.append("<span style=\"color: ").append(COLOR_NUMBER).append(";\">")
+                        .append(escapeHtmlStatic(num)).append("</span>");
+                continue;
+            }
+
+            // Handle newlines
+            if (c == '\n') {
+                result.append("\n");
+                i++;
+                continue;
+            }
+
+            // Other characters - escape and append
+            result.append(escapeHtmlStatic(String.valueOf(c)));
+            i++;
+        }
+
+        return result.toString();
     }
+
+    // Static keyword and type sets for use in static methods
+    private static final java.util.Set<String> KEYWORDS_STATIC = new java.util.HashSet<>(java.util.Arrays.asList(
+            "resource", "component", "schema", "fun", "var", "input", "output", "type",
+            "if", "else", "for", "while", "in", "return", "import", "from", "init", "this",
+            "true", "false", "null"
+    ));
+
+    private static final java.util.Set<String> TYPE_NAMES_STATIC = new java.util.HashSet<>(java.util.Arrays.asList(
+            "string", "number", "boolean", "object", "any", "void", "list", "map"
+    ));
 
     /**
      * Holds documentation for a decorator.
@@ -335,28 +418,61 @@ public class KiteDocumentationProvider extends AbstractDocumentationProvider {
         }
     }
 
-    // Thread-local storage for decorator lookup item during documentation generation
-    private static final ThreadLocal<DecoratorLookupItem> currentDecoratorLookup = new ThreadLocal<>();
+    /**
+     * Fake PSI element that holds decorator name for documentation lookup.
+     * This allows IntelliJ to properly cache documentation per-decorator.
+     */
+    private static class DecoratorDocElement extends FakePsiElement {
+        private final String decoratorName;
+        private final PsiElement parent;
+
+        DecoratorDocElement(String decoratorName, PsiElement parent) {
+            this.decoratorName = decoratorName;
+            this.parent = parent;
+        }
+
+        @Override
+        public PsiElement getParent() {
+            return parent;
+        }
+
+        @Override
+        public String getText() {
+            return "@" + decoratorName;
+        }
+
+        public String getDecoratorName() {
+            return decoratorName;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+            DecoratorDocElement that = (DecoratorDocElement) o;
+            return decoratorName.equals(that.decoratorName);
+        }
+
+        @Override
+        public int hashCode() {
+            return decoratorName.hashCode();
+        }
+    }
 
     @Override
     public @Nullable PsiElement getDocumentationElementForLookupItem(PsiManager psiManager, Object object, PsiElement element) {
-        // Handle decorator lookup items - store the decorator info and return the element
+        // Handle decorator lookup items - create a unique fake element for each decorator
         if (object instanceof DecoratorLookupItem decoratorItem) {
-            currentDecoratorLookup.set(decoratorItem);
-            return element;
+            return new DecoratorDocElement(decoratorItem.name, element);
         }
-        currentDecoratorLookup.remove();
         return null;
     }
 
     @Override
     public @Nullable String generateDoc(PsiElement element, @Nullable PsiElement originalElement) {
-        // Check if this is a decorator lookup item from autocomplete
-        // Note: Don't clear the ThreadLocal here - IntelliJ may call generateDoc multiple times
-        // for caching/re-rendering. The value will be overwritten by the next lookup operation.
-        DecoratorLookupItem lookupItem = currentDecoratorLookup.get();
-        if (lookupItem != null) {
-            return getDecoratorDocumentation(lookupItem.name);
+        // Check if this is a decorator doc element from autocomplete
+        if (element instanceof DecoratorDocElement decoratorDocElement) {
+            return getDecoratorDocumentation(decoratorDocElement.getDecoratorName());
         }
 
         if (element == null) {
