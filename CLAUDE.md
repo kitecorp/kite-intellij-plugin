@@ -72,8 +72,47 @@ The annotator skips validation for:
 
 - **Decorator names**: identifiers after `@` (decorators are global/built-in)
 - **Schema property definitions**: `type propertyName` pattern inside schema/resource bodies
+- **Array-typed property definitions**: `type[] propertyName` pattern (e.g., `string[] tags`)
 - **Type annotations**: built-in types and capitalized type names
 - **Property access**: handled by reference resolution
+
+### Array Types and ARRAY_LITERAL
+
+The PSI structure for array types like `string[] tags` is:
+
+```
+IDENTIFIER("string") -> ARRAY_LITERAL (contains LBRACK, RBRACK) -> IDENTIFIER("tags")
+```
+
+**Important**: The `[]` brackets are wrapped in an `ARRAY_LITERAL` element, NOT exposed as separate `LBRACK`/`RBRACK`
+tokens at the same level as the identifiers.
+
+**Pattern for detecting array-typed properties:**
+
+```java
+// When checking if an identifier is a schema property name
+if (prevType == KiteElementTypes.ARRAY_LITERAL) {
+    // Walk back past ARRAY_LITERAL to find the type identifier
+    PsiElement beforeArray = skipWhitespaceBackward(prev.getPrevSibling());
+    if (beforeArray != null && beforeArray.getNode() != null) {
+        IElementType beforeArrayType = beforeArray.getNode().getElementType();
+        if (beforeArrayType == KiteTokenTypes.IDENTIFIER || beforeArrayType == KiteTokenTypes.ANY) {
+            return true; // This is a property name after type[]
+        }
+    }
+}
+```
+
+**Files that need ARRAY_LITERAL handling:**
+
+| File                             | Method                      | Purpose                                         |
+|----------------------------------|-----------------------------|-------------------------------------------------|
+| `KiteTypeCheckingAnnotator.java` | `isPropertyDefinition()`    | Recognizes `type[] name` as valid property      |
+| `KiteTypeCheckingAnnotator.java` | `extractSchemaProperties()` | Extracts array-typed properties                 |
+| `KiteReferenceContributor.java`  | `isAfterTypeInSchemaBody()` | Skips references for array-typed property names |
+| `KiteCompletionContributor.java` | `extractSchemaProperties()` | Autocomplete for array-typed properties         |
+| `KiteInlayHintsProvider.java`    | `extractSchemaProperties()` | Inlay hints for array-typed properties          |
+| `formatter/KiteBlock.java`       | `getSchemaTypeLength()`     | Calculate type width including `[]`             |
 
 ### Handling `any` Type Keyword
 
@@ -257,3 +296,116 @@ component WebServer {
   output string endpoint = "http://localhost:${port}"
 }
 ```
+
+---
+
+## VS Code Extension Development
+
+### Overview
+
+To port the Kite plugin to VS Code, you'll need to create a Language Server Protocol (LSP) based extension. VS Code
+extensions use TypeScript/JavaScript and communicate with a Language Server for advanced features.
+
+### Architecture Options
+
+**Option 1: TextMate Grammar Only (Basic)**
+
+- Quick to implement
+- Provides: Syntax highlighting, bracket matching, basic code folding
+- No semantic features (go to definition, completion, etc.)
+
+**Option 2: Full LSP Implementation (Recommended)**
+
+- Provides all features including semantic analysis
+- Reuse ANTLR grammar: Generate TypeScript parser from same `.g4` files
+- Can use existing IntelliJ logic as reference
+
+### Project Structure
+
+```
+kite-vscode/
+├── package.json           # Extension manifest
+├── tsconfig.json          # TypeScript config
+├── src/
+│   ├── extension.ts       # Extension entry point
+│   └── server/
+│       ├── server.ts      # Language server main
+│       ├── parser/        # ANTLR-generated TypeScript parser
+│       └── providers/     # LSP providers (completion, hover, etc.)
+├── syntaxes/
+│   └── kite.tmLanguage.json  # TextMate grammar for highlighting
+└── language-configuration.json  # Brackets, comments config
+```
+
+### Key Files to Create
+
+1. **package.json** - Extension manifest with:
+    - Language contribution (`.kite` files)
+    - Grammar contribution
+    - Commands and configuration
+
+2. **syntaxes/kite.tmLanguage.json** - TextMate grammar:
+    - Convert ANTLR lexer tokens to TextMate scopes
+    - Map to VS Code semantic token types
+
+3. **Language Server** (using `vscode-languageserver`):
+    - `textDocument/completion` - Autocompletion
+    - `textDocument/hover` - Quick documentation
+    - `textDocument/definition` - Go to definition
+    - `textDocument/references` - Find usages
+    - `textDocument/formatting` - Code formatting
+    - `textDocument/publishDiagnostics` - Errors/warnings
+
+### Feature Mapping: IntelliJ → VS Code LSP
+
+| IntelliJ Feature             | VS Code/LSP Equivalent             |
+|------------------------------|------------------------------------|
+| `KiteSyntaxHighlighter`      | TextMate grammar + Semantic tokens |
+| `KiteCompletionContributor`  | `textDocument/completion`          |
+| `KiteDocumentationProvider`  | `textDocument/hover`               |
+| `KiteGotoDeclarationHandler` | `textDocument/definition`          |
+| `KiteReferenceContributor`   | `textDocument/references`          |
+| `KiteParameterInfoHandler`   | `textDocument/signatureHelp`       |
+| `KiteInlayHintsProvider`     | `textDocument/inlayHint`           |
+| `KiteTypeCheckingAnnotator`  | `textDocument/publishDiagnostics`  |
+| `KiteBlock` (formatter)      | `textDocument/formatting`          |
+| `KiteStructureViewElement`   | `textDocument/documentSymbol`      |
+
+### ANTLR for TypeScript
+
+Generate TypeScript parser from existing grammar:
+
+```bash
+# Install ANTLR4 TypeScript runtime
+npm install antlr4ts
+
+# Generate TypeScript parser (from .g4 files)
+antlr4ts -visitor -no-listener KiteLexer.g4 KiteParser.g4
+```
+
+### Quick Start Steps
+
+1. **Scaffold extension**:
+   ```bash
+   npx yo code  # Select "New Language Support"
+   ```
+
+2. **Add TextMate grammar** for basic highlighting
+
+3. **Set up Language Server**:
+   ```bash
+   npm install vscode-languageserver vscode-languageclient
+   ```
+
+4. **Port parser**: Generate TypeScript from ANTLR or write simple recursive descent
+
+5. **Implement providers** one by one, using IntelliJ code as reference
+
+### Shared Resources
+
+These files can be directly reused or referenced:
+
+- `KiteLexer.g4` - Lexer grammar (convert to TextMate)
+- `KiteParser.g4` - Parser grammar (use with antlr4ts)
+- Example files in `examples/` directory for testing
+- Token/element type names for consistency

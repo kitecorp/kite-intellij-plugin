@@ -1,7 +1,7 @@
 <!-- Plugin Configuration File. Read more: https://plugins.jetbrains.com/docs/intellij/plugin-configuration-file.html -->
 <idea-plugin>
     <!-- Unique identifier of the plugin. It should be FQN. It cannot be changed between the plugin versions. -->
-    <id>io.kite.intellij-plugin</id>
+    <id>cloud.kitelang.intellij-plugin</id>
 
     <!-- Public plugin name should be written in Title Case.
          Guidelines: https://plugins.jetbrains.com/docs/marketplace/plugin-overview-page.html#plugin-name -->
@@ -120,6 +120,11 @@
 
     <!-- Short summary of new features and bugfixes in the latest version -->
     <change-notes><![CDATA[
+    <b>0.18.0</b>
+    <ul>
+      <li><b>IntelliJ 2025 Compatibility</b> - Extended support for IntelliJ IDEA 2025.1 and 2025.2 (builds 251.* - 252.*)</li>
+      <li><b>Package Reorganization</b> - Updated internal package structure to <code>cloud.kitelang.intellij</code></li>
+    </ul>
     <b>0.15.0</b>
     <ul>
       <li><b>Array Types</b> - Full support for array type syntax

@@ -29,8 +29,8 @@ component WebServer {
 
 // Variables with type inference
 var environment = "production"
-var maxRetries  = 5
-var isEnabled   = true
+var maxRetries = 5
+var isEnabled  = true
 
 // Function with typed parameters and return type
 fun calculateCost(number instances, number hours) number {

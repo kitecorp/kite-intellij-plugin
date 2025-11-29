@@ -189,6 +189,7 @@ public class KiteReferenceContributor extends PsiReferenceContributor {
      * - The last identifier before = or { in input/output/var/resource/component/schema/function/type declarations
      * - The identifier after "for" keyword in for loops
      * - Property names in object literals (identifier before : or =)
+     * - Property names inside schema bodies (identifier after a type)
      *
      * NOTE: Identifiers that come AFTER = are VALUES (references), not declaration names.
      * Example: in "instanceType = instanceTypes", instanceType is a property name (not navigable),
@@ -226,6 +227,13 @@ public class KiteReferenceContributor extends PsiReferenceContributor {
             return true;
         }
 
+        // Check if this is a schema property name (identifier after a type, inside schema body)
+        // Schema body pattern: schema Name { type propertyName ... }
+        if (isSchemaPropertyName(element, prev)) {
+            LOG.info("[isDeclarationName] '" + element.getText() + "' is schema property name -> returning true");
+            return true;
+        }
+
         // Check if parent is a declaration and this is the declared name
         PsiElement parent = element.getParent();
         if (parent != null) {
@@ -242,6 +250,231 @@ public class KiteReferenceContributor extends PsiReferenceContributor {
 
         LOG.info("[isDeclarationName] '" + element.getText() + "' -> returning false (is reference)");
         return false;
+    }
+
+    /**
+     * Check if this identifier is a property name inside a schema body.
+     * Pattern: schema Name { type propertyName [= defaultValue] }
+     * The property name comes after a type identifier or type keyword (like 'any').
+     */
+    private static boolean isSchemaPropertyName(@NotNull PsiElement element, @Nullable PsiElement prev) {
+        LOG.info("[isSchemaPropertyName] Checking: '" + element.getText() + "', prev=" +
+                 (prev != null ? "'" + prev.getText() + "' (" + prev.getNode().getElementType() + ")" : "null"));
+
+        // First, check if we're inside a schema declaration by walking up parents
+        boolean insideSchema = false;
+        PsiElement parent = element.getParent();
+        int depth = 0;
+        while (parent != null) {
+            if (parent.getNode() != null) {
+                IElementType parentType = parent.getNode().getElementType();
+                LOG.info("[isSchemaPropertyName] Parent[" + depth + "]: " + parentType);
+                if (parentType == KiteElementTypes.SCHEMA_DECLARATION) {
+                    insideSchema = true;
+                    LOG.info("[isSchemaPropertyName] Found SCHEMA_DECLARATION at depth " + depth);
+                    break;
+                }
+                // Stop if we hit another declaration type (but not schema)
+                if (isDeclarationType(parentType) && parentType != KiteElementTypes.SCHEMA_DECLARATION) {
+                    LOG.info("[isSchemaPropertyName] Hit other declaration type: " + parentType + " -> returning false");
+                    return false;
+                }
+            }
+            parent = parent.getParent();
+            depth++;
+        }
+
+        if (insideSchema) {
+            // We're inside a schema - check if this identifier follows a type
+            boolean result = isAfterTypeInSchemaBody(element, prev);
+            LOG.info("[isSchemaPropertyName] insideSchema=true, isAfterType=" + result);
+            return result;
+        }
+
+        // Alternative check: if not found via parent walk, try sibling-based detection
+        // This handles cases where the PSI tree structure is flat
+        LOG.info("[isSchemaPropertyName] Trying sibling-based detection");
+        boolean siblingResult = isSchemaPropertyBySiblings(element);
+        LOG.info("[isSchemaPropertyName] Sibling-based result: " + siblingResult);
+        return siblingResult;
+    }
+
+    /**
+     * Alternative check for schema property names using sibling traversal.
+     * Walks backward to find a schema keyword followed by an identifier and {.
+     */
+    private static boolean isSchemaPropertyBySiblings(@NotNull PsiElement element) {
+        LOG.info("[isSchemaPropertyBySiblings] Checking: '" + element.getText() + "'");
+        // Walk backward through siblings at the file level to find schema { structure
+        PsiElement current = element;
+        int braceDepth = 0;
+        boolean foundLBrace = false;
+        boolean foundSchemaKeyword = false;
+        boolean passedSchemaName = false;
+        int steps = 0;
+
+        while (current != null && steps < 100) {
+            if (current.getNode() != null) {
+                IElementType type = current.getNode().getElementType();
+                LOG.info("[isSchemaPropertyBySiblings] Step " + steps + ": " + type + " = '" + current.getText().replace("\n", "\\n") + "'");
+
+                if (type == KiteTokenTypes.RBRACE) {
+                    braceDepth++;
+                } else if (type == KiteTokenTypes.LBRACE) {
+                    if (braceDepth > 0) {
+                        braceDepth--;
+                    } else {
+                        foundLBrace = true;
+                        LOG.info("[isSchemaPropertyBySiblings] Found LBRACE (schema opening)");
+                    }
+                } else if (foundLBrace && braceDepth == 0 && type == KiteTokenTypes.IDENTIFIER) {
+                    // This is the schema name after 'schema' keyword
+                    passedSchemaName = true;
+                    LOG.info("[isSchemaPropertyBySiblings] Passed schema name: " + current.getText());
+                } else if (foundLBrace && passedSchemaName && type == KiteTokenTypes.SCHEMA) {
+                    foundSchemaKeyword = true;
+                    LOG.info("[isSchemaPropertyBySiblings] Found SCHEMA keyword!");
+                    break;
+                } else if (type == KiteTokenTypes.RESOURCE || type == KiteTokenTypes.COMPONENT ||
+                           type == KiteTokenTypes.FUN) {
+                    // We're inside a different declaration, not a schema
+                    LOG.info("[isSchemaPropertyBySiblings] Found non-schema declaration: " + type);
+                    return false;
+                }
+            }
+            current = current.getPrevSibling();
+            steps++;
+        }
+
+        if (!foundSchemaKeyword) {
+            LOG.info("[isSchemaPropertyBySiblings] Did not find schema keyword");
+            return false;
+        }
+
+        // We're inside a schema body. Now check if this identifier follows a type.
+        PsiElement prev = skipWhitespaceBackward(element.getPrevSibling());
+        boolean result = isAfterTypeInSchemaBody(element, prev);
+        LOG.info("[isSchemaPropertyBySiblings] isAfterTypeInSchemaBody result: " + result);
+        return result;
+    }
+
+    /**
+     * Check if an identifier follows a type token inside a schema body.
+     * This handles patterns like:
+     * - string propertyName
+     * - number[] propertyName
+     * - any propertyName
+     * - CustomType propertyName
+     */
+    private static boolean isAfterTypeInSchemaBody(@NotNull PsiElement element, @Nullable PsiElement prev) {
+        LOG.info("[isAfterTypeInSchemaBody] element='" + element.getText() + "', prev=" +
+                 (prev != null ? "'" + prev.getText() + "' (" + prev.getNode().getElementType() + ")" : "null"));
+        if (prev == null) {
+            LOG.info("[isAfterTypeInSchemaBody] prev is null -> false");
+            return false;
+        }
+
+        IElementType prevType = prev.getNode().getElementType();
+
+        // Check if previous token is a type keyword (like 'any')
+        if (prevType == KiteTokenTypes.ANY) {
+            LOG.info("[isAfterTypeInSchemaBody] prev is ANY -> true");
+            return true;
+        }
+
+        // Check for ARRAY_LITERAL element (contains [] brackets as children)
+        // PSI structure: IDENTIFIER(string) -> ARRAY_LITERAL([]) -> IDENTIFIER(tags)
+        if (prevType == KiteElementTypes.ARRAY_LITERAL) {
+            LOG.info("[isAfterTypeInSchemaBody] prev is ARRAY_LITERAL, checking for type before it");
+            // The type name comes before the ARRAY_LITERAL
+            PsiElement beforeArray = skipWhitespaceBackward(prev.getPrevSibling());
+            LOG.info("[isAfterTypeInSchemaBody] beforeArray=" +
+                     (beforeArray != null ? "'" + beforeArray.getText() + "' (" + beforeArray.getNode().getElementType() + ")" : "null"));
+            if (beforeArray != null && beforeArray.getNode().getElementType() == KiteTokenTypes.IDENTIFIER) {
+                // This is the pattern: type[] followed by our identifier
+                LOG.info("[isAfterTypeInSchemaBody] Found array pattern: " + beforeArray.getText() + "[] -> true");
+                return true;
+            }
+        }
+
+        // Check for array suffix with RBRACK: type[]
+        // (keeping for backwards compatibility with different PSI structures)
+        if (prevType == KiteTokenTypes.RBRACK) {
+            LOG.info("[isAfterTypeInSchemaBody] prev is RBRACK, checking for array pattern");
+            // Walk back to find: type [ ]
+            PsiElement beforeBrack = skipWhitespaceBackward(prev.getPrevSibling());
+            LOG.info("[isAfterTypeInSchemaBody] beforeBrack=" +
+                     (beforeBrack != null ? "'" + beforeBrack.getText() + "' (" + beforeBrack.getNode().getElementType() + ")" : "null"));
+            if (beforeBrack != null && beforeBrack.getNode().getElementType() == KiteTokenTypes.LBRACK) {
+                PsiElement beforeLBrack = skipWhitespaceBackward(beforeBrack.getPrevSibling());
+                LOG.info("[isAfterTypeInSchemaBody] beforeLBrack=" +
+                         (beforeLBrack != null ? "'" + beforeLBrack.getText() + "' (" + beforeLBrack.getNode().getElementType() + ")" : "null"));
+                if (beforeLBrack != null && beforeLBrack.getNode().getElementType() == KiteTokenTypes.IDENTIFIER) {
+                    // This is the pattern: identifier[] followed by our identifier
+                    LOG.info("[isAfterTypeInSchemaBody] Found array pattern: " + beforeLBrack.getText() + "[] -> true");
+                    return true;
+                }
+            }
+        }
+
+        // Check if previous is an identifier (could be a type name like "string", "number", "boolean", or custom type)
+        if (prevType == KiteTokenTypes.IDENTIFIER) {
+            String prevText = prev.getText();
+            LOG.info("[isAfterTypeInSchemaBody] prev is IDENTIFIER: '" + prevText + "'");
+
+            // If the previous identifier is a known primitive type name, it's definitely a type
+            if (isPrimitiveTypeName(prevText)) {
+                LOG.info("[isAfterTypeInSchemaBody] prev is primitive type -> true");
+                return true;
+            }
+
+            // For other identifiers, check that this identifier isn't followed by = or { (which would make it a name, not a type)
+            // In schema: "type name" vs "name ="
+            // The previous identifier is a type if it comes after LBRACE, NL, or start of schema
+            PsiElement beforePrev = skipWhitespaceBackward(prev.getPrevSibling());
+            if (beforePrev != null) {
+                IElementType beforePrevType = beforePrev.getNode().getElementType();
+                LOG.info("[isAfterTypeInSchemaBody] beforePrev: '" + beforePrev.getText() + "' (" + beforePrevType + ")");
+                // If previous identifier is after {, newline, or another property assignment (=, value, NL)
+                // then it's likely a type
+                if (beforePrevType == KiteTokenTypes.LBRACE ||
+                    beforePrevType == KiteTokenTypes.NL ||
+                    beforePrevType == KiteTokenTypes.NEWLINE ||
+                    isValueToken(beforePrevType)) {
+                    LOG.info("[isAfterTypeInSchemaBody] beforePrev is LBRACE/NL/value -> true");
+                    return true;
+                }
+            }
+        }
+
+        LOG.info("[isAfterTypeInSchemaBody] No pattern matched -> false");
+        return false;
+    }
+
+    /**
+     * Check if the given text is a primitive type name.
+     */
+    private static boolean isPrimitiveTypeName(String text) {
+        return "string".equals(text) ||
+               "number".equals(text) ||
+               "boolean".equals(text) ||
+               "object".equals(text) ||
+               "any".equals(text);
+    }
+
+    /**
+     * Check if a token type represents a value (string, number, etc.)
+     */
+    private static boolean isValueToken(IElementType type) {
+        return type == KiteTokenTypes.STRING ||
+               type == KiteTokenTypes.SINGLE_STRING ||
+               type == KiteTokenTypes.STRING_DQUOTE ||
+               type == KiteTokenTypes.NUMBER ||
+               type == KiteTokenTypes.TRUE ||
+               type == KiteTokenTypes.FALSE ||
+               type == KiteTokenTypes.NULL ||
+               type == KiteTokenTypes.RBRACE ||
+               type == KiteTokenTypes.RBRACK;
     }
 
     private static boolean isDeclarationType(IElementType type) {

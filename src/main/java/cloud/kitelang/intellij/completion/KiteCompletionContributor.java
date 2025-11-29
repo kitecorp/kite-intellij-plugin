@@ -210,18 +210,27 @@ public class KiteCompletionContributor extends CompletionContributor {
 
     /**
      * Add completions for declared identifiers (variables, resources, etc.)
+     * Includes declarations from the current file and imported files.
+     * Excludes schemas and type declarations when in value position (after =).
      */
     private void addIdentifierCompletions(PsiFile file, @NotNull CompletionResultSet result, PsiElement position) {
         Set<String> addedNames = new HashSet<>();
 
+        // Check if we're after '=' (value position) - if so, exclude types/schemas
+        boolean isValuePosition = isAfterAssignment(position);
+
+        // Collect from current file (higher priority)
         collectDeclarations(file, (name, declarationType, element) -> {
+            // Skip schemas and type declarations in value positions
+            if (isValuePosition && isTypeDeclaration(declarationType)) {
+                return;
+            }
             if (!addedNames.contains(name)) {
                 addedNames.add(name);
-                result.addElement(
-                    LookupElementBuilder.create(name)
+                LookupElementBuilder lookup = LookupElementBuilder.create(name)
                         .withTypeText(getTypeTextForDeclaration(declarationType))
-                        .withIcon(getIconForDeclaration(declarationType))
-                );
+                        .withIcon(getIconForDeclaration(declarationType));
+                result.addElement(PrioritizedLookupElement.withPriority(lookup, 100.0));
             }
         });
 
@@ -229,13 +238,89 @@ public class KiteCompletionContributor extends CompletionContributor {
         collectForLoopVariables(file, (name, element) -> {
             if (!addedNames.contains(name)) {
                 addedNames.add(name);
-                result.addElement(
-                    LookupElementBuilder.create(name)
+                LookupElementBuilder lookup = LookupElementBuilder.create(name)
                         .withTypeText("loop variable")
-                        .withIcon(KiteStructureViewIcons.VARIABLE)
-                );
+                        .withIcon(KiteStructureViewIcons.VARIABLE);
+                result.addElement(PrioritizedLookupElement.withPriority(lookup, 100.0));
             }
         });
+
+        // Collect from imported files (slightly lower priority)
+        List<PsiFile> importedFiles = KiteImportHelper.getImportedFiles(file);
+        for (PsiFile importedFile : importedFiles) {
+            if (importedFile == null) continue;
+
+            collectDeclarations(importedFile, (name, declarationType, element) -> {
+                // Skip schemas and type declarations in value positions
+                if (isValuePosition && isTypeDeclaration(declarationType)) {
+                    return;
+                }
+                if (!addedNames.contains(name)) {
+                    addedNames.add(name);
+                    LookupElementBuilder lookup = LookupElementBuilder.create(name)
+                            .withTypeText(getTypeTextForDeclaration(declarationType))
+                            .withTailText(" (" + importedFile.getName() + ")", true)
+                            .withIcon(getIconForDeclaration(declarationType));
+                    result.addElement(PrioritizedLookupElement.withPriority(lookup, 50.0));
+                }
+            });
+        }
+    }
+
+    /**
+     * Check if the cursor is after an assignment operator (in value position).
+     */
+    private boolean isAfterAssignment(PsiElement position) {
+        // Walk backward to see if there's an '=' on the same line before us
+        PsiElement current = position.getPrevSibling();
+        while (current != null) {
+            if (current.getNode() != null) {
+                IElementType type = current.getNode().getElementType();
+
+                // If we hit a newline, we're at the start of a new line - not in value position
+                if (type == KiteTokenTypes.NL || type == KiteTokenTypes.NEWLINE) {
+                    return false;
+                }
+
+                // If we hit an '=', we're in value position
+                if (type == KiteTokenTypes.ASSIGN) {
+                    return true;
+                }
+            }
+            current = current.getPrevSibling();
+        }
+
+        // Also check parent's siblings
+        PsiElement parent = position.getParent();
+        if (parent != null) {
+            current = parent.getPrevSibling();
+            while (current != null) {
+                if (current.getNode() != null) {
+                    IElementType type = current.getNode().getElementType();
+
+                    if (type == KiteTokenTypes.NL || type == KiteTokenTypes.NEWLINE) {
+                        return false;
+                    }
+
+                    if (type == KiteTokenTypes.ASSIGN) {
+                        return true;
+                    }
+                }
+                current = current.getPrevSibling();
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Check if a declaration type is a type/schema/component definition (not a value).
+     * These should be excluded from value position completions.
+     */
+    private boolean isTypeDeclaration(IElementType type) {
+        return type == KiteElementTypes.SCHEMA_DECLARATION ||
+               type == KiteElementTypes.TYPE_DECLARATION ||
+               type == KiteElementTypes.COMPONENT_DECLARATION;
     }
 
     /**

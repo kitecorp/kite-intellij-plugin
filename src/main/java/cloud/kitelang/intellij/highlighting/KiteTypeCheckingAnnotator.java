@@ -1026,6 +1026,7 @@ public class KiteTypeCheckingAnnotator implements Annotator {
     /**
      * Check if the identifier is a property definition inside a schema, resource, or component body.
      * Pattern: type propertyName (e.g., "string host" inside a schema body)
+     * Also handles array types: type[] propertyName (e.g., "string[] tags")
      */
     private boolean isPropertyDefinition(PsiElement identifier) {
         // Check if inside a schema, resource, or component body
@@ -1045,6 +1046,20 @@ public class KiteTypeCheckingAnnotator implements Annotator {
         // If preceded by 'any' keyword, this is a property name (any is a type)
         if (prevType == KiteTokenTypes.ANY) {
             return true;
+        }
+
+        // Handle array types: type[] propertyName
+        // PSI structure: IDENTIFIER(string) -> ARRAY_LITERAL([]) -> IDENTIFIER(tags)
+        if (prevType == KiteElementTypes.ARRAY_LITERAL) {
+            // Walk back past the ARRAY_LITERAL to find the type identifier
+            PsiElement beforeArray = skipWhitespaceBackward(prev.getPrevSibling());
+            if (beforeArray != null && beforeArray.getNode() != null) {
+                IElementType beforeArrayType = beforeArray.getNode().getElementType();
+                // If there's an identifier or 'any' keyword before [], this is a property name
+                if (beforeArrayType == KiteTokenTypes.IDENTIFIER || beforeArrayType == KiteTokenTypes.ANY) {
+                    return true;
+                }
+            }
         }
 
         // If preceded by a builtin type or another identifier (custom type), this is a property name
