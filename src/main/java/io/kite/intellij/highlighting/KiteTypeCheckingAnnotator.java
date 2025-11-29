@@ -575,6 +575,7 @@ public class KiteTypeCheckingAnnotator implements Annotator {
     /**
      * Extract property definitions from a schema.
      * Pattern inside schema: type propertyName [= defaultValue]
+     * Also handles array types: type[] propertyName
      */
     private void extractSchemaProperties(PsiElement schemaDeclaration, java.util.Map<String, String> properties) {
         boolean insideBraces = false;
@@ -602,6 +603,12 @@ public class KiteTypeCheckingAnnotator implements Annotator {
             // Handle 'any' keyword as a type
             if (childType == KiteTokenTypes.ANY) {
                 currentType = "any";
+                continue;
+            }
+
+            // Handle array suffix [] - append to current type
+            if (childType == KiteElementTypes.ARRAY_LITERAL && currentType != null) {
+                currentType = currentType + "[]";
                 continue;
             }
 
@@ -719,6 +726,11 @@ public class KiteTypeCheckingAnnotator implements Annotator {
 
         // 'any' accepts everything
         if ("any".equals(normalizedDeclared)) {
+            return true;
+        }
+
+        // Array types (e.g., string[], number[]) accept array values
+        if (normalizedDeclared.endsWith("[]") && "array".equals(normalizedValue)) {
             return true;
         }
 

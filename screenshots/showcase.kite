@@ -1,7 +1,7 @@
 // Kite Infrastructure as Code
 import * from "shared.kite"
 
-// Schema definition with typed properties
+// Schema definition with typed properties for resources
 schema ServerConfig {
   string   host
   number   port = 8080
@@ -11,9 +11,9 @@ schema ServerConfig {
 
 // Reusable component with inputs and outputs
 component WebServer {
-  input string   name
-  input string   region   = "us-east-1"
-  input number   replicas = 3
+  input string name
+  input string region   = "us-east-1"
+  input number replicas = 3
 
   @cloud(["aws", "gcp"])
   resource ServerConfig server {
