@@ -56,6 +56,59 @@ public class KiteCompletionContributor extends CompletionContributor {
         "true", "false", "null", "this"
     };
 
+    // Decorator categories for grouping
+    private static final String CATEGORY_VALIDATION = "validation";
+    private static final String CATEGORY_RESOURCE = "resource";
+    private static final String CATEGORY_METADATA = "metadata";
+
+    // Decorator definitions with name, description, template, and category
+    private static final DecoratorInfo[] DECORATORS = {
+            // Validation decorators
+            new DecoratorInfo("minValue", "Minimum numeric value", "(n)", "minValue($END$)", CATEGORY_VALIDATION),
+            new DecoratorInfo("maxValue", "Maximum numeric value", "(n)", "maxValue($END$)", CATEGORY_VALIDATION),
+            new DecoratorInfo("minLength", "Minimum string/array length", "(n)", "minLength($END$)", CATEGORY_VALIDATION),
+            new DecoratorInfo("maxLength", "Maximum string/array length", "(n)", "maxLength($END$)", CATEGORY_VALIDATION),
+            new DecoratorInfo("nonEmpty", "Must not be empty", "", "nonEmpty", CATEGORY_VALIDATION),
+            new DecoratorInfo("validate", "Custom regex validation", "(regex: \"...\")", "validate(regex: \"$END$\")", CATEGORY_VALIDATION),
+            new DecoratorInfo("allowed", "Allowed values whitelist", "([...])", "allowed([$END$])", CATEGORY_VALIDATION),
+            new DecoratorInfo("unique", "Array elements must be unique", "", "unique", CATEGORY_VALIDATION),
+
+            // Resource decorators
+            new DecoratorInfo("existing", "Reference existing resource", "(\"ref\")", "existing(\"$END$\")", CATEGORY_RESOURCE),
+            new DecoratorInfo("sensitive", "Mark as sensitive data", "", "sensitive", CATEGORY_RESOURCE),
+            new DecoratorInfo("dependsOn", "Explicit dependencies", "(res) or ([...])", "dependsOn($END$)", CATEGORY_RESOURCE),
+            new DecoratorInfo("tags", "Cloud provider tags", "({...})", "tags({$END$})", CATEGORY_RESOURCE),
+            new DecoratorInfo("provider", "Target cloud providers", "(\"...\") or ([...])", "provider(\"$END$\")", CATEGORY_RESOURCE),
+
+            // Metadata decorators
+            new DecoratorInfo("description", "Documentation text", "(\"...\")", "description(\"$END$\")", CATEGORY_METADATA),
+            new DecoratorInfo("count", "Create N instances", "(n)", "count($END$)", CATEGORY_METADATA),
+            new DecoratorInfo("cloud", "Set by cloud provider", "", "cloud", CATEGORY_METADATA),
+    };
+
+    /**
+     * Information about a decorator for code completion.
+     */
+    private static class DecoratorInfo {
+        final String name;
+        final String description;
+        final String tailText;   // Shows argument format like "(n)" or "([...])"
+        final String template;   // Template with $END$ marker for cursor position
+        final String category;   // Category for grouping
+
+        DecoratorInfo(String name, String description, String tailText, String template, String category) {
+            this.name = name;
+            this.description = description;
+            this.tailText = tailText;
+            this.template = template;
+            this.category = category;
+        }
+
+        boolean hasArgs() {
+            return !tailText.isEmpty();
+        }
+    }
+
     public KiteCompletionContributor() {
         // General completion provider for Kite files
         extend(CompletionType.BASIC,
@@ -67,6 +120,12 @@ public class KiteCompletionContributor extends CompletionContributor {
                                               @NotNull CompletionResultSet result) {
                     PsiElement position = parameters.getPosition();
                     PsiElement originalPosition = parameters.getOriginalPosition();
+
+                    // Check if we're after @ (decorator context)
+                    if (isDecoratorContext(position)) {
+                        addDecoratorCompletions(result);
+                        return;
+                    }
 
                     // Check if we're after a dot (property access)
                     if (isPropertyAccessContext(position)) {
@@ -104,6 +163,74 @@ public class KiteCompletionContributor extends CompletionContributor {
                 }
             }
         );
+    }
+
+    /**
+     * Check if cursor is after @ (decorator context)
+     */
+    private boolean isDecoratorContext(PsiElement position) {
+        // Direct previous sibling is @
+        PsiElement prev = position.getPrevSibling();
+        if (prev != null && prev.getNode() != null) {
+            if (prev.getNode().getElementType() == KiteTokenTypes.AT) {
+                return true;
+            }
+        }
+
+        // Also check parent's previous sibling (for cases where PSI structure differs)
+        PsiElement parent = position.getParent();
+        if (parent != null) {
+            prev = parent.getPrevSibling();
+            if (prev != null && prev.getNode() != null) {
+                if (prev.getNode().getElementType() == KiteTokenTypes.AT) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Add decorator completions with nice formatting
+     */
+    private void addDecoratorCompletions(@NotNull CompletionResultSet result) {
+        for (DecoratorInfo decorator : DECORATORS) {
+            LookupElementBuilder element = LookupElementBuilder.create(decorator.name)
+                    .withIcon(KiteStructureViewIcons.DECORATOR)
+                    .withTypeText(decorator.category, true)
+                    .withTailText(decorator.tailText.isEmpty() ? "" : " " + decorator.tailText, true)
+                    .withBoldness(true);
+
+            // Add insert handler to place cursor correctly for decorators with arguments
+            if (decorator.hasArgs()) {
+                element = element.withInsertHandler((ctx, item) -> {
+                    // Get the template and find where to place cursor
+                    String template = decorator.template;
+                    int endMarkerPos = template.indexOf("$END$");
+
+                    if (endMarkerPos >= 0) {
+                        // Remove the decorator name from template to get suffix
+                        String suffix = template.substring(decorator.name.length()).replace("$END$", "");
+                        ctx.getDocument().insertString(ctx.getTailOffset(), suffix);
+
+                        // Position cursor at the $END$ location
+                        int newCursorPos = ctx.getStartOffset() + endMarkerPos;
+                        ctx.getEditor().getCaretModel().moveToOffset(newCursorPos);
+                    }
+                });
+            }
+
+            // Priority by category: validation highest, then resource, then metadata
+            double priority = switch (decorator.category) {
+                case CATEGORY_VALIDATION -> 300.0;
+                case CATEGORY_RESOURCE -> 200.0;
+                case CATEGORY_METADATA -> 100.0;
+                default -> 50.0;
+            };
+
+            result.addElement(PrioritizedLookupElement.withPriority(element, priority));
+        }
     }
 
     /**

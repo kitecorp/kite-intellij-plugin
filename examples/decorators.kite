@@ -30,7 +30,7 @@ input string bucketName
 @maxLength(63)
 input string bucketNames
 
-@provisionOn(["aws", "azure"])
+@provider(["aws", "azure"])
 @tags({
   Environment: "production",
   ManagedBy  : "kite",

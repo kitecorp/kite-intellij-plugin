@@ -46,6 +46,17 @@ public class KiteTypeCheckingAnnotator implements Annotator {
             "print", "println"
     );
 
+    // Set of valid built-in decorator names
+    private static final Set<String> VALID_DECORATORS = Set.of(
+            // Validation decorators
+            "minValue", "maxValue", "minLength", "maxLength",
+            "nonEmpty", "validate", "allowed", "unique",
+            // Resource decorators
+            "existing", "sensitive", "dependsOn", "tags", "provider",
+            // Metadata decorators
+            "description", "count", "cloud"
+    );
+
     @Override
     public void annotate(@NotNull PsiElement element, @NotNull AnnotationHolder holder) {
         // Only process at file level to avoid redundant checks
@@ -70,6 +81,9 @@ public class KiteTypeCheckingAnnotator implements Annotator {
 
         // Check for type mismatches in variable declarations
         checkTypeMismatches(file, holder);
+
+        // Check for unknown decorator names
+        checkUnknownDecorators(file, holder);
     }
 
     /**
@@ -312,6 +326,47 @@ public class KiteTypeCheckingAnnotator implements Annotator {
         // Recurse into children
         for (PsiElement child = element.getFirstChild(); child != null; child = child.getNextSibling()) {
             checkTypeMismatches(child, holder);
+        }
+    }
+
+    /**
+     * Check for unknown decorator names.
+     * Warns when a decorator name is not in the list of valid built-in decorators.
+     */
+    private void checkUnknownDecorators(PsiElement element, AnnotationHolder holder) {
+        checkUnknownDecoratorsRecursive(element, holder);
+    }
+
+    /**
+     * Recursively check for unknown decorators in the element tree.
+     */
+    private void checkUnknownDecoratorsRecursive(PsiElement element, AnnotationHolder holder) {
+        if (element.getNode() == null) return;
+
+        IElementType type = element.getNode().getElementType();
+
+        // Check if this is a decorator: @ followed by identifier
+        if (type == KiteTokenTypes.AT) {
+            // Find the identifier after @
+            PsiElement next = skipWhitespace(element.getNextSibling());
+            if (next != null && next.getNode() != null &&
+                next.getNode().getElementType() == KiteTokenTypes.IDENTIFIER) {
+
+                String decoratorName = next.getText();
+
+                // Check if it's a valid decorator
+                if (!VALID_DECORATORS.contains(decoratorName)) {
+                    holder.newAnnotation(HighlightSeverity.WARNING,
+                                    "Unknown decorator '@" + decoratorName + "'")
+                            .range(next)
+                            .create();
+                }
+            }
+        }
+
+        // Recurse into children
+        for (PsiElement child = element.getFirstChild(); child != null; child = child.getNextSibling()) {
+            checkUnknownDecoratorsRecursive(child, holder);
         }
     }
 

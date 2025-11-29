@@ -15,12 +15,205 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.awt.*;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * Documentation provider for Kite language.
  * Shows quick documentation popup when pressing Ctrl+Q (or F1 on Mac) on declarations.
  */
 public class KiteDocumentationProvider extends AbstractDocumentationProvider {
+
+    // Decorator documentation
+    private static final Map<String, DecoratorDoc> DECORATOR_DOCS = new HashMap<>();
+
+    static {
+        // Validation decorators
+        DECORATOR_DOCS.put("minValue", new DecoratorDoc(
+                "minValue", "validation",
+                "Minimum value constraint for numbers.",
+                "(n)",
+                "number (0 to 999999)",
+                "input, output",
+                "number",
+                "@minValue(1)\ninput number port = 8080"
+        ));
+        DECORATOR_DOCS.put("maxValue", new DecoratorDoc(
+                "maxValue", "validation",
+                "Maximum value constraint for numbers.",
+                "(n)",
+                "number (0 to 999999)",
+                "input, output",
+                "number",
+                "@maxValue(65535)\ninput number port = 8080"
+        ));
+        DECORATOR_DOCS.put("minLength", new DecoratorDoc(
+                "minLength", "validation",
+                "Minimum length constraint for strings and arrays.",
+                "(n)",
+                "number (0 to 999999)",
+                "input, output",
+                "string, array",
+                "@minLength(3)\ninput string name\n\n@minLength(1)\ninput string[] tags"
+        ));
+        DECORATOR_DOCS.put("maxLength", new DecoratorDoc(
+                "maxLength", "validation",
+                "Maximum length constraint for strings and arrays.",
+                "(n)",
+                "number (0 to 999999)",
+                "input, output",
+                "string, array",
+                "@maxLength(255)\ninput string name\n\n@maxLength(10)\ninput string[] tags"
+        ));
+        DECORATOR_DOCS.put("nonEmpty", new DecoratorDoc(
+                "nonEmpty", "validation",
+                "Ensures strings or arrays are not empty.",
+                "",
+                "none",
+                "input",
+                "string, array",
+                "@nonEmpty\ninput string name\n\n@nonEmpty\ninput string[] tags"
+        ));
+        DECORATOR_DOCS.put("validate", new DecoratorDoc(
+                "validate", "validation",
+                "Custom validation with regex pattern or preset.",
+                "(regex: \"pattern\") or (preset: \"name\")",
+                "named: regex: string or preset: string",
+                "input, output",
+                "string, array",
+                "@validate(regex: \"^[a-z]+$\")\ninput string name\n\n@validate(preset: \"email\")\ninput string email"
+        ));
+        DECORATOR_DOCS.put("allowed", new DecoratorDoc(
+                "allowed", "validation",
+                "Whitelist of allowed values.",
+                "([values])",
+                "array of literals (1 to 256 elements)",
+                "input",
+                "string, number, object, array",
+                "@allowed([\"dev\", \"staging\", \"prod\"])\ninput string environment = \"dev\"\n\n@allowed([80, 443, 8080])\ninput number port = 80"
+        ));
+        DECORATOR_DOCS.put("unique", new DecoratorDoc(
+                "unique", "validation",
+                "Ensures array elements are unique.",
+                "",
+                "none",
+                "input",
+                "array",
+                "@unique\ninput string[] tags = [\"web\", \"api\"]"
+        ));
+
+        // Resource decorators
+        DECORATOR_DOCS.put("existing", new DecoratorDoc(
+                "existing", "resource",
+                "Reference existing cloud resources by ARN, URL, or ID.\n\nSupported formats:\n• ARN: arn:aws:s3:::bucket-name\n• URL: https://example.com or s3://bucket/key\n• EC2 Instance ID: i-0123456789abcdef0\n• KMS Alias: alias/my-key\n• Log Group: /aws/lambda/my-function\n• Tags: Environment=prod,Team=platform",
+                "(\"reference\")",
+                "string (ARN, URL, ID, alias, tags)",
+                "resource",
+                null,
+                "@existing(\"arn:aws:s3:::my-bucket\")\nresource S3.Bucket existing_bucket {}\n\n@existing(\"i-0123456789abcdef0\")\nresource EC2.Instance existing_instance {}"
+        ));
+        DECORATOR_DOCS.put("sensitive", new DecoratorDoc(
+                "sensitive", "resource",
+                "Mark sensitive data (passwords, secrets, API keys). The value will be hidden in logs and outputs.",
+                "",
+                "none",
+                "input, output",
+                null,
+                "@sensitive\ninput string api_key\n\n@sensitive\noutput string connection_string"
+        ));
+        DECORATOR_DOCS.put("dependsOn", new DecoratorDoc(
+                "dependsOn", "resource",
+                "Explicit dependency declaration between resources/components. The dependent resources will be created first.",
+                "(resource) or ([resources])",
+                "resource/component reference, or array of references",
+                "resource, component (instances only)",
+                null,
+                "@dependsOn(subnet)\nresource EC2.Instance server { ... }\n\n@dependsOn([vpc, subnet, security_group])\nresource RDS.Instance database { ... }"
+        ));
+        DECORATOR_DOCS.put("tags", new DecoratorDoc(
+                "tags", "resource",
+                "Add cloud provider tags to resources.\n\nFormats:\n• Object: @tags({ Environment: \"prod\", Team: \"platform\" })\n• Array: @tags([\"Environment=prod\", \"Team=platform\"])\n• String: @tags(\"Environment=prod\")",
+                "({key: value}) or ([strings]) or (\"string\")",
+                "object, array of strings, or string",
+                "resource, component (instances only)",
+                null,
+                "@tags({ Environment: \"prod\", Team: \"platform\" })\nresource S3.Bucket photos { name = \"photos\" }\n\n@tags([\"Environment=staging\"])\nresource EC2.Instance server { ... }"
+        ));
+        DECORATOR_DOCS.put("provider", new DecoratorDoc(
+                "provider", "resource",
+                "Target specific cloud providers for resource provisioning.",
+                "(\"provider\") or ([\"providers\"])",
+                "string or array of strings",
+                "resource, component (instances only)",
+                null,
+                "@provider(\"aws\")\nresource S3.Bucket photos { name = \"photos\" }\n\n@provider([\"aws\", \"azure\"])\nresource Storage.Bucket multi_cloud { ... }"
+        ));
+        // Keep provisionOn as alias for backwards compatibility
+        DECORATOR_DOCS.put("provisionOn", new DecoratorDoc(
+                "provisionOn", "resource",
+                "Deprecated: Use @provider instead.\n\nTarget specific cloud providers for resource provisioning.",
+                "([\"providers\"])",
+                "string or array of strings",
+                "resource, component (instances only)",
+                null,
+                "@provider([\"aws\", \"azure\"])\nresource Database main { }"
+        ));
+
+        // Metadata decorators
+        DECORATOR_DOCS.put("description", new DecoratorDoc(
+                "description", "metadata",
+                "Documentation for any declaration.",
+                "(\"text\")",
+                "string",
+                "resource, component, input, output, var, schema, schema property, fun",
+                null,
+                "@description(\"The port number for the web server\")\ninput number port = 8080\n\n@description(\"Main application database\")\nresource RDS.Instance database { ... }"
+        ));
+        DECORATOR_DOCS.put("count", new DecoratorDoc(
+                "count", "metadata",
+                "Create N instances of a resource or component. Injects a special 'count' variable (0-indexed) that can be used in expressions.",
+                "(n)",
+                "number",
+                "resource, component (instances only)",
+                null,
+                "@count(3)\nresource EC2.Instance server {\n  name = \"server-$count\"  // \"server-0\", \"server-1\", \"server-2\"\n}"
+        ));
+        DECORATOR_DOCS.put("cloud", new DecoratorDoc(
+                "cloud", "metadata",
+                "Indicates that this property's value is set by the cloud provider at runtime, not by the user.",
+                "",
+                "none",
+                "schema property",
+                null,
+                "schema Instance {\n  string id\n  @cloud\n  string publicIp\n}"
+        ));
+    }
+
+    /**
+     * Holds documentation for a decorator.
+     */
+    private static class DecoratorDoc {
+        final String name;
+        final String category;
+        final String description;
+        final String syntax;
+        final String argumentType;  // What type of argument it takes
+        final String targets;       // What declarations it can apply to
+        final String appliesTo;     // What value types it applies to (null if N/A)
+        final String example;
+
+        DecoratorDoc(String name, String category, String description, String syntax,
+                     String argumentType, String targets, String appliesTo, String example) {
+            this.name = name;
+            this.category = category;
+            this.description = description;
+            this.syntax = syntax;
+            this.argumentType = argumentType;
+            this.targets = targets;
+            this.appliesTo = appliesTo;
+            this.example = example;
+        }
+    }
 
     @Override
     public @Nullable String generateDoc(PsiElement element, @Nullable PsiElement originalElement) {
@@ -34,6 +227,17 @@ public class KiteDocumentationProvider extends AbstractDocumentationProvider {
             return null;
         }
 
+        // Check if this is a decorator name (identifier after @)
+        if (isDecoratorName(element)) {
+            String decoratorName = element.getText();
+            DecoratorDoc doc = DECORATOR_DOCS.get(decoratorName);
+            if (doc != null) {
+                return generateDecoratorDocumentation(doc);
+            }
+            // Unknown decorator - still show basic info
+            return generateUnknownDecoratorDoc(decoratorName);
+        }
+
         // Find the declaration containing this element
         PsiElement declaration = findDeclaration(element);
         if (declaration == null) {
@@ -41,6 +245,136 @@ public class KiteDocumentationProvider extends AbstractDocumentationProvider {
         }
 
         return generateDocumentation(declaration);
+    }
+
+    /**
+     * Check if the element is a decorator name (identifier immediately after @).
+     */
+    private boolean isDecoratorName(PsiElement element) {
+        if (element == null || element.getNode() == null) {
+            return false;
+        }
+        if (element.getNode().getElementType() != KiteTokenTypes.IDENTIFIER) {
+            return false;
+        }
+        // Check if preceded by @
+        PsiElement prev = element.getPrevSibling();
+        while (prev != null && isWhitespaceElement(prev)) {
+            prev = prev.getPrevSibling();
+        }
+        return prev != null && prev.getNode() != null &&
+               prev.getNode().getElementType() == KiteTokenTypes.AT;
+    }
+
+    /**
+     * Generate documentation HTML for a decorator.
+     */
+    @NotNull
+    private String generateDecoratorDocumentation(DecoratorDoc doc) {
+        StringBuilder sb = new StringBuilder();
+
+        sb.append("<div style=\"overflow-x: auto; max-width: 800px;\">");
+
+        // Header: decorator name and category
+        sb.append("<div style=\"margin-bottom: 8px;\">");
+        sb.append("<b>Decorator</b> ");
+        sb.append("<span style=\"color: ").append(COLOR_DECORATOR).append(";\">@").append(doc.name).append("</span>");
+        sb.append(" <span style=\"color: #888;\">(").append(doc.category).append(")</span>");
+        sb.append("</div>");
+
+        // Syntax
+        if (!doc.syntax.isEmpty()) {
+            sb.append("<div style=\"margin-bottom: 4px;\">");
+            sb.append("<span>Syntax:</span> ");
+            sb.append("<code><span style=\"color: ").append(COLOR_DECORATOR).append(";\">@").append(doc.name).append("</span>").append(escapeHtml(doc.syntax)).append("</code>");
+            sb.append("</div>");
+        }
+
+        // Argument info table
+        sb.append("<div style=\"margin-bottom: 8px; background-color: ").append(getSectionBackgroundColor()).append("; padding: 8px; border-radius: 4px;\">");
+        sb.append("<table style=\"border-collapse: collapse; width: 100%;\">");
+
+        // Argument type
+        sb.append("<tr><td style=\"padding: 2px 8px 2px 0; color: #888;\">Argument:</td>");
+        sb.append("<td style=\"padding: 2px 0;\"><code>").append(escapeHtml(doc.argumentType)).append("</code></td></tr>");
+
+        // Targets
+        sb.append("<tr><td style=\"padding: 2px 8px 2px 0; color: #888;\">Targets:</td>");
+        sb.append("<td style=\"padding: 2px 0;\"><code>").append(escapeHtml(doc.targets)).append("</code></td></tr>");
+
+        // Applies to (only if specified)
+        if (doc.appliesTo != null) {
+            sb.append("<tr><td style=\"padding: 2px 8px 2px 0; color: #888;\">Applies to:</td>");
+            sb.append("<td style=\"padding: 2px 0;\"><code>").append(escapeHtml(doc.appliesTo)).append("</code></td></tr>");
+        }
+
+        sb.append("</table>");
+        sb.append("</div>");
+
+        // Description
+        sb.append("<div style=\"margin-bottom: 8px;\">");
+        sb.append(escapeHtml(doc.description));
+        sb.append("</div>");
+
+        // Example
+        sb.append("<div style=\"margin-bottom: 8px; background-color: ").append(getSectionBackgroundColor()).append("; padding: 8px; border-radius: 4px;\">");
+        sb.append("<span>Example:</span>");
+        sb.append("<pre style=\"margin: 4px 0 0 0; padding: 0; font-family: monospace; background: transparent;\">");
+        sb.append(colorizeDecoratorExample(doc.example));
+        sb.append("</pre>");
+        sb.append("</div>");
+
+        sb.append("</div>");
+
+        return sb.toString();
+    }
+
+    /**
+     * Generate documentation for an unknown decorator.
+     */
+    @NotNull
+    private String generateUnknownDecoratorDoc(String name) {
+        StringBuilder sb = new StringBuilder();
+
+        sb.append("<div style=\"white-space: nowrap; overflow-x: auto; max-width: 800px;\">");
+
+        sb.append("<div style=\"margin-bottom: 8px;\">");
+        sb.append("<b>Decorator</b> ");
+        sb.append("<span style=\"color: ").append(COLOR_DECORATOR).append(";\">@").append(escapeHtml(name)).append("</span>");
+        sb.append("</div>");
+
+        sb.append("<div style=\"margin-bottom: 8px; color: #999;\">");
+        sb.append("Unknown decorator. This is not a built-in decorator.");
+        sb.append("</div>");
+
+        sb.append("</div>");
+
+        return sb.toString();
+    }
+
+    /**
+     * Colorize a decorator example with syntax highlighting.
+     */
+    @NotNull
+    private String colorizeDecoratorExample(String example) {
+        StringBuilder result = new StringBuilder();
+        String[] lines = example.split("\n");
+
+        for (int i = 0; i < lines.length; i++) {
+            if (i > 0) {
+                result.append("\n");
+            }
+            String line = lines[i];
+
+            // Check if line starts with @
+            if (line.trim().startsWith("@")) {
+                result.append(colorizeDecoratorNoBreaks(line));
+            } else {
+                result.append(colorizeCodeNoBreaks(line));
+            }
+        }
+
+        return result.toString();
     }
 
     @Override
@@ -52,8 +386,14 @@ public class KiteDocumentationProvider extends AbstractDocumentationProvider {
 
         IElementType elementType = contextElement.getNode().getElementType();
 
-        // Handle identifiers - find their declaration
+        // Handle identifiers - check if it's a decorator first
         if (elementType == KiteTokenTypes.IDENTIFIER) {
+            // Check if this is a decorator name (after @)
+            if (isDecoratorName(contextElement)) {
+                // Return the element itself - generateDoc will handle it
+                return contextElement;
+            }
+
             String name = contextElement.getText();
             PsiElement declaration = findDeclarationByName(file, name);
             if (declaration != null) {
@@ -63,6 +403,18 @@ public class KiteDocumentationProvider extends AbstractDocumentationProvider {
             PsiElement parent = contextElement.getParent();
             if (isDeclaration(parent)) {
                 return parent;
+            }
+        }
+
+        // Handle @ symbol - show doc for the decorator that follows
+        if (elementType == KiteTokenTypes.AT) {
+            PsiElement next = contextElement.getNextSibling();
+            while (next != null && isWhitespaceElement(next)) {
+                next = next.getNextSibling();
+            }
+            if (next != null && next.getNode() != null &&
+                next.getNode().getElementType() == KiteTokenTypes.IDENTIFIER) {
+                return next;
             }
         }
 

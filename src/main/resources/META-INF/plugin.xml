@@ -98,6 +98,13 @@
           <li>Updates as you type or move through arguments</li>
         </ul>
       </li>
+      <li><b>Decorator Autocomplete</b> - Type <code>@</code> and trigger autocomplete to see all available decorators:
+        <ul>
+          <li>All 16 built-in decorators: validation (<code>@minValue</code>, <code>@maxLength</code>, etc.), resource (<code>@existing</code>, <code>@tags</code>, etc.), and metadata (<code>@description</code>, <code>@count</code>, etc.)</li>
+          <li>Argument format hints show expected syntax</li>
+          <li>Smart insertion places cursor inside parentheses</li>
+        </ul>
+      </li>
       <li><b>Type Checking & Error Highlighting</b> - Real-time validation with warnings and errors:
         <ul>
           <li>Undefined reference detection: warns when identifiers don't resolve to any declaration</li>
@@ -120,6 +127,17 @@
 
     <!-- Short summary of new features and bugfixes in the latest version -->
     <change-notes><![CDATA[
+    <b>0.21.0</b>
+    <ul>
+      <li><b>Decorator Autocomplete</b> - Type <code>@</code> and trigger autocomplete to see all available decorators
+        <ul>
+          <li>Shows all 16 built-in decorators organized by category (validation, resource, metadata)</li>
+          <li>Displays argument format hints (e.g., <code>(n)</code>, <code>([...])</code>, <code>({...})</code>)</li>
+          <li>Smart insertion places cursor inside parentheses for decorators with arguments</li>
+          <li>Custom deep orange <code>@</code> icon for decorator completions</li>
+        </ul>
+      </li>
+    </ul>
     <b>0.20.0</b>
     <ul>
       <li><b>IntelliJ 2023+ Support</b> - Extended backwards compatibility to IntelliJ IDEA 2023.1+ (builds 231.* - 252.*)</li>
