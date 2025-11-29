@@ -35,7 +35,9 @@ java {
 // Configure ANTLR - separate lexer and parser grammars require two-phase generation
 // The lexer generates a .tokens file that the parser needs
 def antlrOutputDir = file("${project.buildDir}/generated-src/antlr/main/cloud/kitelang/intellij/parser")
-def antlrSourceDir = file("src/main/antlr/cloud/kitelang/intellij/parser")
+// Grammar files location - use submodule if available, otherwise fall back to local path
+def grammarSubmodule = file("grammar")
+def antlrSourceDir = grammarSubmodule.exists() ? grammarSubmodule : file("src/main/antlr/cloud/kitelang/intellij/parser")
 
 // Disable the default generateGrammarSource task - we'll use custom tasks
 generateGrammarSource.enabled = false
