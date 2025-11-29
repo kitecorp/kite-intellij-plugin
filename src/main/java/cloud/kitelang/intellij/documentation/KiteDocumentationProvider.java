@@ -233,26 +233,29 @@ public class KiteDocumentationProvider extends AbstractDocumentationProvider {
             sb.append("</div>");
         }
 
-        // Argument info table
-        sb.append("<div style=\"margin-bottom: 8px; background-color: ").append(getSectionBackgroundColorStatic()).append("; padding: 8px; border-radius: 4px;\">");
-        sb.append("<span style=\"font-weight: bold;\">Arguments:</span>");
-        sb.append("<table style=\"border-collapse: collapse; width: 100%; margin-top: 4px;\">");
+        // Arguments section with shared background (same as example section)
+        sb.append("<div style=\"margin-bottom: 8px; background-color: ").append(getCodeBackgroundColorStatic()).append("; padding: 8px; border-radius: 4px;\">");
 
         // Argument type
-        sb.append("<tr><td style=\"padding: 2px 8px 2px 0; color: #888;\">Type:</td>");
-        sb.append("<td style=\"padding: 2px 0;\"><code>").append(escapeHtmlStatic(doc.argumentType)).append("</code></td></tr>");
+        sb.append("<div style=\"margin-bottom: 4px;\">");
+        sb.append("<span style=\"color: #888;\">Type:</span> ");
+        sb.append("<code>").append(escapeHtmlStatic(doc.argumentType)).append("</code>");
+        sb.append("</div>");
 
         // Targets
-        sb.append("<tr><td style=\"padding: 2px 8px 2px 0; color: #888;\">Targets:</td>");
-        sb.append("<td style=\"padding: 2px 0;\"><code>").append(escapeHtmlStatic(doc.targets)).append("</code></td></tr>");
+        sb.append("<div style=\"margin-bottom: 4px;\">");
+        sb.append("<span style=\"color: #888;\">Targets:</span> ");
+        sb.append("<code>").append(escapeHtmlStatic(doc.targets)).append("</code>");
+        sb.append("</div>");
 
         // Applies to (only if specified)
         if (doc.appliesTo != null) {
-            sb.append("<tr><td style=\"padding: 2px 8px 2px 0; color: #888;\">Applies to:</td>");
-            sb.append("<td style=\"padding: 2px 0;\"><code>").append(escapeHtmlStatic(doc.appliesTo)).append("</code></td></tr>");
+            sb.append("<div>");
+            sb.append("<span style=\"color: #888;\">Applies to:</span> ");
+            sb.append("<code>").append(escapeHtmlStatic(doc.appliesTo)).append("</code>");
+            sb.append("</div>");
         }
 
-        sb.append("</table>");
         sb.append("</div>");
 
         // Example with syntax highlighting (uses different background to distinguish from info section)
