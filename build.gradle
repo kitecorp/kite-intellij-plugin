@@ -1,27 +1,28 @@
 plugins {
     id 'java'
-    id 'org.jetbrains.intellij' version '1.17.4'
+    id 'org.jetbrains.intellij.platform' version '2.10.5'
     id 'antlr'
 }
 
 group = 'cloud.kitelang'
-version = '0.19.0'
+version = '0.20.0'
 
 repositories {
     mavenCentral()
+    intellijPlatform {
+        defaultRepositories()
+    }
 }
 
 dependencies {
     antlr 'org.antlr:antlr4:4.13.1'
     implementation 'org.antlr:antlr4-runtime:4.13.1'
-}
 
-// Configure Gradle IntelliJ Plugin
-// Read more: https://plugins.jetbrains.com/docs/intellij/tools-gradle-intellij-plugin.html
-intellij {
-    version = '2024.1'
-    type = 'IC' // IntelliJ IDEA Community Edition
-    plugins = []
+    intellijPlatform {
+        intellijIdeaCommunity('2024.1')
+        instrumentationTools()
+        pluginVerifier()
+    }
 }
 
 // Configure Java
@@ -32,9 +33,33 @@ java {
     }
 }
 
+// Configure IntelliJ Platform Plugin
+intellijPlatform {
+    pluginConfiguration {
+        id = 'cloud.kitelang.intellij'
+        name = 'Kite Language'
+        version = project.version
+
+        ideaVersion {
+            sinceBuild = '241'
+            untilBuild = '252.*'
+        }
+    }
+
+    signing {
+        certificateChain = providers.environmentVariable("CERTIFICATE_CHAIN")
+        privateKey = providers.environmentVariable("PRIVATE_KEY")
+        password = providers.environmentVariable("PRIVATE_KEY_PASSWORD")
+    }
+
+    publishing {
+        token = providers.environmentVariable("PUBLISH_TOKEN")
+    }
+}
+
 // Configure ANTLR - separate lexer and parser grammars require two-phase generation
 // The lexer generates a .tokens file that the parser needs
-def antlrOutputDir = file("${project.buildDir}/generated-src/antlr/main/cloud/kitelang/intellij/parser")
+def antlrOutputDir = file("${project.layout.buildDirectory.get()}/generated-src/antlr/main/cloud/kitelang/intellij/parser")
 // Grammar files location - use submodule if available, otherwise fall back to local path
 def grammarSubmodule = file("grammar")
 def antlrSourceDir = grammarSubmodule.exists() ? grammarSubmodule : file("src/main/antlr/cloud/kitelang/intellij/parser")
@@ -105,7 +130,7 @@ tasks.named('compileJava') {
 sourceSets {
     main {
         java {
-            srcDir "${project.buildDir}/generated-src/antlr/main"
+            srcDir "${project.layout.buildDirectory.get()}/generated-src/antlr/main"
         }
     }
 }
@@ -114,19 +139,4 @@ sourceSets {
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'
     options.release = 17  // Compile to Java 17 bytecode for IDE compatibility
-}
-
-tasks.named('patchPluginXml') {
-    sinceBuild = '241'
-    untilBuild = '252.*'
-}
-
-tasks.named('signPlugin') {
-    certificateChain = System.getenv("CERTIFICATE_CHAIN")
-    privateKey = System.getenv("PRIVATE_KEY")
-    password = System.getenv("PRIVATE_KEY_PASSWORD")
-}
-
-tasks.named('publishPlugin') {
-    token = System.getenv("PUBLISH_TOKEN")
 }
