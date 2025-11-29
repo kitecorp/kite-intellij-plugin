@@ -91,18 +91,22 @@
           <li><code>compfull</code> → complete component with inputs, resource, and output</li>
         </ul>
       </li>
-      <li><b>Parameter Info</b> - Press Ctrl+P (Windows/Linux) or Cmd+P (Mac) inside a function call to see parameter hints:
+      <li><b>Parameter Info</b> - Press Ctrl+P (Windows/Linux) or Cmd+P (Mac) inside function calls or decorator arguments to see parameter hints:
         <ul>
           <li>Shows function parameter names and types</li>
+          <li>Shows decorator argument types and descriptions (e.g., <code>@minValue(</code> shows <code>n: number (0 to 999999)</code>)</li>
           <li>Highlights the current parameter based on cursor position</li>
           <li>Updates as you type or move through arguments</li>
         </ul>
       </li>
-      <li><b>Decorator Autocomplete</b> - Type <code>@</code> and trigger autocomplete to see all available decorators:
+      <li><b>Decorator Support</b> - Comprehensive tooling for Kite decorators:
         <ul>
-          <li>All 16 built-in decorators: validation (<code>@minValue</code>, <code>@maxLength</code>, etc.), resource (<code>@existing</code>, <code>@tags</code>, etc.), and metadata (<code>@description</code>, <code>@count</code>, etc.)</li>
-          <li>Argument format hints show expected syntax</li>
-          <li>Smart insertion places cursor inside parentheses</li>
+          <li><b>Autocomplete</b> - Type <code>@</code> and trigger autocomplete to see all 16 built-in decorators</li>
+          <li><b>Context-aware filtering</b> - Shows only decorators valid for the current target (e.g., <code>@minValue</code> only for <code>input</code>/<code>output</code>)</li>
+          <li><b>Quick Documentation</b> - Press Ctrl+Q (F1 on Mac) on any decorator for documentation with syntax-highlighted examples</li>
+          <li><b>Documentation in autocomplete</b> - View decorator docs directly in the completion popup</li>
+          <li><b>Parameter Info</b> - Press Ctrl+P inside decorator arguments to see expected parameter types</li>
+          <li><b>Validation</b> - Warnings for unknown decorators with quick-fix suggestions</li>
         </ul>
       </li>
       <li><b>Type Checking & Error Highlighting</b> - Real-time validation with warnings and errors:
@@ -127,14 +131,17 @@
 
     <!-- Short summary of new features and bugfixes in the latest version -->
     <change-notes><![CDATA[
-    <b>0.21.0</b>
+    <b>0.22.0</b>
     <ul>
-      <li><b>Decorator Autocomplete</b> - Type <code>@</code> and trigger autocomplete to see all available decorators
+      <li><b>Decorator Support</b> - Comprehensive tooling for Kite decorators:
         <ul>
-          <li>Shows all 16 built-in decorators organized by category (validation, resource, metadata)</li>
-          <li>Displays argument format hints (e.g., <code>(n)</code>, <code>([...])</code>, <code>({...})</code>)</li>
-          <li>Smart insertion places cursor inside parentheses for decorators with arguments</li>
-          <li>Custom deep orange <code>@</code> icon for decorator completions</li>
+          <li><b>Syntax Highlighting</b> - Decorators highlighted in deep orange</li>
+          <li><b>Autocomplete</b> - Type <code>@</code> and trigger autocomplete to see all 16 built-in decorators with argument hints</li>
+          <li><b>Context-aware filtering</b> - Shows only decorators valid for the current target (e.g., <code>@minValue</code> only for <code>input</code>/<code>output</code>)</li>
+          <li><b>Quick Documentation</b> - Press Ctrl+Q (F1 on Mac) on any decorator for documentation with syntax-highlighted examples</li>
+          <li><b>Documentation in autocomplete</b> - View decorator docs directly in the completion popup</li>
+          <li><b>Parameter Info</b> - Press Ctrl+P inside decorator arguments to see expected parameter types</li>
+          <li><b>Validation</b> - Warnings for unknown decorators</li>
         </ul>
       </li>
     </ul>
@@ -450,6 +457,10 @@
         <!-- Parameter Info (Ctrl+P) - Shows function parameter hints -->
         <codeInsight.parameterInfo language="Kite"
                                    implementationClass="cloud.kitelang.intellij.parameterinfo.KiteParameterInfoHandler"/>
+
+        <!-- Parameter Info for decorators (Ctrl+P) - Shows decorator argument hints -->
+        <codeInsight.parameterInfo language="Kite"
+                                   implementationClass="cloud.kitelang.intellij.parameterinfo.KiteDecoratorParameterInfoHandler"/>
 
         <!-- Quote auto-pairing (typing " or ' automatically inserts closing quote) -->
         <typedHandler implementation="cloud.kitelang.intellij.KiteQuoteHandler"/>
