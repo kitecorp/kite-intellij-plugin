@@ -5,10 +5,7 @@ import cloud.kitelang.intellij.psi.KiteElementTypes;
 import cloud.kitelang.intellij.psi.KiteTokenTypes;
 import com.intellij.lang.documentation.AbstractDocumentationProvider;
 import com.intellij.openapi.editor.Editor;
-import com.intellij.psi.PsiComment;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.PsiFile;
-import com.intellij.psi.PsiWhiteSpace;
+import com.intellij.psi.*;
 import com.intellij.psi.tree.IElementType;
 import com.intellij.ui.JBColor;
 import org.jetbrains.annotations.NotNull;
@@ -190,6 +187,112 @@ public class KiteDocumentationProvider extends AbstractDocumentationProvider {
     }
 
     /**
+     * Get decorator documentation HTML by name.
+     * This is used by the completion contributor to show documentation in the autocomplete popup.
+     *
+     * @param decoratorName the name of the decorator (without @)
+     * @return HTML documentation or null if decorator is unknown
+     */
+    @Nullable
+    public static String getDecoratorDocumentation(String decoratorName) {
+        DecoratorDoc doc = DECORATOR_DOCS.get(decoratorName);
+        if (doc != null) {
+            return generateDecoratorDocumentationStatic(doc);
+        }
+        return null;
+    }
+
+    /**
+     * Static version of generateDecoratorDocumentation for use by other classes.
+     * Uses DocumentationMarkup for proper formatting in IntelliJ's lookup documentation popup.
+     */
+    private static String generateDecoratorDocumentationStatic(DecoratorDoc doc) {
+        StringBuilder sb = new StringBuilder();
+
+        // Use div-based layout with inline styles (same as non-static version)
+        sb.append("<div style=\"overflow-x: auto; max-width: 800px;\">");
+
+        // Header: decorator name and category
+        sb.append("<div style=\"margin-bottom: 8px;\">");
+        sb.append("<b>Decorator</b> ");
+        sb.append("<span style=\"color: ").append(COLOR_DECORATOR).append(";\">@").append(doc.name).append("</span>");
+        sb.append(" <span style=\"color: #888;\">(").append(doc.category).append(")</span>");
+        sb.append("</div>");
+
+        // Description
+        sb.append("<div style=\"margin-bottom: 8px;\">");
+        sb.append(escapeHtmlStatic(doc.description));
+        sb.append("</div>");
+
+        // Syntax
+        if (!doc.syntax.isEmpty()) {
+            sb.append("<div style=\"margin-bottom: 4px;\">");
+            sb.append("<span>Syntax:</span> ");
+            sb.append("<code><span style=\"color: ").append(COLOR_DECORATOR).append(";\">@").append(doc.name).append("</span>").append(escapeHtmlStatic(doc.syntax)).append("</code>");
+            sb.append("</div>");
+        }
+
+        // Argument info table
+        sb.append("<div style=\"margin-bottom: 8px; background-color: ").append(getSectionBackgroundColorStatic()).append("; padding: 8px; border-radius: 4px;\">");
+        sb.append("<table style=\"border-collapse: collapse; width: 100%;\">");
+
+        // Argument type
+        sb.append("<tr><td style=\"padding: 2px 8px 2px 0; color: #888;\">Argument:</td>");
+        sb.append("<td style=\"padding: 2px 0;\"><code>").append(escapeHtmlStatic(doc.argumentType)).append("</code></td></tr>");
+
+        // Targets
+        sb.append("<tr><td style=\"padding: 2px 8px 2px 0; color: #888;\">Targets:</td>");
+        sb.append("<td style=\"padding: 2px 0;\"><code>").append(escapeHtmlStatic(doc.targets)).append("</code></td></tr>");
+
+        // Applies to (only if specified)
+        if (doc.appliesTo != null) {
+            sb.append("<tr><td style=\"padding: 2px 8px 2px 0; color: #888;\">Applies to:</td>");
+            sb.append("<td style=\"padding: 2px 0;\"><code>").append(escapeHtmlStatic(doc.appliesTo)).append("</code></td></tr>");
+        }
+
+        sb.append("</table>");
+        sb.append("</div>");
+
+        // Example with syntax highlighting
+        sb.append("<div style=\"margin-bottom: 8px; background-color: ").append(getSectionBackgroundColorStatic()).append("; padding: 8px; border-radius: 4px;\">");
+        sb.append("<span>Example:</span>");
+        sb.append("<pre style=\"margin: 4px 0 0 0; padding: 0; font-family: monospace; background: transparent;\">");
+        sb.append(colorizeDecoratorExampleStatic(doc.example));
+        sb.append("</pre>");
+        sb.append("</div>");
+
+        sb.append("</div>");
+
+        return sb.toString();
+    }
+
+    private static String escapeHtmlStatic(String text) {
+        if (text == null) return "";
+        return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;");
+    }
+
+    private static String getSectionBackgroundColorStatic() {
+        return JBColor.isBright() ? "#F5F5F5" : "#2D2D2D";
+    }
+
+    // Keep colorizeDecoratorExampleStatic for the main Ctrl+Q documentation (not lookup popup)
+    private static String colorizeDecoratorExampleStatic(String example) {
+        if (example == null) return "";
+        String escaped = escapeHtmlStatic(example);
+        // Color decorators
+        escaped = escaped.replaceAll("(@\\w+)", "<span style=\"color: " + COLOR_DECORATOR + ";\">$1</span>");
+        // Color keywords
+        escaped = escaped.replaceAll("\\b(input|output|resource|component|schema|var|fun)\\b",
+                "<span style=\"color: " + COLOR_KEYWORD + ";\">$1</span>");
+        // Color types
+        escaped = escaped.replaceAll("\\b(string|number|boolean|object|any)\\b",
+                "<span style=\"color: " + COLOR_TYPE + ";\">$1</span>");
+        // Color strings
+        escaped = escaped.replaceAll("\"([^\"]*)\"", "<span style=\"color: " + COLOR_STRING + ";\">\"$1\"</span>");
+        return escaped;
+    }
+
+    /**
      * Holds documentation for a decorator.
      */
     private static class DecoratorDoc {
@@ -215,8 +318,47 @@ public class KiteDocumentationProvider extends AbstractDocumentationProvider {
         }
     }
 
+    /**
+     * Wrapper class to identify decorator lookup items.
+     * Used to enable documentation popup for decorators in autocomplete.
+     */
+    public static class DecoratorLookupItem {
+        public final String name;
+
+        public DecoratorLookupItem(String name) {
+            this.name = name;
+        }
+
+        @Override
+        public String toString() {
+            return name;
+        }
+    }
+
+    // Thread-local storage for decorator lookup item during documentation generation
+    private static final ThreadLocal<DecoratorLookupItem> currentDecoratorLookup = new ThreadLocal<>();
+
+    @Override
+    public @Nullable PsiElement getDocumentationElementForLookupItem(PsiManager psiManager, Object object, PsiElement element) {
+        // Handle decorator lookup items - store the decorator info and return the element
+        if (object instanceof DecoratorLookupItem decoratorItem) {
+            currentDecoratorLookup.set(decoratorItem);
+            return element;
+        }
+        currentDecoratorLookup.remove();
+        return null;
+    }
+
     @Override
     public @Nullable String generateDoc(PsiElement element, @Nullable PsiElement originalElement) {
+        // Check if this is a decorator lookup item from autocomplete
+        // Note: Don't clear the ThreadLocal here - IntelliJ may call generateDoc multiple times
+        // for caching/re-rendering. The value will be overwritten by the next lookup operation.
+        DecoratorLookupItem lookupItem = currentDecoratorLookup.get();
+        if (lookupItem != null) {
+            return getDecoratorDocumentation(lookupItem.name);
+        }
+
         if (element == null) {
             return null;
         }
@@ -267,7 +409,8 @@ public class KiteDocumentationProvider extends AbstractDocumentationProvider {
     }
 
     /**
-     * Generate documentation HTML for a decorator.
+     * Generate documentation HTML for a decorator with full syntax highlighting.
+     * Used for Ctrl+Q on decorator names in code (not in autocomplete popup).
      */
     @NotNull
     private String generateDecoratorDocumentation(DecoratorDoc doc) {
@@ -280,6 +423,11 @@ public class KiteDocumentationProvider extends AbstractDocumentationProvider {
         sb.append("<b>Decorator</b> ");
         sb.append("<span style=\"color: ").append(COLOR_DECORATOR).append(";\">@").append(doc.name).append("</span>");
         sb.append(" <span style=\"color: #888;\">(").append(doc.category).append(")</span>");
+        sb.append("</div>");
+
+        // Description
+        sb.append("<div style=\"margin-bottom: 8px;\">");
+        sb.append(escapeHtml(doc.description));
         sb.append("</div>");
 
         // Syntax
@@ -309,11 +457,6 @@ public class KiteDocumentationProvider extends AbstractDocumentationProvider {
         }
 
         sb.append("</table>");
-        sb.append("</div>");
-
-        // Description
-        sb.append("<div style=\"margin-bottom: 8px;\">");
-        sb.append(escapeHtml(doc.description));
         sb.append("</div>");
 
         // Example

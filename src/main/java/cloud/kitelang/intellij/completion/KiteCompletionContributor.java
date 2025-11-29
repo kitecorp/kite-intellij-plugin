@@ -1,6 +1,7 @@
 package cloud.kitelang.intellij.completion;
 
 import cloud.kitelang.intellij.KiteLanguage;
+import cloud.kitelang.intellij.documentation.KiteDocumentationProvider;
 import cloud.kitelang.intellij.psi.KiteElementTypes;
 import cloud.kitelang.intellij.psi.KiteTokenTypes;
 import cloud.kitelang.intellij.reference.KiteImportHelper;
@@ -223,7 +224,6 @@ public class KiteCompletionContributor extends CompletionContributor {
 
         // First, check if we're inside a schema body - if so, decorators apply to properties
         if (isInsideSchemaBody(position)) {
-            System.out.println("[DECORATOR DEBUG] Inside schema body, returning TARGET_SCHEMA_PROPERTY");
             return TARGET_SCHEMA_PROPERTY;
         }
 
@@ -231,20 +231,12 @@ public class KiteCompletionContributor extends CompletionContributor {
         // This is the actual file content before completion was triggered
         PsiFile originalFile = parameters.getOriginalFile();
         if (originalFile == null) {
-            System.out.println("[DECORATOR DEBUG] originalFile is null, returning TARGET_ALL");
             return TARGET_ALL;
         }
 
         String text = originalFile.getText();
         // Use the offset in the original file, not the position's offset (which includes dummy)
         int startOffset = parameters.getOffset();
-
-        System.out.println("[DECORATOR DEBUG] startOffset=" + startOffset + ", textLength=" + text.length());
-        if (startOffset < text.length()) {
-            int previewEnd = Math.min(startOffset + 50, text.length());
-            String preview = text.substring(startOffset, previewEnd).replace("\n", "\\n");
-            System.out.println("[DECORATOR DEBUG] text from offset: \"" + preview + "\"");
-        }
 
         // Scan forward from cursor position to find the declaration keyword
         int i = startOffset;
@@ -270,30 +262,22 @@ public class KiteCompletionContributor extends CompletionContributor {
                     i++;
                 }
                 String word = text.substring(wordStart, i);
-                System.out.println("[DECORATOR DEBUG] Found word: \"" + word + "\"");
 
                 // Check if this word is a declaration keyword
                 switch (word) {
                     case "input":
-                        System.out.println("[DECORATOR DEBUG] Matched 'input', returning TARGET_INPUT");
                         return TARGET_INPUT;
                     case "output":
-                        System.out.println("[DECORATOR DEBUG] Matched 'output', returning TARGET_OUTPUT");
                         return TARGET_OUTPUT;
                     case "resource":
-                        System.out.println("[DECORATOR DEBUG] Matched 'resource', returning TARGET_RESOURCE");
                         return TARGET_RESOURCE;
                     case "component":
-                        System.out.println("[DECORATOR DEBUG] Matched 'component', returning TARGET_COMPONENT");
                         return TARGET_COMPONENT;
                     case "var":
-                        System.out.println("[DECORATOR DEBUG] Matched 'var', returning TARGET_VAR");
                         return TARGET_VAR;
                     case "schema":
-                        System.out.println("[DECORATOR DEBUG] Matched 'schema', returning TARGET_SCHEMA");
                         return TARGET_SCHEMA;
                     case "fun":
-                        System.out.println("[DECORATOR DEBUG] Matched 'fun', returning TARGET_FUN");
                         return TARGET_FUN;
                 }
 
@@ -336,12 +320,10 @@ public class KiteCompletionContributor extends CompletionContributor {
             }
 
             // Any other unexpected character - stop searching
-            System.out.println("[DECORATOR DEBUG] Unexpected char '" + c + "' at " + i + ", stopping");
             break;
         }
 
         // Could not determine - show all decorators
-        System.out.println("[DECORATOR DEBUG] Loop ended, returning TARGET_ALL");
         return TARGET_ALL;
     }
 
@@ -409,7 +391,11 @@ public class KiteCompletionContributor extends CompletionContributor {
                 continue;
             }
 
-            LookupElementBuilder element = LookupElementBuilder.create(decorator.name)
+            // Use DecoratorLookupItem as the lookup object to enable documentation popup
+            KiteDocumentationProvider.DecoratorLookupItem lookupItem =
+                    new KiteDocumentationProvider.DecoratorLookupItem(decorator.name);
+
+            LookupElementBuilder element = LookupElementBuilder.create(lookupItem, decorator.name)
                     .withIcon(KiteStructureViewIcons.DECORATOR)
                     .withTypeText(decorator.category, true)
                     .withTailText(decorator.tailText.isEmpty() ? "" : " " + decorator.tailText, true)
