@@ -13,17 +13,18 @@ import java.util.List;
 public class AddImportQuickFixTest extends KiteTestBase {
 
     /**
-     * Test that undefined symbol is handled gracefully.
-     * Note: Full error reporting requires the full IDE environment.
+     * Test that undefined symbol produces a warning.
+     * When no import candidates exist, it's a WARNING.
      */
-    public void testUndefinedSymbolHandledGracefully() {
+    public void testUndefinedSymbolProducesWarning() {
         configureByText("""
                 var x = undefinedVar
                 """);
 
-        // Verify highlighting runs without exception
-        List<HighlightInfo> allHighlights = myFixture.doHighlighting();
-        assertNotNull("Highlighting should run", allHighlights);
+        // Verify warning is produced for undefined symbol (WARNING when no import candidates)
+        HighlightInfo warning = getFirstWarning();
+        assertNotNull("Should have a warning for undefined symbol", warning);
+        assertEquals("Cannot resolve symbol 'undefinedVar'", warning.getDescription());
     }
 
     /**
@@ -46,10 +47,9 @@ public class AddImportQuickFixTest extends KiteTestBase {
     }
 
     /**
-     * Test that wildcard import is handled correctly.
-     * Note: Full wildcard import resolution requires the full IDE environment.
+     * Test that wildcard import resolves all symbols from imported file.
      */
-    public void testWildcardImportHandledGracefully() {
+    public void testWildcardImportNoErrors() {
         addFile("common.kite", """
                 var defaultRegion = "us-east-1"
                 var otherVar = "other"
@@ -61,9 +61,9 @@ public class AddImportQuickFixTest extends KiteTestBase {
                 var x = defaultRegion
                 """);
 
-        // Verify highlighting runs without exception
-        List<HighlightInfo> allHighlights = myFixture.doHighlighting();
-        assertNotNull("Highlighting should run", allHighlights);
+        // Wildcard import should make defaultRegion available - no errors expected
+        List<HighlightInfo> errors = getErrors();
+        assertTrue("Wildcard import should produce no errors, but got: " + formatErrors(errors), errors.isEmpty());
     }
 
     /**

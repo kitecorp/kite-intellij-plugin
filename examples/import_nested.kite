@@ -1,4 +1,4 @@
-import nestedVar from "subdir/nested.kite"
+import * from "subdir/nested.kite"
 
 var x = nestedVar
 
