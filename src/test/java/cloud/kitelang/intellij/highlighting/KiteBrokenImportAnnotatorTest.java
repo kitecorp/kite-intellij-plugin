@@ -33,19 +33,19 @@ public class KiteBrokenImportAnnotatorTest extends KiteTestBase {
     }
 
     /**
-     * Test that non-existent file import is handled gracefully.
-     * Note: Full error reporting requires the full IDE environment.
+     * Test that non-existent file import produces unused import warning.
      */
-    public void testNonExistentFileImportHandledGracefully() {
+    public void testNonExistentFileImportProducesUnusedWarning() {
         configureByText("""
                 import something from "nonexistent.kite"
 
                 var x = "hello"
                 """);
 
-        // Verify highlighting runs without exception
-        List<HighlightInfo> allHighlights = myFixture.doHighlighting();
-        assertNotNull("Highlighting should run", allHighlights);
+        // Verify weak warning is produced for unused import
+        HighlightInfo warning = getFirstWeakWarning();
+        assertNotNull("Should have a weak warning for unused import", warning);
+        assertEquals("Unused import", warning.getDescription());
     }
 
     /**
