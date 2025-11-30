@@ -173,7 +173,7 @@ public class AddImportQuickFixTest extends KiteTestBase {
 
         configureByText("""
                 import WebServer from "components.kite"
-                
+
                 component WebServer myServer {
                     port = "3000"
                 }
@@ -182,6 +182,104 @@ public class AddImportQuickFixTest extends KiteTestBase {
         // Verify no errors for component import
         List<HighlightInfo> errors = getErrors();
         assertTrue("Valid component import should produce no errors, but got: " + formatErrors(errors), errors.isEmpty());
+    }
+
+    /**
+     * Test that resource instances can be imported from another file.
+     */
+    public void testImportedResourceInstanceNoError() {
+        addFile("types.kite", """
+                schema DatabaseConfig {
+                    string host
+                    number port
+                }
+                """);
+
+        addFile("shared.kite", """
+                import DatabaseConfig from "types.kite"
+                
+                resource DatabaseConfig prodDatabase {
+                    host = "prod.example.com"
+                    port = 5432
+                }
+                """);
+
+        configureByText("""
+                import prodDatabase from "shared.kite"
+                
+                var dbHost = prodDatabase.host
+                """);
+
+        // Verify no errors for resource instance import
+        List<HighlightInfo> errors = getErrors();
+        assertTrue("Valid resource instance import should produce no errors, but got: " + formatErrors(errors), errors.isEmpty());
+    }
+
+    /**
+     * Test that multiple resource instances can be imported from another file.
+     */
+    public void testImportMultipleResourceInstancesNoError() {
+        addFile("types.kite", """
+                schema ServerConfig {
+                    string name
+                    string region
+                }
+                """);
+
+        addFile("servers.kite", """
+                import ServerConfig from "types.kite"
+                
+                resource ServerConfig primaryServer {
+                    name = "primary"
+                    region = "us-east-1"
+                }
+                
+                resource ServerConfig backupServer {
+                    name = "backup"
+                    region = "us-west-2"
+                }
+                """);
+
+        configureByText("""
+                import primaryServer, backupServer from "servers.kite"
+                
+                var primary = primaryServer.name
+                var backup = backupServer.region
+                """);
+
+        // Verify no errors for multiple resource instance imports
+        List<HighlightInfo> errors = getErrors();
+        assertTrue("Valid multi-resource import should produce no errors, but got: " + formatErrors(errors), errors.isEmpty());
+    }
+
+    /**
+     * Test that component instances can be imported from another file.
+     */
+    public void testImportedComponentInstanceNoError() {
+        addFile("components.kite", """
+                component LoadBalancer {
+                    input string port = "80"
+                    output string endpoint = "http://localhost"
+                }
+                """);
+
+        addFile("infra.kite", """
+                import LoadBalancer from "components.kite"
+                
+                component LoadBalancer mainLB {
+                    port = "8080"
+                }
+                """);
+
+        configureByText("""
+                import mainLB from "infra.kite"
+                
+                var lbEndpoint = mainLB.endpoint
+                """);
+
+        // Verify no errors for component instance import
+        List<HighlightInfo> errors = getErrors();
+        assertTrue("Valid component instance import should produce no errors, but got: " + formatErrors(errors), errors.isEmpty());
     }
 
 }
