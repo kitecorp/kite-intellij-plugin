@@ -70,10 +70,8 @@ public class RemoveUnusedImportQuickFixTest extends KiteTestBase {
         myFixture.launchAction(fix);
 
         // Verify only the unused symbol was removed
-        String result = myFixture.getFile().getText();
-        assertTrue("Used symbol should remain in import", result.contains("import usedVar"));
-        assertFalse("Unused symbol should be removed", result.contains("unusedVar"));
-        assertTrue("From clause should remain", result.contains("from \"common.kite\""));
+        String result = myFixture.getFile().getFirstChild().getText().trim();
+        assertEquals("import usedVar from \"common.kite\"", result);
     }
 
     /**

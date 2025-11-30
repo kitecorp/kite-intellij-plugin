@@ -47,6 +47,13 @@ Key test patterns:
 - Use `myFixture.doHighlighting()` to trigger annotators
 - Use `myFixture.getFile().findReferenceAt(offset)` to test references
 
+Test assertion best practices:
+
+- **Prefer specific assertions over multiple `.contains()` checks**
+- When verifying transformed code, check for the exact expected result
+- Example: Instead of separate `contains("import usedVar")` and `!contains("unusedVar")` checks,
+  use a single `contains("import usedVar from \"common.kite\"")` that verifies the complete line
+
 ## Key Implementation Notes
 
 ### Formatter Indent Types
