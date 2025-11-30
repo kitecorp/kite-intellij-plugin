@@ -35,10 +35,9 @@ public class RemoveUnusedImportQuickFixTest extends KiteTestBase {
         // Apply the fix
         myFixture.launchAction(fixes.get(0));
 
-        // Verify the import was removed
-        String result = myFixture.getFile().getText();
-        assertFalse("Import should be removed", result.contains("import"));
-        assertTrue("Other code should remain", result.contains("var x"));
+        // Verify the import was removed, only var x remains
+        String result = myFixture.getFile().getText().trim();
+        assertEquals("var x = \"hello\"", result);
     }
 
     /**
@@ -135,9 +134,9 @@ public class RemoveUnusedImportQuickFixTest extends KiteTestBase {
         // Apply the fix (should remove entire line since all are unused)
         myFixture.launchAction(fixes.get(0));
 
-        // Verify the entire import was removed
-        String result = myFixture.getFile().getText();
-        assertFalse("Import should be removed", result.contains("import"));
+        // Verify the entire import was removed, only var x remains
+        String result = myFixture.getFile().getText().trim();
+        assertEquals("var x = \"none used\"", result);
     }
 
     /**
@@ -165,10 +164,9 @@ public class RemoveUnusedImportQuickFixTest extends KiteTestBase {
         // Apply the fix
         myFixture.launchAction(fixes.get(0));
 
-        // Verify only the unused import was removed
-        String result = myFixture.getFile().getText();
-        assertTrue("Used import should remain", result.contains("import usedVar from \"common.kite\""));
-        assertFalse("Unused import should be removed", result.contains("other.kite"));
+        // Verify only the unused import was removed, used import and var remain
+        String result = myFixture.getFile().getFirstChild().getText().trim();
+        assertEquals("import usedVar from \"common.kite\"", result);
     }
 
     /**
