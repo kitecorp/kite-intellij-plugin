@@ -4,6 +4,7 @@ import cloud.kitelang.intellij.KiteLanguage;
 import cloud.kitelang.intellij.psi.KiteElementTypes;
 import cloud.kitelang.intellij.psi.KiteTokenTypes;
 import cloud.kitelang.intellij.quickfix.RemoveUnusedImportQuickFix;
+import cloud.kitelang.intellij.quickfix.WildcardToNamedImportQuickFix;
 import cloud.kitelang.intellij.reference.KiteImportHelper;
 import com.intellij.codeInspection.ProblemHighlightType;
 import com.intellij.lang.annotation.AnnotationHolder;
@@ -233,6 +234,16 @@ public class KiteUnusedImportAnnotator implements Annotator {
                             .withFix(new RemoveUnusedImportQuickFix(importStart, importEnd))
                             .create();
                 }
+            }
+        } else if (anyUsed) {
+            // Wildcard import is used - offer "Convert to named import" quick fix
+            PsiElement importStatement = findImportStatementAt(containingFile, importStart);
+            if (importStatement != null) {
+                holder.newAnnotation(HighlightSeverity.INFORMATION, "Wildcard import can be converted to named import")
+                        .range(importStatement.getTextRange())
+                        .highlightType(ProblemHighlightType.INFORMATION)
+                        .withFix(new WildcardToNamedImportQuickFix(importStart, importEnd, importPath))
+                        .create();
             }
         }
     }

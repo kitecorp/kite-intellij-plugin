@@ -114,7 +114,7 @@ When an unused import is detected, a quick fix is available:
 | [x] Import Sorting            | Auto-sort imports alphabetically when optimizing          | Easy       |
 | [x] Unused Wildcard Warning   | Warn if `import *` doesn't use any symbol from the file   | Easy       |
 | [x] Import Folding            | Collapse multiple imports into `[3 imports...]` in editor | Easy       |
-| [ ] Wildcard to Named         | Convert `import *` to explicit named imports quick fix    | Medium     |
+| [x] Wildcard to Named         | Convert `import *` to explicit named imports quick fix    | Medium     |
 | [ ] Import Path Completion    | Autocomplete file paths in import strings                 | Medium     |
 | [ ] Circular Import Detection | Warn when files import each other in a cycle              | Medium     |
 | [ ] Import Grouping           | Group imports by category (local vs external)             | Medium     |
@@ -337,13 +337,14 @@ Shows file structure in tool window with:
 
 ## Test Files
 
-| Feature           | Test File                               |
-|-------------------|-----------------------------------------|
-| Import Resolution | `AddImportQuickFixTest.java`            |
-| Broken Imports    | `KiteBrokenImportAnnotatorTest.java`    |
-| Unused Imports    | `KiteUnusedImportAnnotatorTest.java`    |
-| Duplicate Imports | `KiteDuplicateImportAnnotatorTest.java` |
-| Remove Import Fix | `RemoveUnusedImportQuickFixTest.java`   |
-| Add Import Fix    | `AddImportIntentionTest.java`           |
-| Optimize Imports  | `KiteImportOptimizerTest.java`          |
-| Import Folding    | `KiteFoldingBuilderTest.java`           |
+| Feature           | Test File                                |
+|-------------------|------------------------------------------|
+| Import Resolution | `AddImportQuickFixTest.java`             |
+| Broken Imports    | `KiteBrokenImportAnnotatorTest.java`     |
+| Unused Imports    | `KiteUnusedImportAnnotatorTest.java`     |
+| Duplicate Imports | `KiteDuplicateImportAnnotatorTest.java`  |
+| Remove Import Fix | `RemoveUnusedImportQuickFixTest.java`    |
+| Add Import Fix    | `AddImportIntentionTest.java`            |
+| Optimize Imports  | `KiteImportOptimizerTest.java`           |
+| Import Folding    | `KiteFoldingBuilderTest.java`            |
+| Wildcard to Named | `WildcardToNamedImportQuickFixTest.java` |
