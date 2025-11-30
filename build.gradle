@@ -26,10 +26,10 @@ dependencies {
 }
 
 // Configure Java
-// Use Java 21 toolchain but compile to Java 17 bytecode for IDE compatibility
+// Use Java 25 toolchain but compile to Java 17 bytecode for IDE compatibility
 java {
     toolchain {
-        languageVersion = JavaLanguageVersion.of(21)
+        languageVersion = JavaLanguageVersion.of(25)
     }
 }
 
