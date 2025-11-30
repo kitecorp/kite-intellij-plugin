@@ -114,9 +114,18 @@
         <ul>
           <li>Undefined reference detection: warns when identifiers don't resolve to any declaration</li>
           <li><b>Add Import Quick-fix</b>: hover over undefined symbol and press Alt+Enter to add missing import</li>
+          <li><b>Broken import detection</b>: error highlighting on import paths that cannot be resolved</li>
           <li>Type mismatch detection: error when assigned value type doesn't match declared type</li>
           <li>Checks variable, input, and output declarations with explicit types</li>
           <li>Supports string, number, boolean, null, object, any, and array types (<code>string[]</code>, <code>number[]</code>, etc.)</li>
+        </ul>
+      </li>
+      <li><b>Auto-import on Completion</b> - Intelligent import management during code completion:
+        <ul>
+          <li>Symbols from other project files appear in autocomplete with "(import from filename.kite)" hint</li>
+          <li>Selecting the completion automatically inserts the import statement</li>
+          <li>Uses named import syntax and merges with existing imports from the same file</li>
+          <li>Already-imported symbols show with higher priority</li>
         </ul>
       </li>
       <li><b>Cross-file Navigation</b> - Go to Declaration across files:
@@ -134,8 +143,26 @@
 
     <!-- Short summary of new features and bugfixes in the latest version -->
     <change-notes><![CDATA[
-    <b>0.24.0</b>
+    <b>0.22.0</b>
     <ul>
+      <li><b>Auto-import on Code Completion</b> - Selecting a symbol from another file in autocomplete automatically adds the import statement:
+        <ul>
+          <li>Symbols from other project files appear in completion with "(import from filename.kite)" hint</li>
+          <li>Selecting the completion inserts the symbol AND adds the import statement</li>
+          <li>Uses named import syntax: <code>import SymbolName from "file.kite"</code></li>
+          <li>Merges with existing imports from the same file</li>
+          <li>Already-imported symbols show with higher priority (no auto-import needed)</li>
+        </ul>
+      </li>
+      <li><b>Broken Import Detection</b> - Error highlighting for import paths that cannot be resolved:
+        <ul>
+          <li>Red underline on file paths that don't exist</li>
+          <li>Error message: "Cannot resolve import path: 'filename.kite'"</li>
+          <li>Works with relative paths, package-style imports, and provider paths</li>
+        </ul>
+      </li>
+      <li><b>Import Symbol Navigation Fix</b> - Cmd+Click on symbols in import statements now correctly navigates to their declarations in the target file</li>
+      <li><b>Plugin Size Optimization</b> - Reduced plugin size from 15MB to 696KB (95% reduction) by excluding build-time ANTLR dependencies from distribution</li>
       <li><b>Named Imports</b> - Full support for named import syntax:
         <ul>
           <li>Single symbol: <code>import DatabaseConfig from "schemas.kite"</code></li>
@@ -152,21 +179,6 @@
           <li>Skips files that already have the symbol imported</li>
         </ul>
       </li>
-    </ul>
-    <b>0.23.0</b>
-    <ul>
-      <li><b>Add Import Quick-fix</b> - When you use an undefined symbol that exists in another file:
-        <ul>
-          <li>Hover over the undefined symbol and press Alt+Enter</li>
-          <li>Select "Import 'symbolName' from 'path'" to add the import</li>
-          <li>Automatically calculates relative import path from current file</li>
-          <li>Searches all .kite files in the project for matching declarations</li>
-          <li>Inserts import statement after existing imports (or at the top of the file)</li>
-        </ul>
-      </li>
-    </ul>
-    <b>0.22.0</b>
-    <ul>
       <li><b>Decorator Support</b> - Comprehensive tooling for Kite decorators:
         <ul>
           <li><b>Syntax Highlighting</b> - Decorators highlighted in deep orange</li>

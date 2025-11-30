@@ -145,3 +145,16 @@ tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'
     options.release = 17  // Compile to Java 17 bytecode for IDE compatibility
 }
+
+// Exclude ANTLR tool dependencies from the plugin distribution
+// Only the antlr4-runtime is needed at runtime
+configurations {
+    // Prevent antlr configuration from being included in runtime
+    runtimeClasspath {
+        exclude group: 'org.antlr', module: 'antlr4'
+        exclude group: 'org.antlr', module: 'antlr-runtime'
+        exclude group: 'org.antlr', module: 'ST4'
+        exclude group: 'org.abego.treelayout', module: 'org.abego.treelayout.core'
+        exclude group: 'com.ibm.icu', module: 'icu4j'
+    }
+}
