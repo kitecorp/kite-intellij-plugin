@@ -1,5 +1,6 @@
 package cloud.kitelang.intellij.highlighting;
 
+import cloud.kitelang.intellij.psi.KiteElementTypes;
 import cloud.kitelang.intellij.psi.KiteTokenTypes;
 import com.intellij.lang.annotation.AnnotationHolder;
 import com.intellij.lang.annotation.Annotator;
@@ -8,6 +9,7 @@ import com.intellij.openapi.editor.colors.TextAttributesKey;
 import com.intellij.openapi.editor.markup.TextAttributes;
 import com.intellij.openapi.util.TextRange;
 import com.intellij.psi.PsiElement;
+import com.intellij.psi.PsiFile;
 import com.intellij.psi.tree.IElementType;
 import com.intellij.ui.JBColor;
 import org.jetbrains.annotations.NotNull;
@@ -57,6 +59,11 @@ public class KiteAnnotator implements Annotator {
 
         // Only process identifiers for type highlighting
         if (elementType != KiteTokenTypes.IDENTIFIER) {
+            return;
+        }
+
+        // Skip import symbol identifiers - they should use default text color
+        if (isInsideImportStatement(element)) {
             return;
         }
 
@@ -277,5 +284,42 @@ public class KiteAnnotator implements Annotator {
                     .textAttributes(KiteSyntaxHighlighter.INTERPOLATION_VAR)
                     .create();
         }
+    }
+
+    /**
+     * Check if the element is inside an import statement.
+     * Import statements: import Symbol1, Symbol2 from "path"
+     * We don't want to color import symbols as types.
+     */
+    private boolean isInsideImportStatement(@NotNull PsiElement element) {
+        // Method 1: Walk up PSI tree to find IMPORT_STATEMENT element
+        PsiElement parent = element.getParent();
+        while (parent != null && !(parent instanceof PsiFile)) {
+            if (parent.getNode() != null &&
+                parent.getNode().getElementType() == KiteElementTypes.IMPORT_STATEMENT) {
+                return true;
+            }
+            parent = parent.getParent();
+        }
+
+        // Method 2: Check if the identifier comes after "import" keyword (text-based fallback)
+        // This handles cases where the PSI tree structure is flat
+        String line = getLineText(element);
+        String beforeElement = getTextBeforeInLine(element, line);
+
+        // Check if this line is an import statement: starts with "import" and contains "from"
+        if (line.contains("from") && beforeElement.matches("^\\s*import\\s+.*")) {
+            // Check that the identifier is between "import" and "from"
+            int fromIndex = line.indexOf(" from ");
+            int elementStart = element.getTextRange().getStartOffset();
+            int lineStart = element.getTextRange().getStartOffset() - beforeElement.length();
+            int elementOffset = elementStart - lineStart;
+
+            if (fromIndex > 0 && elementOffset < fromIndex) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

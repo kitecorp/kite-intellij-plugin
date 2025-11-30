@@ -41,10 +41,11 @@ public class KiteImportHelper {
         return getImportedFiles(file, new HashSet<>());
     }
 
-    // Pattern to match import statements: import * from "path" or import * from 'path'
+    // Pattern to match import statements: import * from "path" or import Symbol from 'path'
+    // Matches both wildcard imports (import * from) and named imports (import name1, name2 from)
     // Uses negative lookbehind to exclude commented lines (// at start of line or with leading whitespace)
     private static final Pattern IMPORT_PATTERN = Pattern.compile(
-            "^\\s*import\\s+\\*\\s+from\\s+[\"']([^\"']+)[\"']",
+            "^\\s*import\\s+(?:\\*|[\\w,\\s]+)\\s+from\\s+[\"']([^\"']+)[\"']",
             Pattern.MULTILINE
     );
 
@@ -463,5 +464,95 @@ public class KiteImportHelper {
             }
         }
         return false;
+    }
+
+    /**
+     * Check if a symbol name is imported from any import statement in a file.
+     * For named imports: only specifically named symbols are importable
+     * For wildcard imports: all symbols are importable
+     *
+     * @param symbolName     The symbol name to check
+     * @param containingFile The file containing the import statements
+     * @return true if the symbol is imported by any import statement
+     */
+    public static boolean isSymbolImported(@NotNull String symbolName, @NotNull PsiFile containingFile) {
+        String fileText = containingFile.getText();
+
+        // Pattern to match import statements: import <symbols> from "path"
+        // Group 1: the symbols part (either * or name1, name2, ...)
+        Pattern importPattern = Pattern.compile(
+                "^\\s*import\\s+([\\w,\\s*]+)\\s+from\\s+[\"'][^\"']+[\"']",
+                Pattern.MULTILINE
+        );
+
+        Matcher matcher = importPattern.matcher(fileText);
+        while (matcher.find()) {
+            String symbolsPart = matcher.group(1).trim();
+
+            // Check for wildcard import
+            if (symbolsPart.equals("*")) {
+                return true; // Wildcard imports everything
+            }
+
+            // Check for named imports: split by comma and check each
+            String[] importedSymbols = symbolsPart.split("\\s*,\\s*");
+            for (String imported : importedSymbols) {
+                if (imported.trim().equals(symbolName)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Get the file from which a symbol is imported.
+     * Returns null if the symbol is not imported or is defined locally.
+     *
+     * @param symbolName     The symbol name to find
+     * @param containingFile The file containing the import statements
+     * @return The PsiFile where the symbol is imported from, or null
+     */
+    @Nullable
+    public static PsiFile getImportSourceFile(@NotNull String symbolName, @NotNull PsiFile containingFile) {
+        String fileText = containingFile.getText();
+
+        // Pattern to match import statements: import <symbols> from "path"
+        Pattern importPattern = Pattern.compile(
+                "^\\s*import\\s+([\\w,\\s*]+)\\s+from\\s+[\"']([^\"']+)[\"']",
+                Pattern.MULTILINE
+        );
+
+        Matcher matcher = importPattern.matcher(fileText);
+        while (matcher.find()) {
+            String symbolsPart = matcher.group(1).trim();
+            String importPath = matcher.group(2);
+
+            boolean symbolMatches = false;
+
+            // Check for wildcard import
+            if (symbolsPart.equals("*")) {
+                symbolMatches = true;
+            } else {
+                // Check for named imports
+                String[] importedSymbols = symbolsPart.split("\\s*,\\s*");
+                for (String imported : importedSymbols) {
+                    if (imported.trim().equals(symbolName)) {
+                        symbolMatches = true;
+                        break;
+                    }
+                }
+            }
+
+            if (symbolMatches) {
+                PsiFile sourceFile = resolveFilePath(importPath, containingFile);
+                if (sourceFile != null) {
+                    return sourceFile;
+                }
+            }
+        }
+
+        return null;
     }
 }

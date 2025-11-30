@@ -87,6 +87,14 @@ public class KiteReferenceContributor extends PsiReferenceContributor {
                             return PsiReference.EMPTY_ARRAY;
                         }
 
+                        // Check if this is an import symbol (identifier in an import statement)
+                        String importPath = getImportPathForSymbol(element);
+                        if (importPath != null) {
+                            LOG.info("[KiteRefContrib] Creating import symbol reference for: " + element.getText() + " from " + importPath);
+                            TextRange range = new TextRange(0, element.getTextLength());
+                            return new PsiReference[]{new KiteImportSymbolReference(element, range, element.getText(), importPath)};
+                        }
+
                         // Don't provide references for declaration names (the name being declared)
                         // e.g., in "input number port = 8080", "port" is a declaration name, not a reference
                         if (isDeclarationName(element)) {
@@ -552,5 +560,58 @@ public class KiteReferenceContributor extends PsiReferenceContributor {
                type == KiteTokenTypes.WHITESPACE ||
                type == KiteTokenTypes.NL ||
                type == KiteTokenTypes.NEWLINE;
+    }
+
+    // Pattern to extract import path from import statement line
+    // Matches: import symbol1, symbol2 from "path" OR import * from "path"
+    private static final Pattern IMPORT_LINE_PATTERN = Pattern.compile(
+            "^\\s*import\\s+(?:\\*|[\\w,\\s]+)\\s+from\\s+[\"']([^\"']+)[\"']"
+    );
+
+    /**
+     * Check if an identifier is inside an import statement and return the import path.
+     * For "import appName from "common.kite"", returns "common.kite" if element is appName.
+     * Returns null if the element is not an import symbol.
+     */
+    @Nullable
+    private static String getImportPathForSymbol(@NotNull PsiElement element) {
+        // Method 1: Walk up PSI tree to find IMPORT_STATEMENT element
+        PsiElement parent = element.getParent();
+        while (parent != null && !(parent instanceof PsiFile)) {
+            if (parent.getNode() != null &&
+                parent.getNode().getElementType() == KiteElementTypes.IMPORT_STATEMENT) {
+                // Found IMPORT_STATEMENT - extract the path
+                return KiteImportHelper.extractImportPath(parent);
+            }
+            parent = parent.getParent();
+        }
+
+        // Method 2: Text-based fallback - check if on an import line
+        int offset = element.getTextRange().getStartOffset();
+        String fileText = element.getContainingFile().getText();
+
+        // Find the line containing this element
+        int lineStart = offset;
+        while (lineStart > 0 && fileText.charAt(lineStart - 1) != '\n') {
+            lineStart--;
+        }
+        int lineEnd = offset;
+        while (lineEnd < fileText.length() && fileText.charAt(lineEnd) != '\n') {
+            lineEnd++;
+        }
+        String line = fileText.substring(lineStart, lineEnd);
+
+        // Check if this line is an import statement
+        Matcher matcher = IMPORT_LINE_PATTERN.matcher(line);
+        if (matcher.find()) {
+            // Make sure the identifier is in the symbols part (between "import" and "from")
+            int fromIndex = line.indexOf(" from ");
+            int elementOffset = offset - lineStart;
+            if (fromIndex > 0 && elementOffset < fromIndex) {
+                return matcher.group(1);
+            }
+        }
+
+        return null;
     }
 }

@@ -1251,6 +1251,7 @@ public class KiteGotoDeclarationHandler implements GotoDeclarationHandler {
     /**
      * Find declaration in imported files (cross-file navigation).
      * Uses KiteImportHelper to resolve imports and search in imported files.
+     * Only searches for symbols that are explicitly imported (named or wildcard).
      *
      * @param file          The file containing the import statements
      * @param targetName    The name to find
@@ -1260,36 +1261,39 @@ public class KiteGotoDeclarationHandler implements GotoDeclarationHandler {
      */
     @Nullable
     private PsiElement findDeclarationInImportedFiles(PsiFile file, String targetName, PsiElement sourceElement, Set<String> visited) {
-        // Get all imported files
-        List<PsiFile> importedFiles = KiteImportHelper.getImportedFiles(file);
-        LOG.info("[KiteGotoDecl] Found " + importedFiles.size() + " imported files");
+        // Check if this symbol is actually imported
+        // getImportSourceFile returns the file only if the symbol is imported (named or wildcard)
+        PsiFile importSourceFile = KiteImportHelper.getImportSourceFile(targetName, file);
 
-        for (PsiFile importedFile : importedFiles) {
-            if (importedFile == null || importedFile.getVirtualFile() == null) {
-                continue;
-            }
+        if (importSourceFile == null) {
+            // Symbol is not imported, don't search imported files
+            LOG.info("[KiteGotoDecl] Symbol '" + targetName + "' is not imported - skipping cross-file search");
+            return null;
+        }
 
-            String filePath = importedFile.getVirtualFile().getPath();
-            if (visited.contains(filePath)) {
-                continue; // Already visited, skip to prevent infinite loop
-            }
-            visited.add(filePath);
+        if (importSourceFile.getVirtualFile() == null) {
+            return null;
+        }
 
-            LOG.info("[KiteGotoDecl] Searching in imported file: " + importedFile.getName());
+        String filePath = importSourceFile.getVirtualFile().getPath();
+        if (visited.contains(filePath)) {
+            return null; // Already visited, skip to prevent infinite loop
+        }
+        visited.add(filePath);
 
-            // Search for declaration in this imported file
-            // Use null for sourceElement since we're in a different file
-            PsiElement declaration = findDeclaration(importedFile, targetName, null);
-            if (declaration != null) {
-                LOG.info("[KiteGotoDecl] Found declaration in imported file: " + filePath);
-                return declaration;
-            }
+        LOG.info("[KiteGotoDecl] Symbol '" + targetName + "' is imported from: " + importSourceFile.getName());
 
-            // Also recursively check imports in the imported file
-            PsiElement nestedDeclaration = findDeclarationInImportedFiles(importedFile, targetName, sourceElement, visited);
-            if (nestedDeclaration != null) {
-                return nestedDeclaration;
-            }
+        // Search for declaration in the specific imported file
+        PsiElement declaration = findDeclaration(importSourceFile, targetName, null);
+        if (declaration != null) {
+            LOG.info("[KiteGotoDecl] Found declaration in imported file: " + filePath);
+            return declaration;
+        }
+
+        // Also recursively check imports in the imported file (for re-exports)
+        PsiElement nestedDeclaration = findDeclarationInImportedFiles(importSourceFile, targetName, sourceElement, visited);
+        if (nestedDeclaration != null) {
+            return nestedDeclaration;
         }
 
         return null;

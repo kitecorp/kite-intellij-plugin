@@ -627,6 +627,7 @@ public class KiteReference extends PsiReferenceBase<PsiElement> implements PsiPo
 
     /**
      * Find declarations in imported files (cross-file navigation).
+     * Only searches for symbols that are explicitly imported (named or wildcard).
      *
      * @param file       The file containing the import statements
      * @param targetName The name to find
@@ -635,26 +636,31 @@ public class KiteReference extends PsiReferenceBase<PsiElement> implements PsiPo
      */
     private void findDeclarationsInImportedFiles(PsiFile file, String targetName,
                                                  List<ResolveResult> results, Set<String> visited) {
-        // Get all imported files
-        List<PsiFile> importedFiles = KiteImportHelper.getImportedFiles(file);
+        // Check if this symbol is actually imported
+        // getImportSourceFile returns the file if the symbol is imported (named or wildcard)
+        PsiFile importSourceFile = KiteImportHelper.getImportSourceFile(targetName, file);
 
-        for (PsiFile importedFile : importedFiles) {
-            if (importedFile == null || importedFile.getVirtualFile() == null) {
-                continue;
-            }
+        if (importSourceFile == null) {
+            // Symbol is not imported, don't search imported files
+            return;
+        }
 
-            String filePath = importedFile.getVirtualFile().getPath();
-            if (visited.contains(filePath)) {
-                continue; // Already visited, skip to prevent infinite loop
-            }
-            visited.add(filePath);
+        if (importSourceFile.getVirtualFile() == null) {
+            return;
+        }
 
+        String filePath = importSourceFile.getVirtualFile().getPath();
+        if (visited.contains(filePath)) {
+            return; // Already visited, skip to prevent infinite loop
+        }
+        visited.add(filePath);
 
-            // Search for declarations in this imported file
-            findDeclarationsInFile(importedFile, targetName, results);
+        // Search for declarations only in the specific imported file
+        findDeclarationsInFile(importSourceFile, targetName, results);
 
-            // Also recursively check imports in the imported file
-            findDeclarationsInImportedFiles(importedFile, targetName, results, visited);
+        // Also recursively check imports in the imported file (for re-exports)
+        if (results.isEmpty()) {
+            findDeclarationsInImportedFiles(importSourceFile, targetName, results, visited);
         }
     }
 
