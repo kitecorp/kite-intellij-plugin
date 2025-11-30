@@ -1,4 +1,5 @@
 import nestedVar from "subdir/nested.kite"
 
-
 var x = nestedVar
+
+

@@ -11,7 +11,9 @@ schema CommonConfig {
   Region   region = "us-east-1"
   any      data
 }
-
+var a = "1"
+var b = "2"
+var c = "3"
 // Shared variable
 var string defaultRegion = "us-east-1"
 var string appName       = "MyApplication"

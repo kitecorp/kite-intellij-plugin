@@ -51,7 +51,7 @@ public class KiteUnusedImportAnnotatorTest extends KiteTestBase {
                 """);
 
         List<HighlightInfo> warnings = getUnusedImportWarnings();
-        assertEquals("Used import should not be flagged", 0, warnings.size());
+        assertTrue("Used import should not be flagged", warnings.isEmpty());
     }
 
     /**
