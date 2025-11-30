@@ -1,0 +1,300 @@
+# Kite IntelliJ Plugin - Feature Documentation
+
+## Table of Contents
+
+- [Import System](#import-system)
+- [Navigation](#navigation)
+- [Code Completion](#code-completion)
+- [Type Checking](#type-checking)
+- [Quick Fixes](#quick-fixes)
+- [Inlay Hints](#inlay-hints)
+- [Quick Documentation](#quick-documentation)
+- [Structure View](#structure-view)
+- [Formatting](#formatting)
+
+---
+
+## Import System
+
+### Supported Import Syntax
+
+```kite
+// Named import - single symbol
+import defaultRegion from "common.kite"
+
+// Named import - multiple symbols
+import alpha, beta, gamma from "common.kite"
+
+// Wildcard import - all exports
+import * from "common.kite"
+
+// Package-style path
+import DatabaseConfig from "aws.DatabaseConfig"
+```
+
+### Importable Types
+
+The following can be imported from other files:
+
+| Type                | Example                         | Description                  |
+|---------------------|---------------------------------|------------------------------|
+| Variables           | `var region = "us-east-1"`      | Global variable declarations |
+| Functions           | `fun formatName(...) { }`       | Function definitions         |
+| Schemas             | `schema Config { }`             | Schema type definitions      |
+| Components          | `component WebServer { }`       | Component definitions        |
+| Resource Instances  | `resource Config myDb { }`      | Instantiated resources       |
+| Component Instances | `component Server myServer { }` | Instantiated components      |
+
+### Import Path Resolution
+
+Imports are resolved in the following order (see `KiteImportHelper.resolveFilePath()`):
+
+1. **Relative to containing file** - `"common.kite"` looks in same directory
+2. **Project base path** - Searches from project root
+3. **Project-local providers** - `.kite/providers/` directory
+4. **User-global providers** - `~/.kite/providers/` directory
+5. **Package-style paths** - `"aws.DatabaseConfig"` resolves to `aws/DatabaseConfig.kite`
+
+### Import Validation
+
+#### Broken Import Detection
+
+- **Error**: `Cannot resolve import path 'nonexistent.kite'`
+- Triggered when the import path points to a file that doesn't exist
+- Implemented in: `KiteTypeCheckingAnnotator`
+- Test file: `KiteBrokenImportAnnotatorTest`
+
+#### Empty Import Path
+
+- **Error**: `Empty import path`
+- Triggered when import path is an empty string: `import x from ""`
+
+#### Import Ordering
+
+- **Error**: `Import statements must appear at the beginning of the file`
+- Imports must come before any other statements (var, fun, schema, resource, component)
+- Multiple consecutive imports at the top are allowed
+
+### Unused Import Detection
+
+- **Warning (weak)**: `Unused import 'symbolName'`
+- Detects imports that are never referenced in the file
+- Recognizes usage in:
+    - Direct identifier references
+    - String interpolation (`$var` and `${var}`)
+    - Type positions (resource types, function parameter types)
+- Implemented in: `KiteUnusedImportAnnotator`
+- Test file: `KiteUnusedImportAnnotatorTest`
+
+### Remove Unused Import Quick Fix
+
+When an unused import is detected, a quick fix is available:
+
+- **Single symbol import**: "Remove unused import" - removes entire import line
+- **Multi-symbol import**: "Remove unused import 'symbolName'" - removes only the unused symbol
+- If all symbols in a multi-import are unused, removes the entire line
+- Implemented in: `RemoveUnusedImportQuickFix`
+- Test file: `RemoveUnusedImportQuickFixTest`
+
+---
+
+## Navigation
+
+### Go to Declaration (Cmd+Click / Ctrl+Click)
+
+Navigate to the definition of:
+
+- Variables, inputs, outputs
+- Functions
+- Schemas
+- Components
+- Resource and component instances
+- Imported symbols (navigates to source file)
+- Function parameters (within function body)
+- Resource properties (navigates to schema property definition)
+
+### Find Usages
+
+When clicking on a declaration, all usages are highlighted:
+
+- Standard identifier references
+- String interpolation usage (`$var` and `${var}`)
+
+### Breadcrumbs
+
+Shows hierarchical path in editor header:
+
+- File > Schema/Component/Function > Property/Parameter
+
+---
+
+## Code Completion
+
+### Context-Aware Completion
+
+**In resource blocks (before `=`):**
+
+- Shows only schema properties for the resource type
+- Filters out already-defined properties
+
+**In resource blocks (after `=`):**
+
+- Shows variables, inputs, outputs, resources, components, functions
+
+**General completion:**
+
+- Local declarations
+- Imported symbols
+- Built-in types
+
+---
+
+## Type Checking
+
+### Undefined Symbol Detection
+
+- **Warning/Error**: `Cannot resolve symbol 'name'`
+- Warning when no import candidates exist
+- Shows as error when symbol is completely unknown
+
+### Excluded from Validation
+
+- Decorator names (after `@`)
+- Schema property definitions (`type propertyName`)
+- Array-typed properties (`type[] propertyName`)
+- Built-in type names
+- Property access chains
+
+---
+
+## Quick Fixes
+
+### Available Quick Fixes
+
+| Quick Fix            | Trigger               | Action                   |
+|----------------------|-----------------------|--------------------------|
+| Remove unused import | Unused import warning | Removes import or symbol |
+
+### Planned Quick Fixes
+
+- Add import for undefined symbol (when symbol exists in another file)
+- Optimize imports (remove all unused)
+
+---
+
+## Inlay Hints
+
+### Variable Type Hints
+
+Shows inferred type after variable name:
+
+```kite
+var x:string = "hello"  // :string is the hint
+```
+
+### Parameter Name Hints
+
+Shows parameter names in function calls:
+
+```kite
+greet(name:"Alice", age:30)  // name: and age: are hints
+```
+
+### Resource Property Type Hints
+
+Shows property types from matching schema:
+
+```kite
+resource DatabaseConfig db {
+    host:string = "localhost"  // :string is the hint
+}
+```
+
+---
+
+## Quick Documentation
+
+Press **Ctrl+Q** (Windows/Linux) or **F1** (Mac) to show documentation popup.
+
+### Supported Elements
+
+- Variables (type, default value)
+- Inputs/Outputs (type, default value, parent component)
+- Resources (type, properties)
+- Components (inputs, outputs)
+- Schemas (properties)
+- Functions (parameters, return type)
+
+### Features
+
+- Shows preceding comments as documentation
+- Displays decorators
+- Works in string interpolation
+- Color-coded: types (blue), strings (green), numbers (blue)
+
+---
+
+## Structure View
+
+### View Hierarchy
+
+Shows file structure in tool window with:
+
+- Imports
+- Schemas and their properties
+- Components and their inputs/outputs
+- Functions
+- Resources
+- Variables
+
+### Icons
+
+| Element   | Color      | Letter |
+|-----------|------------|--------|
+| Resource  | Purple     | R      |
+| Component | Blue       | C      |
+| Schema    | Green      | S      |
+| Function  | Orange     | F      |
+| Type      | Blue       | T      |
+| Variable  | Purple     | V      |
+| Input     | Amber      | I      |
+| Output    | Lime       | O      |
+| Import    | Brown      | M      |
+| Property  | Cornflower | P      |
+
+---
+
+## Formatting
+
+### Features
+
+- Automatic indentation
+- Property alignment in schemas and resources
+- Configurable indent size (default: 2 spaces)
+- Continuation indent for wrapped lines (default: 4 spaces)
+
+---
+
+## Implementation Files
+
+| Feature                 | Main Implementation                            |
+|-------------------------|------------------------------------------------|
+| Import Resolution       | `reference/KiteImportHelper.java`              |
+| Broken Import Detection | `highlighting/KiteTypeCheckingAnnotator.java`  |
+| Unused Import Detection | `highlighting/KiteUnusedImportAnnotator.java`  |
+| Remove Import Quick Fix | `quickfix/RemoveUnusedImportQuickFix.java`     |
+| Navigation              | `navigation/KiteGotoDeclarationHandler.java`   |
+| Code Completion         | `completion/KiteCompletionContributor.java`    |
+| Inlay Hints             | `hints/KiteInlayHintsProvider.java`            |
+| Quick Documentation     | `documentation/KiteDocumentationProvider.java` |
+| Structure View          | `structure/KiteStructureViewElement.java`      |
+| Formatter               | `formatter/KiteBlock.java`                     |
+
+## Test Files
+
+| Feature           | Test File                             |
+|-------------------|---------------------------------------|
+| Import Resolution | `AddImportQuickFixTest.java`          |
+| Broken Imports    | `KiteBrokenImportAnnotatorTest.java`  |
+| Unused Imports    | `KiteUnusedImportAnnotatorTest.java`  |
+| Remove Import Fix | `RemoveUnusedImportQuickFixTest.java` |

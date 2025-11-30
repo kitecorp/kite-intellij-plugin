@@ -330,3 +330,4 @@ component WebServer {
 }
 ```
 
+- always follow TDD. Functionality without a test is not valid
