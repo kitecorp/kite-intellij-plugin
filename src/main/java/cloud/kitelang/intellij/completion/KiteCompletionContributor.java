@@ -151,10 +151,10 @@ public class KiteCompletionContributor extends CompletionContributor {
         ));
 
         NUMBER_SUGGESTIONS.put("memory", List.of(
-                new DefaultValueSuggestion("128", "128 MB"),
-                new DefaultValueSuggestion("256", "256 MB"),
-                new DefaultValueSuggestion("512", "512 MB"),
-                new DefaultValueSuggestion("1024", "1 GB")
+                new DefaultValueSuggestion("128", "128MB"),
+                new DefaultValueSuggestion("256", "256MB"),
+                new DefaultValueSuggestion("512", "512MB"),
+                new DefaultValueSuggestion("1024", "1GB")
         ));
 
         NUMBER_SUGGESTIONS.put("replicas", List.of(
@@ -258,6 +258,11 @@ public class KiteCompletionContributor extends CompletionContributor {
     }
 
     public KiteCompletionContributor() {
+        // Import path completion provider - suggests .kite files in import strings
+        extend(CompletionType.BASIC,
+                PlatformPatterns.psiElement().withLanguage(KiteLanguage.INSTANCE),
+                new KiteImportPathCompletionProvider());
+
         // General completion provider for Kite files
         extend(CompletionType.BASIC,
             PlatformPatterns.psiElement().withLanguage(KiteLanguage.INSTANCE),

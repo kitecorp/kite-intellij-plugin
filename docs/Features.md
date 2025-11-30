@@ -115,7 +115,7 @@ When an unused import is detected, a quick fix is available:
 | [x] Unused Wildcard Warning   | Warn if `import *` doesn't use any symbol from the file   | Easy       |
 | [x] Import Folding            | Collapse multiple imports into `[3 imports...]` in editor | Easy       |
 | [x] Wildcard to Named         | Convert `import *` to explicit named imports quick fix    | Medium     |
-| [ ] Import Path Completion    | Autocomplete file paths in import strings                 | Medium     |
+| [x] Import Path Completion    | Autocomplete file paths in import strings                 | Medium     |
 | [ ] Circular Import Detection | Warn when files import each other in a cycle              | Medium     |
 | [ ] Import Grouping           | Group imports by category (local vs external)             | Medium     |
 | [ ] Relative Path Suggestions | Suggest shorter relative paths for imports                | Medium     |
@@ -319,32 +319,34 @@ Shows file structure in tool window with:
 
 ## Implementation Files
 
-| Feature                    | Main Implementation                              |
-|----------------------------|--------------------------------------------------|
-| Import Resolution          | `reference/KiteImportHelper.java`                |
-| Broken Import Detection    | `highlighting/KiteTypeCheckingAnnotator.java`    |
-| Unused Import Detection    | `highlighting/KiteUnusedImportAnnotator.java`    |
-| Duplicate Import Detection | `highlighting/KiteDuplicateImportAnnotator.java` |
-| Remove Import Quick Fix    | `quickfix/RemoveUnusedImportQuickFix.java`       |
-| Add Import Quick Fix       | `quickfix/AddImportQuickFix.java`                |
-| Optimize Imports           | `imports/KiteImportOptimizer.java`               |
-| Navigation                 | `navigation/KiteGotoDeclarationHandler.java`     |
-| Code Completion            | `completion/KiteCompletionContributor.java`      |
-| Inlay Hints                | `hints/KiteInlayHintsProvider.java`              |
-| Quick Documentation        | `documentation/KiteDocumentationProvider.java`   |
-| Structure View             | `structure/KiteStructureViewElement.java`        |
-| Formatter                  | `formatter/KiteBlock.java`                       |
+| Feature                    | Main Implementation                                |
+|----------------------------|----------------------------------------------------|
+| Import Resolution          | `reference/KiteImportHelper.java`                  |
+| Broken Import Detection    | `highlighting/KiteTypeCheckingAnnotator.java`      |
+| Unused Import Detection    | `highlighting/KiteUnusedImportAnnotator.java`      |
+| Duplicate Import Detection | `highlighting/KiteDuplicateImportAnnotator.java`   |
+| Remove Import Quick Fix    | `quickfix/RemoveUnusedImportQuickFix.java`         |
+| Add Import Quick Fix       | `quickfix/AddImportQuickFix.java`                  |
+| Optimize Imports           | `imports/KiteImportOptimizer.java`                 |
+| Navigation                 | `navigation/KiteGotoDeclarationHandler.java`       |
+| Code Completion            | `completion/KiteCompletionContributor.java`        |
+| Import Path Completion     | `completion/KiteImportPathCompletionProvider.java` |
+| Inlay Hints                | `hints/KiteInlayHintsProvider.java`                |
+| Quick Documentation        | `documentation/KiteDocumentationProvider.java`     |
+| Structure View             | `structure/KiteStructureViewElement.java`          |
+| Formatter                  | `formatter/KiteBlock.java`                         |
 
 ## Test Files
 
-| Feature           | Test File                                |
-|-------------------|------------------------------------------|
-| Import Resolution | `AddImportQuickFixTest.java`             |
-| Broken Imports    | `KiteBrokenImportAnnotatorTest.java`     |
-| Unused Imports    | `KiteUnusedImportAnnotatorTest.java`     |
-| Duplicate Imports | `KiteDuplicateImportAnnotatorTest.java`  |
-| Remove Import Fix | `RemoveUnusedImportQuickFixTest.java`    |
-| Add Import Fix    | `AddImportIntentionTest.java`            |
-| Optimize Imports  | `KiteImportOptimizerTest.java`           |
-| Import Folding    | `KiteFoldingBuilderTest.java`            |
-| Wildcard to Named | `WildcardToNamedImportQuickFixTest.java` |
+| Feature                | Test File                                |
+|------------------------|------------------------------------------|
+| Import Resolution      | `AddImportQuickFixTest.java`             |
+| Broken Imports         | `KiteBrokenImportAnnotatorTest.java`     |
+| Unused Imports         | `KiteUnusedImportAnnotatorTest.java`     |
+| Duplicate Imports      | `KiteDuplicateImportAnnotatorTest.java`  |
+| Remove Import Fix      | `RemoveUnusedImportQuickFixTest.java`    |
+| Add Import Fix         | `AddImportIntentionTest.java`            |
+| Optimize Imports       | `KiteImportOptimizerTest.java`           |
+| Import Folding         | `KiteFoldingBuilderTest.java`            |
+| Wildcard to Named      | `WildcardToNamedImportQuickFixTest.java` |
+| Import Path Completion | `KiteImportPathCompletionTest.java`      |
