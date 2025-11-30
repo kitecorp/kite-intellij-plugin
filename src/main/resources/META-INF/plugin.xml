@@ -431,6 +431,10 @@
         <annotator language="Kite"
                    implementationClass="cloud.kitelang.intellij.highlighting.KiteTypeCheckingAnnotator"/>
 
+        <!-- Annotator for unused import detection -->
+        <annotator language="Kite"
+                   implementationClass="cloud.kitelang.intellij.highlighting.KiteUnusedImportAnnotator"/>
+
         <!-- Structure view -->
         <lang.psiStructureViewFactory language="Kite"
                                       implementationClass="cloud.kitelang.intellij.structure.KiteStructureViewBuilderFactory"/>

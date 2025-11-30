@@ -28,7 +28,7 @@ schema DatabaseConfig {
 }
 
 component SharedLogger logger {
-  
+
 }
 
 @provider(["aws"])

@@ -1,6 +1,6 @@
+import unusedSymbol from "common.kite"
 // Common shared declarations for Kite projects
 // This file is imported by simple.kite using: import * from "common.kite"
-
 // Shared type definition
 type Region = "us-east-1" | "us-west-2" | "eu-west-1"
 
