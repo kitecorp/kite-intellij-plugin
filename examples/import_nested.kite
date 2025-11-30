@@ -1,5 +1,6 @@
-import * from "subdir/nested.kite"
+//import * from "subdir/nested.kite"
+import region from "subdir/nested.kite"
 
 var x = nestedVar
-
+var endpoint = "https://$region.api.example.com"
 

@@ -64,6 +64,13 @@ public class KiteGotoDeclarationHandler implements GotoDeclarationHandler {
                 LOG.info("[KiteGotoDecl] Found declaration for INTERP_IDENTIFIER: " + varName);
                 return new PsiElement[]{declaration};
             }
+            // Not found locally - search in imported files (cross-file navigation)
+            LOG.info("[KiteGotoDecl] INTERP_IDENTIFIER not found locally, searching imports...");
+            PsiElement importedDeclaration = findDeclarationInImportedFiles(file, varName, sourceElement, new HashSet<>());
+            if (importedDeclaration != null) {
+                LOG.info("[KiteGotoDecl] Found INTERP_IDENTIFIER in imported file: " + varName);
+                return new PsiElement[]{importedDeclaration};
+            }
             return null;
         }
 
@@ -78,6 +85,13 @@ public class KiteGotoDeclarationHandler implements GotoDeclarationHandler {
                 if (declaration != null) {
                     LOG.info("[KiteGotoDecl] Found declaration for INTERP_SIMPLE: " + varName);
                     return new PsiElement[]{declaration};
+                }
+                // Not found locally - search in imported files (cross-file navigation)
+                LOG.info("[KiteGotoDecl] INTERP_SIMPLE not found locally, searching imports...");
+                PsiElement importedDeclaration = findDeclarationInImportedFiles(file, varName, sourceElement, new HashSet<>());
+                if (importedDeclaration != null) {
+                    LOG.info("[KiteGotoDecl] Found INTERP_SIMPLE in imported file: " + varName);
+                    return new PsiElement[]{importedDeclaration};
                 }
             }
             return null;

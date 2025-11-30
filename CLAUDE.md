@@ -1,5 +1,7 @@
 # Kite IntelliJ Plugin - Development Notes
 
+> **See also:** [docs/Features.md](docs/Features.md) for comprehensive feature documentation.
+
 ## Development Principles
 
 1. **Apply existing patterns first** - Look for similar working code before creating new solutions
