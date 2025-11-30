@@ -4,7 +4,6 @@ import cloud.kitelang.intellij.KiteTestBase;
 import com.intellij.codeInsight.daemon.impl.HighlightInfo;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
 /**
  * Tests for {@link AddImportQuickFix}.
@@ -161,15 +160,4 @@ public class AddImportQuickFixTest extends KiteTestBase {
         assertTrue("Import should come before var", importIndex < varIndex);
     }
 
-    /**
-     * Helper method to format errors for assertion messages.
-     */
-    private String formatErrors(List<HighlightInfo> errors) {
-        if (errors.isEmpty()) {
-            return "[]";
-        }
-        return errors.stream()
-                .map(h -> h.getDescription() != null ? h.getDescription() : "null")
-                .collect(Collectors.joining(", ", "[", "]"));
-    }
 }

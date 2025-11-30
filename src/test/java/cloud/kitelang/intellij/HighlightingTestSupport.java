@@ -102,4 +102,19 @@ public interface HighlightingTestSupport {
     default HighlightInfo getFirstInfoHighlight() {
         return getFirstHighlight(HighlightSeverity.INFORMATION);
     }
+
+    // ========== Formatting Helpers ==========
+
+    /**
+     * Format a list of highlights for assertion messages.
+     * Returns descriptions in format: "[desc1, desc2, ...]" or "[]" if empty.
+     */
+    default String formatErrors(List<HighlightInfo> highlights) {
+        if (highlights.isEmpty()) {
+            return "[]";
+        }
+        return highlights.stream()
+                .map(h -> h.getDescription() != null ? h.getDescription() : "null")
+                .collect(Collectors.joining(", ", "[", "]"));
+    }
 }

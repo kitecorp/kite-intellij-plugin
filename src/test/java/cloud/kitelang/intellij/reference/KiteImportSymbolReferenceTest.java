@@ -4,7 +4,6 @@ import cloud.kitelang.intellij.KiteTestBase;
 import com.intellij.codeInsight.daemon.impl.HighlightInfo;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
 /**
  * Tests for {@link KiteImportSymbolReference}.
@@ -172,15 +171,4 @@ public class KiteImportSymbolReferenceTest extends KiteTestBase {
         assertTrue("Valid output import should produce no errors, but got: " + formatErrors(errors), errors.isEmpty());
     }
 
-    /**
-     * Helper method to format errors for assertion messages.
-     */
-    private String formatErrors(List<HighlightInfo> errors) {
-        if (errors.isEmpty()) {
-            return "[]";
-        }
-        return errors.stream()
-                .map(h -> h.getDescription() != null ? h.getDescription() : "null")
-                .collect(Collectors.joining(", ", "[", "]"));
-    }
 }

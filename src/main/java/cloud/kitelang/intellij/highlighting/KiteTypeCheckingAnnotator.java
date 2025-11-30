@@ -1429,19 +1429,16 @@ public class KiteTypeCheckingAnnotator implements Annotator {
             // Find the string token containing the import path
             PsiElement stringToken = findImportPathString(element);
             if (stringToken != null) {
-                String importPath = extractStringContent(stringToken.getText());
-                if (importPath != null && !importPath.isEmpty()) {
-                    // Try to resolve the import path
-                    PsiFile resolvedFile = KiteImportHelper.resolveFilePath(importPath, containingFile);
-                    if (resolvedFile == null) {
-                        // Import path is broken - report error
-                        holder.newAnnotation(HighlightSeverity.ERROR,
-                                        "Cannot resolve import path '" + importPath + "'")
-                                .range(stringToken)
-                                .highlightType(ProblemHighlightType.LIKE_UNKNOWN_SYMBOL)
-                                .create();
-                    }
+                String importPath = extractImportPathFromElement(stringToken);
+                if (importPath != null && importPath.isEmpty()) {
+                    // Empty import path - report error
+                    holder.newAnnotation(HighlightSeverity.ERROR, "Empty import path")
+                            .range(stringToken)
+                            .highlightType(ProblemHighlightType.ERROR)
+                            .create();
                 }
+                // Note: We don't report "Cannot resolve" errors here - unresolved imports
+                // are handled by "Unused import" warnings elsewhere when symbols aren't used
             }
         }
 
@@ -1454,16 +1451,13 @@ public class KiteTypeCheckingAnnotator implements Annotator {
                 // Find the string after FROM
                 PsiElement stringToken = findImportPathStringFromToken(element);
                 if (stringToken != null) {
-                    String importPath = extractStringContent(stringToken.getText());
-                    if (importPath != null && !importPath.isEmpty()) {
-                        PsiFile resolvedFile = KiteImportHelper.resolveFilePath(importPath, containingFile);
-                        if (resolvedFile == null) {
-                            holder.newAnnotation(HighlightSeverity.ERROR,
-                                            "Cannot resolve import path '" + importPath + "'")
-                                    .range(stringToken)
-                                    .highlightType(ProblemHighlightType.LIKE_UNKNOWN_SYMBOL)
-                                    .create();
-                        }
+                    String importPath = extractImportPathFromElement(stringToken);
+                    if (importPath != null && importPath.isEmpty()) {
+                        // Empty import path - report error
+                        holder.newAnnotation(HighlightSeverity.ERROR, "Empty import path")
+                                .range(stringToken)
+                                .highlightType(ProblemHighlightType.ERROR)
+                                .create();
                     }
                 }
             }
@@ -1476,8 +1470,9 @@ public class KiteTypeCheckingAnnotator implements Annotator {
     }
 
     /**
-     * Find the string token containing the import path in an import statement.
+     * Find the string element containing the import path in an import statement.
      * Pattern: import ... from "path"
+     * Returns the element that contains the full string, or a wrapper object with the collected text.
      */
     @Nullable
     private PsiElement findImportPathString(PsiElement importStatement) {
@@ -1494,13 +1489,85 @@ public class KiteTypeCheckingAnnotator implements Annotator {
             if (foundFrom) {
                 // Look for any string token type
                 if (childType == KiteTokenTypes.STRING ||
-                    childType == KiteTokenTypes.SINGLE_STRING ||
-                    childType == KiteTokenTypes.DQUOTE) {
+                    childType == KiteTokenTypes.SINGLE_STRING) {
+                    return child;
+                }
+                // For DQUOTE, we need to find the full interpolated string
+                // First check if parent is a stringLiteral/interpolatedString element
+                if (childType == KiteTokenTypes.DQUOTE) {
+                    PsiElement parent = child.getParent();
+                    // If parent is NOT the import statement, it might be the string element we want
+                    if (parent != null && parent != importStatement) {
+                        String parentText = parent.getText();
+                        if (parentText.startsWith("\"") && parentText.endsWith("\"")) {
+                            return parent;
+                        }
+                    }
+                    // Otherwise, return DQUOTE itself - we'll handle text collection specially
+                    return child;
+                }
+                // If we find a composite element after FROM, check if it's a string element
+                String text = child.getText();
+                if (text.startsWith("\"") || text.startsWith("'")) {
                     return child;
                 }
             }
         }
         return null;
+    }
+
+    /**
+     * Extract the import path from a string element.
+     * Handles both regular string elements and DQUOTE tokens that need sibling collection.
+     */
+    @Nullable
+    private String extractImportPathFromElement(PsiElement stringElement) {
+        if (stringElement == null) return null;
+
+        // Check if this is a DQUOTE token - need to collect text from DQUOTE to STRING_DQUOTE
+        if (stringElement.getNode() != null &&
+            stringElement.getNode().getElementType() == KiteTokenTypes.DQUOTE) {
+            return collectInterpolatedStringText(stringElement);
+        }
+
+        // Otherwise, just extract from the element's text
+        return extractStringContent(stringElement.getText());
+    }
+
+    /**
+     * Collect the content of an interpolated string starting from DQUOTE.
+     * Walks siblings to find STRING_TEXT (content) and STRING_DQUOTE (closing).
+     */
+    @Nullable
+    private String collectInterpolatedStringText(PsiElement dquote) {
+        StringBuilder content = new StringBuilder();
+        PsiElement sibling = dquote.getNextSibling();
+
+        while (sibling != null) {
+            if (sibling.getNode() == null) {
+                sibling = sibling.getNextSibling();
+                continue;
+            }
+
+            IElementType type = sibling.getNode().getElementType();
+
+            // End of string found
+            if (type == KiteTokenTypes.STRING_DQUOTE) {
+                return content.toString();
+            }
+
+            // Collect content
+            if (type == KiteTokenTypes.STRING_TEXT ||
+                type == KiteTokenTypes.STRING_ESCAPE ||
+                type == KiteTokenTypes.STRING_DOLLAR) {
+                content.append(sibling.getText());
+            }
+
+            sibling = sibling.getNextSibling();
+        }
+
+        // If we didn't find STRING_DQUOTE, return empty string (empty string case: "")
+        return content.toString();
     }
 
     /**
@@ -1525,8 +1592,20 @@ public class KiteTypeCheckingAnnotator implements Annotator {
 
             if (foundFrom) {
                 if (siblingType == KiteTokenTypes.STRING ||
-                    siblingType == KiteTokenTypes.SINGLE_STRING ||
-                    siblingType == KiteTokenTypes.DQUOTE) {
+                    siblingType == KiteTokenTypes.SINGLE_STRING) {
+                    return sibling;
+                }
+                // For DQUOTE, get the parent element to get the full string
+                if (siblingType == KiteTokenTypes.DQUOTE) {
+                    PsiElement parent = sibling.getParent();
+                    if (parent != null) {
+                        return parent;
+                    }
+                    return sibling;
+                }
+                // Check if element text looks like a string
+                String text = sibling.getText();
+                if (text.startsWith("\"") || text.startsWith("'")) {
                     return sibling;
                 }
             }
@@ -1538,10 +1617,19 @@ public class KiteTypeCheckingAnnotator implements Annotator {
 
     /**
      * Extract the content from a string token, removing quotes.
+     * Handles both regular strings and empty strings.
      */
     @Nullable
     private String extractStringContent(String stringToken) {
-        if (stringToken == null || stringToken.length() < 2) {
+        if (stringToken == null) {
+            return null;
+        }
+        // Handle empty strings (just "") - length is 2
+        if (stringToken.equals("\"\"") || stringToken.equals("''")) {
+            return "";
+        }
+        // Need at least 2 chars for quotes
+        if (stringToken.length() < 2) {
             return null;
         }
         // Remove surrounding quotes

@@ -4,7 +4,6 @@ import cloud.kitelang.intellij.KiteTestBase;
 import com.intellij.codeInsight.daemon.impl.HighlightInfo;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
 /**
  * Tests for broken import path detection in {@link KiteTypeCheckingAnnotator}.
@@ -159,18 +158,19 @@ public class KiteBrokenImportAnnotatorTest extends KiteTestBase {
     }
 
     /**
-     * Test that empty import path produces no errors.
+     * Test that empty import path produces an error.
      */
-    public void testEmptyImportPathNoErrors() {
+    public void testEmptyImportPathProducesError() {
         configureByText("""
                 import something from ""
-                
+
                 var x = "hello"
                 """);
 
-        // Empty path import should not produce errors
-        List<HighlightInfo> errors = getErrors();
-        assertTrue("Empty import path should produce no errors, but got: " + formatErrors(errors), errors.isEmpty());
+        // Empty path import should produce an error
+        HighlightInfo error = getFirstError();
+        assertNotNull("Empty import path should produce an error", error);
+        assertEquals("Empty import path", error.getDescription());
     }
 
     /**
@@ -187,15 +187,4 @@ public class KiteBrokenImportAnnotatorTest extends KiteTestBase {
         assertTrue("File with no imports should produce no errors, but got: " + formatErrors(errors), errors.isEmpty());
     }
 
-    /**
-     * Helper method to format errors for assertion messages.
-     */
-    private String formatErrors(List<HighlightInfo> errors) {
-        if (errors.isEmpty()) {
-            return "[]";
-        }
-        return errors.stream()
-                .map(h -> h.getDescription() != null ? h.getDescription() : "null")
-                .collect(Collectors.joining(", ", "[", "]"));
-    }
 }
