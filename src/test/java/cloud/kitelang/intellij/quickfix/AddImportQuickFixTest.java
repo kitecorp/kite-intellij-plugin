@@ -146,7 +146,7 @@ public class AddImportQuickFixTest extends KiteTestBase {
 
         configureByText("""
                 import importedVar from "common.kite"
-                
+
                 var localVar = "local"
                 var x = importedVar
                 """);
@@ -158,6 +158,30 @@ public class AddImportQuickFixTest extends KiteTestBase {
         assertTrue("Import should exist", importIndex >= 0);
         assertTrue("Var should exist", varIndex >= 0);
         assertTrue("Import should come before var", importIndex < varIndex);
+    }
+
+    /**
+     * Test that component definitions can be imported and used.
+     */
+    public void testImportedComponentNoError() {
+        addFile("components.kite", """
+                component WebServer {
+                    input string port = "8080"
+                    output string endpoint = "http://localhost"
+                }
+                """);
+
+        configureByText("""
+                import WebServer from "components.kite"
+                
+                component WebServer myServer {
+                    port = "3000"
+                }
+                """);
+
+        // Verify no errors for component import
+        List<HighlightInfo> errors = getErrors();
+        assertTrue("Valid component import should produce no errors, but got: " + formatErrors(errors), errors.isEmpty());
     }
 
 }
