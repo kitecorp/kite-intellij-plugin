@@ -89,6 +89,9 @@ public class KiteTypeCheckingAnnotator implements Annotator {
 
         // Check for broken import paths
         checkBrokenImportPaths(file, holder);
+
+        // Check import ordering - imports must appear at the beginning of the file
+        checkImportOrdering(file, holder);
     }
 
     /**
@@ -1880,5 +1883,116 @@ public class KiteTypeCheckingAnnotator implements Annotator {
             return stringToken.substring(1, stringToken.length() - 1);
         }
         return stringToken;
+    }
+
+    /**
+     * Check that import statements appear at the beginning of the file.
+     * Import statements must not appear after other declarations like var, fun, schema, resource, etc.
+     */
+    private void checkImportOrdering(PsiFile file, @NotNull AnnotationHolder holder) {
+        boolean seenNonImportStatement = false;
+
+        for (PsiElement child = file.getFirstChild(); child != null; child = child.getNextSibling()) {
+            if (child.getNode() == null) continue;
+
+            IElementType childType = child.getNode().getElementType();
+
+            // Skip whitespace, comments, and newlines
+            if (isWhitespace(childType)) continue;
+
+            // Check if this is an import statement
+            if (childType == KiteElementTypes.IMPORT_STATEMENT) {
+                if (seenNonImportStatement) {
+                    // Import found after non-import statement - report error
+                    holder.newAnnotation(HighlightSeverity.ERROR,
+                                    "Import statements must appear at the beginning of the file")
+                            .range(child)
+                            .highlightType(ProblemHighlightType.ERROR)
+                            .create();
+                }
+                continue;
+            }
+
+            // Check for raw IMPORT token at file level (fallback for when not wrapped in IMPORT_STATEMENT)
+            if (childType == KiteTokenTypes.IMPORT) {
+                if (seenNonImportStatement) {
+                    // Find the extent of this import statement for error range
+                    PsiElement importEnd = findImportStatementEnd(child);
+                    holder.newAnnotation(HighlightSeverity.ERROR,
+                                    "Import statements must appear at the beginning of the file")
+                            .range(importEnd != null ? importEnd : child)
+                            .highlightType(ProblemHighlightType.ERROR)
+                            .create();
+                } else {
+                    // Skip past the rest of this import statement
+                    PsiElement importEnd = findImportStatementEnd(child);
+                    if (importEnd != null) {
+                        child = importEnd;
+                    }
+                }
+                continue;
+            }
+
+            // Check for non-import declarations/statements
+            if (isNonImportStatement(childType)) {
+                seenNonImportStatement = true;
+            }
+        }
+    }
+
+    /**
+     * Check if the element type represents a non-import statement.
+     * These are declarations and statements that should come after imports.
+     */
+    private boolean isNonImportStatement(IElementType type) {
+        return type == KiteElementTypes.VARIABLE_DECLARATION ||
+               type == KiteElementTypes.INPUT_DECLARATION ||
+               type == KiteElementTypes.OUTPUT_DECLARATION ||
+               type == KiteElementTypes.RESOURCE_DECLARATION ||
+               type == KiteElementTypes.COMPONENT_DECLARATION ||
+               type == KiteElementTypes.SCHEMA_DECLARATION ||
+               type == KiteElementTypes.FUNCTION_DECLARATION ||
+               type == KiteElementTypes.TYPE_DECLARATION ||
+               type == KiteElementTypes.FOR_STATEMENT ||
+               // Raw keyword tokens at file level (when not wrapped in elements)
+               type == KiteTokenTypes.VAR ||
+               type == KiteTokenTypes.INPUT ||
+               type == KiteTokenTypes.OUTPUT ||
+               type == KiteTokenTypes.RESOURCE ||
+               type == KiteTokenTypes.COMPONENT ||
+               type == KiteTokenTypes.SCHEMA ||
+               type == KiteTokenTypes.FUN ||
+               type == KiteTokenTypes.TYPE ||
+               type == KiteTokenTypes.FOR ||
+               type == KiteTokenTypes.IF;
+    }
+
+    /**
+     * Find the end of an import statement starting from a raw IMPORT token.
+     * Returns the last element before the newline or the string element.
+     */
+    @Nullable
+    private PsiElement findImportStatementEnd(PsiElement importToken) {
+        PsiElement lastElement = importToken;
+        PsiElement sibling = importToken.getNextSibling();
+
+        while (sibling != null) {
+            if (sibling.getNode() == null) {
+                sibling = sibling.getNextSibling();
+                continue;
+            }
+
+            IElementType siblingType = sibling.getNode().getElementType();
+
+            // Stop at newline
+            if (siblingType == KiteTokenTypes.NL || siblingType == KiteTokenTypes.NEWLINE) {
+                break;
+            }
+
+            lastElement = sibling;
+            sibling = sibling.getNextSibling();
+        }
+
+        return lastElement;
     }
 }
