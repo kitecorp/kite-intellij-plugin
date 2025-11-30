@@ -1,0 +1,246 @@
+package cloud.kitelang.intellij.util;
+
+import cloud.kitelang.intellij.psi.KiteElementTypes;
+import cloud.kitelang.intellij.psi.KiteTokenTypes;
+import cloud.kitelang.intellij.reference.KiteImportHelper;
+import com.intellij.psi.PsiElement;
+import com.intellij.psi.PsiFile;
+import com.intellij.psi.tree.IElementType;
+import org.jetbrains.annotations.Nullable;
+
+import java.util.*;
+
+/**
+ * Helper class for schema-related operations.
+ * Provides methods to find schemas, extract properties, and look up schema info.
+ */
+public final class KiteSchemaHelper {
+
+    private KiteSchemaHelper() {
+        // Utility class - no instances
+    }
+
+    /**
+     * Information about a schema property.
+     */
+    public static class SchemaPropertyInfo {
+        public final String type;
+        public final boolean isCloud;
+
+        public SchemaPropertyInfo(String type, boolean isCloud) {
+            this.type = type;
+            this.isCloud = isCloud;
+        }
+    }
+
+    /**
+     * Find schema properties by name. Returns a map of property name to SchemaPropertyInfo.
+     * Searches in current file and imported files.
+     */
+    public static Map<String, SchemaPropertyInfo> findSchemaProperties(PsiFile file, String schemaName) {
+        Map<String, SchemaPropertyInfo> properties = new HashMap<>();
+
+        // Search in current file
+        findSchemaPropertiesRecursive(file, schemaName, properties);
+
+        // If not found, search in imported files
+        if (properties.isEmpty()) {
+            findSchemaPropertiesInImports(file, schemaName, properties, new HashSet<>());
+        }
+
+        return properties;
+    }
+
+    /**
+     * Recursively search for a schema and extract its properties.
+     */
+    private static void findSchemaPropertiesRecursive(PsiElement element, String schemaName, Map<String, SchemaPropertyInfo> properties) {
+        if (element == null || element.getNode() == null) return;
+
+        if (element.getNode().getElementType() == KiteElementTypes.SCHEMA_DECLARATION) {
+            // Check if this is the schema we're looking for
+            String name = extractSchemaName(element);
+            if (schemaName.equals(name)) {
+                extractSchemaProperties(element, properties);
+                return;
+            }
+        }
+
+        // Recurse into children
+        PsiElement child = element.getFirstChild();
+        while (child != null) {
+            findSchemaPropertiesRecursive(child, schemaName, properties);
+            if (!properties.isEmpty()) return; // Found it
+            child = child.getNextSibling();
+        }
+    }
+
+    /**
+     * Search for schema properties in imported files.
+     */
+    private static void findSchemaPropertiesInImports(PsiFile file, String schemaName,
+                                                      Map<String, SchemaPropertyInfo> properties, Set<String> visited) {
+        List<PsiFile> importedFiles = KiteImportHelper.getImportedFiles(file);
+
+        for (PsiFile importedFile : importedFiles) {
+            if (importedFile == null || importedFile.getVirtualFile() == null) continue;
+
+            String path = importedFile.getVirtualFile().getPath();
+            if (visited.contains(path)) continue;
+            visited.add(path);
+
+            findSchemaPropertiesRecursive(importedFile, schemaName, properties);
+            if (!properties.isEmpty()) return;
+
+            // Recursively check imports
+            findSchemaPropertiesInImports(importedFile, schemaName, properties, visited);
+            if (!properties.isEmpty()) return;
+        }
+    }
+
+    /**
+     * Get the schema name from a schema declaration.
+     */
+    @Nullable
+    public static String extractSchemaName(PsiElement schemaDecl) {
+        boolean foundSchema = false;
+        PsiElement child = schemaDecl.getFirstChild();
+
+        while (child != null) {
+            if (child.getNode() != null) {
+                IElementType type = child.getNode().getElementType();
+
+                if (type == KiteTokenTypes.SCHEMA) {
+                    foundSchema = true;
+                } else if (foundSchema && type == KiteTokenTypes.IDENTIFIER) {
+                    return child.getText();
+                } else if (type == KiteTokenTypes.LBRACE) {
+                    break;
+                }
+            }
+            child = child.getNextSibling();
+        }
+        return null;
+    }
+
+    /**
+     * Extract property definitions from a schema.
+     * Pattern inside schema: [@cloud] type propertyName [= defaultValue]
+     * Properties with @cloud annotation are marked as cloud properties.
+     */
+    public static void extractSchemaProperties(PsiElement schemaDecl, Map<String, SchemaPropertyInfo> properties) {
+        boolean insideBraces = false;
+        String currentType = null;
+        boolean isCloudProperty = false;
+
+        PsiElement child = schemaDecl.getFirstChild();
+        while (child != null) {
+            if (child.getNode() != null) {
+                IElementType type = child.getNode().getElementType();
+
+                if (type == KiteTokenTypes.LBRACE) {
+                    insideBraces = true;
+                } else if (type == KiteTokenTypes.RBRACE) {
+                    break;
+                } else if (insideBraces) {
+                    // Skip whitespace and newlines
+                    if (type == KiteTokenTypes.WHITESPACE ||
+                        type == KiteTokenTypes.NL ||
+                        type == KiteTokenTypes.NEWLINE ||
+                        type == com.intellij.psi.TokenType.WHITE_SPACE) {
+                        child = child.getNextSibling();
+                        continue;
+                    }
+
+                    // Check for @cloud annotation
+                    if (type == KiteTokenTypes.AT) {
+                        // Look at next sibling to see if it's "cloud"
+                        PsiElement next = skipWhitespaceForward(child.getNextSibling());
+                        if (next != null && next.getNode() != null &&
+                            next.getNode().getElementType() == KiteTokenTypes.IDENTIFIER &&
+                            "cloud".equals(next.getText())) {
+                            isCloudProperty = true;
+                        }
+                        child = child.getNextSibling();
+                        continue;
+                    }
+
+                    // Handle 'any' keyword as a type
+                    if (type == KiteTokenTypes.ANY) {
+                        currentType = "any";
+                        child = child.getNextSibling();
+                        continue;
+                    }
+
+                    // Track type -> name pattern
+                    if (type == KiteTokenTypes.IDENTIFIER) {
+                        String text = child.getText();
+                        // Skip "cloud" if we just saw @
+                        if ("cloud".equals(text) && isCloudProperty) {
+                            child = child.getNextSibling();
+                            continue;
+                        }
+                        if (currentType == null) {
+                            // First identifier is the type
+                            currentType = text;
+                        } else {
+                            // Second identifier is the property name
+                            properties.put(text, new SchemaPropertyInfo(currentType, isCloudProperty));
+                            currentType = null;
+                            isCloudProperty = false; // Reset for next property
+                        }
+                    }
+
+                    // Reset on newline or assignment (end of property definition)
+                    if (type == KiteTokenTypes.NL || type == KiteTokenTypes.ASSIGN) {
+                        currentType = null;
+                    }
+                }
+            }
+            child = child.getNextSibling();
+        }
+    }
+
+    /**
+     * Extract the resource type name from a resource declaration.
+     * Pattern: resource TypeName instanceName { ... }
+     */
+    @Nullable
+    public static String extractResourceTypeName(PsiElement resourceDecl) {
+        boolean foundResource = false;
+        PsiElement child = resourceDecl.getFirstChild();
+
+        while (child != null) {
+            if (child.getNode() != null) {
+                IElementType type = child.getNode().getElementType();
+
+                if (type == KiteTokenTypes.RESOURCE) {
+                    foundResource = true;
+                } else if (foundResource && type == KiteTokenTypes.IDENTIFIER) {
+                    return child.getText(); // First identifier is the type name
+                } else if (type == KiteTokenTypes.LBRACE) {
+                    break;
+                }
+            }
+            child = child.getNextSibling();
+        }
+        return null;
+    }
+
+    // Whitespace helper
+    private static PsiElement skipWhitespaceForward(PsiElement element) {
+        while (element != null && isWhitespace(element)) {
+            element = element.getNextSibling();
+        }
+        return element;
+    }
+
+    private static boolean isWhitespace(PsiElement element) {
+        if (element == null || element.getNode() == null) return false;
+        IElementType type = element.getNode().getElementType();
+        return type == com.intellij.psi.TokenType.WHITE_SPACE ||
+               type == KiteTokenTypes.NL ||
+               type == KiteTokenTypes.WHITESPACE ||
+               type == KiteTokenTypes.NEWLINE;
+    }
+}
