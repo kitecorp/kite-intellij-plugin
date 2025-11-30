@@ -107,6 +107,20 @@ When an unused import is detected, a quick fix is available:
 - Implemented in: `RemoveUnusedImportQuickFix`
 - Test file: `RemoveUnusedImportQuickFixTest`
 
+### Planned Import Features
+
+| Feature                       | Description                                               | Complexity |
+|-------------------------------|-----------------------------------------------------------|------------|
+| [x] Import Sorting            | Auto-sort imports alphabetically when optimizing          | Easy       |
+| [ ] Unused Wildcard Warning   | Warn if `import *` doesn't use any symbol from the file   | Easy       |
+| [ ] Import Folding            | Collapse multiple imports into `[3 imports...]` in editor | Easy       |
+| [ ] Wildcard to Named         | Convert `import *` to explicit named imports quick fix    | Medium     |
+| [ ] Import Path Completion    | Autocomplete file paths in import strings                 | Medium     |
+| [ ] Circular Import Detection | Warn when files import each other in a cycle              | Medium     |
+| [ ] Import Grouping           | Group imports by category (local vs external)             | Medium     |
+| [ ] Relative Path Suggestions | Suggest shorter relative paths for imports                | Medium     |
+| [ ] Auto-import on Paste      | Add imports when pasting code with undefined symbols      | Hard       |
+
 ---
 
 ## Navigation
@@ -205,6 +219,8 @@ Removes all unused imports via Cmd+Alt+O (Mac) or Ctrl+Alt+O (Windows/Linux):
 - Removes individual unused symbols from multi-symbol imports
 - Preserves wildcard imports when any exported symbol is used
 - Detects usage in string interpolation (`$var` and `${var}`)
+- **Sorts imports alphabetically by path** (case-insensitive)
+- **Sorts symbols within multi-symbol imports** (`import z, a, m` → `import a, m, z`)
 
 ---
 

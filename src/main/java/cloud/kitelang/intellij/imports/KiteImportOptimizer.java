@@ -44,25 +44,50 @@ public class KiteImportOptimizer implements ImportOptimizer {
             Document document = PsiDocumentManager.getInstance(file.getProject()).getDocument(file);
             if (document == null) return;
 
-            // Process imports from bottom to top to preserve offsets
-            Collections.reverse(importsToProcess);
-
+            // Filter to only keep non-removed imports and sort symbols within each import
+            List<ImportInfo> importsToKeep = new ArrayList<>();
             for (ImportInfo importInfo : importsToProcess) {
-                if (importInfo.shouldRemoveEntirely) {
-                    // Remove entire import line
-                    document.deleteString(importInfo.startOffset, importInfo.endOffset);
-                } else if (!importInfo.symbolsToKeep.isEmpty() &&
-                           importInfo.symbolsToKeep.size() < importInfo.allSymbols.size()) {
-                    // Keep only used symbols
-                    String newImport = "import %s from \"%s\"".formatted(String.join(", ", importInfo.symbolsToKeep), importInfo.importPath);
-                    // Preserve trailing newline if present
-                    if (importInfo.endOffset > importInfo.startOffset &&
-                        document.getText().charAt(importInfo.endOffset - 1) == '\n') {
-                        newImport += "\n";
+                if (!importInfo.shouldRemoveEntirely) {
+                    // Sort symbols within multi-symbol imports
+                    if (!importInfo.isWildcard && !importInfo.symbolsToKeep.isEmpty()) {
+                        Collections.sort(importInfo.symbolsToKeep, String.CASE_INSENSITIVE_ORDER);
                     }
-                    document.replaceString(importInfo.startOffset, importInfo.endOffset, newImport);
+                    importsToKeep.add(importInfo);
                 }
             }
+
+            // Sort imports by path (case-insensitive)
+            importsToKeep.sort((a, b) -> a.importPath.compareToIgnoreCase(b.importPath));
+
+            // If no imports left or nothing to change, check if we need to sort
+            if (importsToProcess.isEmpty()) {
+                return;
+            }
+
+            // Find the range of all imports in the document
+            int firstImportStart = importsToProcess.stream()
+                    .mapToInt(i -> i.startOffset)
+                    .min()
+                    .orElse(0);
+            int lastImportEnd = importsToProcess.stream()
+                    .mapToInt(i -> i.endOffset)
+                    .max()
+                    .orElse(0);
+
+            // Build the new imports section
+            StringBuilder newImportsSection = new StringBuilder();
+            for (ImportInfo importInfo : importsToKeep) {
+                if (importInfo.isWildcard) {
+                    newImportsSection.append("import * from \"").append(importInfo.importPath).append("\"\n");
+                } else {
+                    String symbols = String.join(", ", importInfo.symbolsToKeep);
+                    newImportsSection.append("import ").append(symbols).append(" from \"")
+                            .append(importInfo.importPath).append("\"\n");
+                }
+            }
+
+            // Replace entire import section
+            document.replaceString(firstImportStart, lastImportEnd, newImportsSection.toString());
 
             // Commit document changes to update PSI
             PsiDocumentManager.getInstance(file.getProject()).commitDocument(document);

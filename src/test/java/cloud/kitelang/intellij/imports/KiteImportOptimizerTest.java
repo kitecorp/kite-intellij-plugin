@@ -229,6 +229,152 @@ public class KiteImportOptimizerTest extends KiteTestBase {
         assertTrue("Should preserve function", result.contains("fun myFunction"));
     }
 
+    // ==================== Import Sorting Tests ====================
+
+    /**
+     * Test that imports are sorted alphabetically by path.
+     */
+    public void testSortImportsByPath() {
+        addFile("alpha.kite", """
+                var alphaVar = "a"
+                """);
+        addFile("beta.kite", """
+                var betaVar = "b"
+                """);
+        addFile("gamma.kite", """
+                var gammaVar = "c"
+                """);
+
+        configureByText("""
+                import gammaVar from "gamma.kite"
+                import alphaVar from "alpha.kite"
+                import betaVar from "beta.kite"
+                
+                var x = alphaVar + betaVar + gammaVar
+                """);
+
+        optimizeImports();
+
+        String result = myFixture.getFile().getText();
+        int alphaPos = result.indexOf("alpha.kite");
+        int betaPos = result.indexOf("beta.kite");
+        int gammaPos = result.indexOf("gamma.kite");
+
+        assertTrue("alpha.kite should come before beta.kite", alphaPos < betaPos);
+        assertTrue("beta.kite should come before gamma.kite", betaPos < gammaPos);
+    }
+
+    /**
+     * Test that imports are sorted case-insensitively.
+     */
+    public void testSortImportsCaseInsensitive() {
+        addFile("Apple.kite", """
+                var appleVar = "a"
+                """);
+        addFile("banana.kite", """
+                var bananaVar = "b"
+                """);
+        addFile("Cherry.kite", """
+                var cherryVar = "c"
+                """);
+
+        configureByText("""
+                import cherryVar from "Cherry.kite"
+                import appleVar from "Apple.kite"
+                import bananaVar from "banana.kite"
+                
+                var x = appleVar + bananaVar + cherryVar
+                """);
+
+        optimizeImports();
+
+        String result = myFixture.getFile().getText();
+        int applePos = result.indexOf("Apple.kite");
+        int bananaPos = result.indexOf("banana.kite");
+        int cherryPos = result.indexOf("Cherry.kite");
+
+        assertTrue("Apple.kite should come before banana.kite", applePos < bananaPos);
+        assertTrue("banana.kite should come before Cherry.kite", bananaPos < cherryPos);
+    }
+
+    /**
+     * Test that already sorted imports remain sorted.
+     */
+    public void testAlreadySortedImports() {
+        addFile("alpha.kite", """
+                var alphaVar = "a"
+                """);
+        addFile("beta.kite", """
+                var betaVar = "b"
+                """);
+
+        configureByText("""
+                import alphaVar from "alpha.kite"
+                import betaVar from "beta.kite"
+                
+                var x = alphaVar + betaVar
+                """);
+
+        optimizeImports();
+
+        String result = myFixture.getFile().getText();
+        int alphaPos = result.indexOf("alpha.kite");
+        int betaPos = result.indexOf("beta.kite");
+
+        assertTrue("alpha.kite should still come before beta.kite", alphaPos < betaPos);
+    }
+
+    /**
+     * Test sorting with wildcard imports.
+     */
+    public void testSortWithWildcardImports() {
+        addFile("alpha.kite", """
+                var alphaVar = "a"
+                """);
+        addFile("beta.kite", """
+                var betaVar = "b"
+                """);
+
+        configureByText("""
+                import * from "beta.kite"
+                import alphaVar from "alpha.kite"
+                
+                var x = alphaVar + betaVar
+                """);
+
+        optimizeImports();
+
+        String result = myFixture.getFile().getText();
+        int alphaPos = result.indexOf("alpha.kite");
+        int betaPos = result.indexOf("beta.kite");
+
+        assertTrue("alpha.kite should come before beta.kite", alphaPos < betaPos);
+    }
+
+    /**
+     * Test sorting also sorts symbols within multi-symbol imports.
+     */
+    public void testSortSymbolsWithinImport() {
+        addFile("common.kite", """
+                var zebra = "z"
+                var alpha = "a"
+                var mike = "m"
+                """);
+
+        configureByText("""
+                import zebra, alpha, mike from "common.kite"
+                
+                var x = zebra + alpha + mike
+                """);
+
+        optimizeImports();
+
+        String result = myFixture.getFile().getText();
+        // The symbols should be sorted: alpha, mike, zebra
+        assertTrue("Symbols should be sorted alphabetically",
+                result.contains("import alpha, mike, zebra from \"common.kite\""));
+    }
+
     /**
      * Helper method to run the import optimizer.
      */
