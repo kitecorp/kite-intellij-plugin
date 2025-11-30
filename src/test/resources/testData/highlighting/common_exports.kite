@@ -1,0 +1,12 @@
+// Common file with exported symbols
+var defaultRegion = "us-east-1"
+var appName = "myapp"
+
+fun formatName(string prefix, string name) string {
+    return prefix + "-" + name
+}
+
+schema CommonConfig {
+    string name
+    number data
+}
