@@ -32,56 +32,60 @@ public class KiteBrokenImportAnnotatorTest extends KiteTestBase {
     }
 
     /**
-     * Test that non-existent file import produces unused import warning.
+     * Test that non-existent file import produces an error.
      */
-    public void testNonExistentFileImportProducesUnusedWarning() {
+    public void testNonExistentFileImportProducesError() {
         configureByText("""
                 import something from "nonexistent.kite"
 
                 var x = "hello"
                 """);
 
-        // Verify weak warning is produced for unused import
-        HighlightInfo warning = getFirstWeakWarning();
-        assertNotNull("Should have a weak warning for unused import", warning);
-        assertEquals("Unused import", warning.getDescription());
+        // Verify error is produced for non-existent import path
+        HighlightInfo error = getFirstError();
+        assertNotNull("Should have an error for non-existent import path", error);
+        assertTrue("Error should be about cannot resolve import path: " + error.getDescription(),
+                error.getDescription().contains("Cannot resolve import path"));
     }
 
     /**
-     * Test that wildcard import from non-existent file produces no errors.
-     * Wildcard imports don't have named symbols to mark as unused.
+     * Test that wildcard import from non-existent file produces an error.
      */
-    public void testWildcardImportNonExistentFileNoErrors() {
+    public void testWildcardImportNonExistentFileProducesError() {
         configureByText("""
                 import * from "missing.kite"
 
                 var x = "hello"
                 """);
 
-        // Wildcard imports don't produce unused import warnings (no specific symbols)
-        List<HighlightInfo> errors = getErrors();
-        assertTrue("Wildcard import from missing file should produce no errors, but got: " + formatErrors(errors), errors.isEmpty());
+        // Non-existent file should produce "Cannot resolve import path" error
+        HighlightInfo error = getFirstError();
+        assertNotNull("Should have an error for non-existent import path", error);
+        assertTrue("Error should be about cannot resolve import path: " + error.getDescription(),
+                error.getDescription().contains("Cannot resolve import path"));
     }
 
     /**
-     * Test that multi-symbol import from non-existent file produces no errors.
+     * Test that multi-symbol import from non-existent file produces an error.
      */
-    public void testMultiSymbolImportNonExistentFileNoErrors() {
+    public void testMultiSymbolImportNonExistentFileProducesError() {
         configureByText("""
                 import a, b, c from "notfound.kite"
 
                 var x = "hello"
                 """);
 
-        // Multi-symbol import from missing file should not produce errors
-        List<HighlightInfo> errors = getErrors();
-        assertTrue("Multi-symbol import from missing file should produce no errors, but got: " + formatErrors(errors), errors.isEmpty());
+        // Non-existent file should produce "Cannot resolve import path" error
+        HighlightInfo error = getFirstError();
+        assertNotNull("Should have an error for non-existent import path", error);
+        assertTrue("Error should be about cannot resolve import path: " + error.getDescription(),
+                error.getDescription().contains("Cannot resolve import path"));
     }
 
     /**
-     * Test that multiple broken imports produce unused import warnings.
+     * Test that multiple broken imports produce errors.
      */
-    public void testMultipleBrokenImportsProduceUnusedWarnings() {
+    public void testMultipleBrokenImportsProduceErrors() {
         configureByText("""
                 import a from "missing1.kite"
                 import b from "missing2.kite"
@@ -89,19 +93,19 @@ public class KiteBrokenImportAnnotatorTest extends KiteTestBase {
                 var x = "hello"
                 """);
 
-        // Each unused import should produce a weak warning
-        List<HighlightInfo> warnings = getWeakWarnings();
-        assertFalse("Should have unused import warnings", warnings.isEmpty());
-        for (HighlightInfo warning : warnings) {
-            assertEquals("Unused import", warning.getDescription());
+        // Each missing file should produce "Cannot resolve import path" error
+        List<HighlightInfo> errors = getErrors();
+        assertEquals("Should have 2 errors for non-existent import paths", 2, errors.size());
+        for (HighlightInfo error : errors) {
+            assertTrue("Error should be about cannot resolve import path: " + error.getDescription(),
+                    error.getDescription().contains("Cannot resolve import path"));
         }
     }
 
     /**
-     * Test that mix of valid and broken imports produces no errors.
-     * Valid imports are resolved, broken imports may produce warnings.
+     * Test that mix of valid and broken imports produces error for broken import.
      */
-    public void testMixOfValidAndBrokenImportsNoErrors() {
+    public void testMixOfValidAndBrokenImportsProducesErrorForBroken() {
         addFile("valid.kite", """
                 var validVar = "valid"
                 """);
@@ -113,9 +117,11 @@ public class KiteBrokenImportAnnotatorTest extends KiteTestBase {
                 var x = validVar
                 """);
 
-        // Valid import is used, no errors expected
-        List<HighlightInfo> errors = getErrors();
-        assertTrue("Mix of valid and broken imports should produce no errors, but got: " + formatErrors(errors), errors.isEmpty());
+        // Broken import should produce "Cannot resolve import path" error
+        HighlightInfo error = getFirstError();
+        assertNotNull("Should have an error for non-existent import path", error);
+        assertTrue("Error should be about cannot resolve import path: " + error.getDescription(),
+                error.getDescription().contains("Cannot resolve import path"));
     }
 
     /**
@@ -138,10 +144,9 @@ public class KiteBrokenImportAnnotatorTest extends KiteTestBase {
     }
 
     /**
-     * Test that wrong relative path produces no errors.
-     * The import cannot resolve, but highlighting should still run.
+     * Test that wrong relative path produces an error.
      */
-    public void testWrongRelativePathNoErrors() {
+    public void testWrongRelativePathProducesError() {
         addFile("correct/file.kite", """
                 var myVar = "value"
                 """);
@@ -152,9 +157,11 @@ public class KiteBrokenImportAnnotatorTest extends KiteTestBase {
                 var x = myVar
                 """);
 
-        // Wrong path import should not produce errors
-        List<HighlightInfo> errors = getErrors();
-        assertTrue("Wrong relative path import should produce no errors, but got: " + formatErrors(errors), errors.isEmpty());
+        // Wrong path import should produce "Cannot resolve import path" error
+        HighlightInfo error = getFirstError();
+        assertNotNull("Should have an error for non-existent import path", error);
+        assertTrue("Error should be about cannot resolve import path: " + error.getDescription(),
+                error.getDescription().contains("Cannot resolve import path"));
     }
 
     /**

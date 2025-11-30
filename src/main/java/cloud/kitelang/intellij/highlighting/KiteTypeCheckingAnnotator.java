@@ -1436,9 +1436,17 @@ public class KiteTypeCheckingAnnotator implements Annotator {
                             .range(stringToken)
                             .highlightType(ProblemHighlightType.ERROR)
                             .create();
+                } else if (importPath != null && !importPath.isEmpty()) {
+                    // Non-empty path - check if file exists
+                    PsiFile resolvedFile = KiteImportHelper.resolveFilePath(importPath, containingFile);
+                    if (resolvedFile == null) {
+                        // File doesn't exist - report error
+                        holder.newAnnotation(HighlightSeverity.ERROR, "Cannot resolve import path '" + importPath + "'")
+                                .range(stringToken)
+                                .highlightType(ProblemHighlightType.LIKE_UNKNOWN_SYMBOL)
+                                .create();
+                    }
                 }
-                // Note: We don't report "Cannot resolve" errors here - unresolved imports
-                // are handled by "Unused import" warnings elsewhere when symbols aren't used
             }
         }
 
@@ -1458,6 +1466,16 @@ public class KiteTypeCheckingAnnotator implements Annotator {
                                 .range(stringToken)
                                 .highlightType(ProblemHighlightType.ERROR)
                                 .create();
+                    } else if (importPath != null && !importPath.isEmpty()) {
+                        // Non-empty path - check if file exists
+                        PsiFile resolvedFile = KiteImportHelper.resolveFilePath(importPath, containingFile);
+                        if (resolvedFile == null) {
+                            // File doesn't exist - report error
+                            holder.newAnnotation(HighlightSeverity.ERROR, "Cannot resolve import path '" + importPath + "'")
+                                    .range(stringToken)
+                                    .highlightType(ProblemHighlightType.LIKE_UNKNOWN_SYMBOL)
+                                    .create();
+                        }
                     }
                 }
             }
