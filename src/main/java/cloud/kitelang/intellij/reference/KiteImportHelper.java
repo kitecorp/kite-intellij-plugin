@@ -7,6 +7,7 @@ import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiFile;
 import com.intellij.psi.PsiManager;
+import com.intellij.psi.search.GlobalSearchScope;
 import com.intellij.psi.tree.IElementType;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -554,5 +555,112 @@ public class KiteImportHelper {
         }
 
         return null;
+    }
+
+    /**
+     * Find all .kite files in the project.
+     *
+     * @param project The project to search
+     * @return List of PsiFiles for all .kite files in the project
+     */
+    @NotNull
+    public static List<PsiFile> getAllKiteFilesInProject(@NotNull Project project) {
+        List<PsiFile> result = new ArrayList<>();
+        GlobalSearchScope scope = GlobalSearchScope.projectScope(project);
+        PsiManager psiManager = PsiManager.getInstance(project);
+
+        // Use VFS to recursively find all .kite files
+        String basePath = project.getBasePath();
+        if (basePath != null) {
+            VirtualFile projectRoot = com.intellij.openapi.vfs.LocalFileSystem.getInstance().findFileByPath(basePath);
+            if (projectRoot != null) {
+                findKiteFilesRecursively(projectRoot, psiManager, result);
+            }
+        }
+
+        return result;
+    }
+
+    /**
+     * Recursively find all .kite files in a directory.
+     */
+    private static void findKiteFilesRecursively(@NotNull VirtualFile dir, @NotNull PsiManager psiManager, @NotNull List<PsiFile> result) {
+        for (VirtualFile child : dir.getChildren()) {
+            if (child.isDirectory()) {
+                // Skip common non-source directories
+                String name = child.getName();
+                if (!name.startsWith(".") && !name.equals("build") && !name.equals("node_modules") && !name.equals("out")) {
+                    findKiteFilesRecursively(child, psiManager, result);
+                }
+            } else if (child.getName().endsWith(".kite")) {
+                PsiFile psiFile = psiManager.findFile(child);
+                if (psiFile != null) {
+                    result.add(psiFile);
+                }
+            }
+        }
+    }
+
+    /**
+     * Get the relative import path from one file to another.
+     * Used for generating import statements.
+     *
+     * @param fromFile The file containing the import statement
+     * @param toFile   The file to import from
+     * @return The relative path to use in the import statement
+     */
+    @Nullable
+    public static String getRelativeImportPath(@NotNull PsiFile fromFile, @NotNull PsiFile toFile) {
+        VirtualFile fromVFile = fromFile.getVirtualFile();
+        VirtualFile toVFile = toFile.getVirtualFile();
+        if (fromVFile == null || toVFile == null) {
+            return null;
+        }
+
+        VirtualFile fromDir = fromVFile.getParent();
+        if (fromDir == null) {
+            return null;
+        }
+
+        // If in same directory, just use the file name
+        VirtualFile toDir = toVFile.getParent();
+        if (fromDir.equals(toDir)) {
+            return toVFile.getName();
+        }
+
+        // Try to find relative path
+        String fromPath = fromDir.getPath();
+        String toPath = toVFile.getPath();
+
+        // Simple case: if toFile is in the same project directory tree
+        // Calculate relative path using path manipulation
+        String[] fromParts = fromPath.split("/");
+        String[] toParts = toPath.split("/");
+
+        // Find common prefix length
+        int commonLen = 0;
+        int minLen = Math.min(fromParts.length, toParts.length);
+        for (int i = 0; i < minLen; i++) {
+            if (fromParts[i].equals(toParts[i])) {
+                commonLen = i + 1;
+            } else {
+                break;
+            }
+        }
+
+        // Build relative path
+        StringBuilder relPath = new StringBuilder();
+        // Add ".." for each directory we need to go up
+        for (int i = commonLen; i < fromParts.length; i++) {
+            if (relPath.length() > 0) relPath.append("/");
+            relPath.append("..");
+        }
+        // Add the remaining path parts
+        for (int i = commonLen; i < toParts.length; i++) {
+            if (relPath.length() > 0) relPath.append("/");
+            relPath.append(toParts[i]);
+        }
+
+        return relPath.length() > 0 ? relPath.toString() : toVFile.getName();
     }
 }

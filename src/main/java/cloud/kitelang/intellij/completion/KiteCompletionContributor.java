@@ -9,7 +9,12 @@ import cloud.kitelang.intellij.structure.KiteStructureViewIcons;
 import com.intellij.codeInsight.completion.*;
 import com.intellij.codeInsight.lookup.LookupElement;
 import com.intellij.codeInsight.lookup.LookupElementBuilder;
+import com.intellij.openapi.command.WriteCommandAction;
+import com.intellij.openapi.editor.Document;
+import com.intellij.openapi.project.Project;
+import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.patterns.PlatformPatterns;
+import com.intellij.psi.PsiDocumentManager;
 import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiFile;
 import com.intellij.psi.tree.IElementType;
@@ -999,7 +1004,9 @@ public class KiteCompletionContributor extends CompletionContributor {
             }
         });
 
-        // Collect from imported files (slightly lower priority)
+        // Collect only specifically imported symbols from imported files (higher priority)
+        // For named imports like "import foo, bar from ...", only add foo and bar
+        // For wildcard imports "import * from ...", add all symbols
         List<PsiFile> importedFiles = KiteImportHelper.getImportedFiles(file);
         for (PsiFile importedFile : importedFiles) {
             if (importedFile == null) continue;
@@ -1009,7 +1016,8 @@ public class KiteCompletionContributor extends CompletionContributor {
                 if (isValuePosition && isTypeDeclaration(declarationType)) {
                     return;
                 }
-                if (!addedNames.contains(name)) {
+                // Only add if this specific symbol is imported
+                if (KiteImportHelper.isSymbolImported(name, file) && !addedNames.contains(name)) {
                     addedNames.add(name);
                     LookupElementBuilder lookup = LookupElementBuilder.create(name)
                             .withTypeText(getTypeTextForDeclaration(declarationType))
@@ -1019,6 +1027,116 @@ public class KiteCompletionContributor extends CompletionContributor {
                 }
             });
         }
+
+        // Auto-import: Collect from all project files for symbols NOT yet imported
+        // These will have an InsertHandler that adds the import statement
+        VirtualFile currentVFile = file.getVirtualFile();
+        String currentPath = currentVFile != null ? currentVFile.getPath() : null;
+        Project project = file.getProject();
+        List<PsiFile> allKiteFiles = KiteImportHelper.getAllKiteFilesInProject(project);
+
+        for (PsiFile projectFile : allKiteFiles) {
+            if (projectFile == null) continue;
+            VirtualFile vf = projectFile.getVirtualFile();
+            if (vf == null) continue;
+
+            String filePath = vf.getPath();
+            // Skip current file only
+            if (filePath.equals(currentPath)) {
+                continue;
+            }
+
+            final PsiFile targetFile = projectFile;
+            collectDeclarations(projectFile, (name, declarationType, element) -> {
+                // Skip schemas and type declarations in value positions
+                if (isValuePosition && isTypeDeclaration(declarationType)) {
+                    return;
+                }
+                // Only offer as auto-import if NOT already imported and not already added
+                if (!KiteImportHelper.isSymbolImported(name, file) && !addedNames.contains(name)) {
+                    addedNames.add(name);
+                    LookupElementBuilder lookup = LookupElementBuilder.create(name)
+                            .withTypeText(getTypeTextForDeclaration(declarationType))
+                            .withTailText(" (import from " + targetFile.getName() + ")", true)
+                            .withIcon(getIconForDeclaration(declarationType))
+                            .withInsertHandler(createAutoImportHandler(file, targetFile, name));
+                    result.addElement(PrioritizedLookupElement.withPriority(lookup, 10.0));
+                }
+            });
+        }
+    }
+
+    /**
+     * Creates an insert handler that adds an import statement for the symbol.
+     */
+    private InsertHandler<LookupElement> createAutoImportHandler(PsiFile currentFile, PsiFile importFromFile, String symbolName) {
+        return (context, item) -> {
+            // Get the relative import path
+            String importPath = KiteImportHelper.getRelativeImportPath(currentFile, importFromFile);
+            if (importPath == null) return;
+
+            Project project = context.getProject();
+            Document document = context.getDocument();
+
+            WriteCommandAction.runWriteCommandAction(project, () -> {
+                // Find where to insert the import statement (after existing imports or at the top)
+                String fileText = document.getText();
+                int insertOffset = findImportInsertOffset(fileText);
+
+                // Build the import statement
+                String importStatement = "import " + symbolName + " from \"" + importPath + "\"\n";
+
+                // Check if this import already exists
+                if (!fileText.contains("import " + symbolName + " from \"" + importPath + "\"") &&
+                    !fileText.contains("import " + symbolName + " from '" + importPath + "'")) {
+                    document.insertString(insertOffset, importStatement);
+                    PsiDocumentManager.getInstance(project).commitDocument(document);
+                }
+            });
+        };
+    }
+
+    /**
+     * Find the offset where new import statements should be inserted.
+     * After existing imports, or at the start of the file.
+     */
+    private int findImportInsertOffset(String text) {
+        // Find the last import statement
+        int lastImportEnd = 0;
+        int idx = 0;
+        while (idx < text.length()) {
+            // Skip whitespace and comments at the beginning of lines
+            int lineStart = idx;
+            while (idx < text.length() && Character.isWhitespace(text.charAt(idx)) && text.charAt(idx) != '\n') {
+                idx++;
+            }
+
+            // Check for comment lines
+            if (idx + 1 < text.length() && text.charAt(idx) == '/' && text.charAt(idx + 1) == '/') {
+                // Skip to end of line
+                while (idx < text.length() && text.charAt(idx) != '\n') {
+                    idx++;
+                }
+                if (idx < text.length()) idx++; // Skip newline
+                continue;
+            }
+
+            // Check for import statement
+            if (text.startsWith("import", idx)) {
+                // Find end of this line
+                while (idx < text.length() && text.charAt(idx) != '\n') {
+                    idx++;
+                }
+                if (idx < text.length()) idx++; // Skip newline
+                lastImportEnd = idx;
+                continue;
+            }
+
+            // Not an import, break
+            break;
+        }
+
+        return lastImportEnd;
     }
 
     /**

@@ -86,6 +86,9 @@ public class KiteTypeCheckingAnnotator implements Annotator {
 
         // Check for unknown decorator names
         checkUnknownDecorators(file, holder);
+
+        // Check for broken import paths
+        checkBrokenImportPaths(file, holder);
     }
 
     /**
@@ -1403,5 +1406,149 @@ public class KiteTypeCheckingAnnotator implements Annotator {
             current = current.getParent();
         }
         return false;
+    }
+
+    /**
+     * Check for broken import paths and report errors.
+     * An import path is broken if the file cannot be resolved.
+     */
+    private void checkBrokenImportPaths(PsiFile file, @NotNull AnnotationHolder holder) {
+        checkBrokenImportPathsRecursive(file, file, holder);
+    }
+
+    /**
+     * Recursively check for broken import paths in all import statements.
+     */
+    private void checkBrokenImportPathsRecursive(PsiElement element, PsiFile containingFile, @NotNull AnnotationHolder holder) {
+        if (element.getNode() == null) return;
+
+        IElementType type = element.getNode().getElementType();
+
+        // Look for IMPORT_STATEMENT elements
+        if (type == KiteElementTypes.IMPORT_STATEMENT) {
+            // Find the string token containing the import path
+            PsiElement stringToken = findImportPathString(element);
+            if (stringToken != null) {
+                String importPath = extractStringContent(stringToken.getText());
+                if (importPath != null && !importPath.isEmpty()) {
+                    // Try to resolve the import path
+                    PsiFile resolvedFile = KiteImportHelper.resolveFilePath(importPath, containingFile);
+                    if (resolvedFile == null) {
+                        // Import path is broken - report error
+                        holder.newAnnotation(HighlightSeverity.ERROR,
+                                        "Cannot resolve import path '" + importPath + "'")
+                                .range(stringToken)
+                                .highlightType(ProblemHighlightType.LIKE_UNKNOWN_SYMBOL)
+                                .create();
+                    }
+                }
+            }
+        }
+
+        // Also look for raw IMPORT tokens at file level as a fallback
+        if (type == KiteTokenTypes.IMPORT) {
+            PsiElement parent = element.getParent();
+            if (parent != null && parent.getNode() != null &&
+                parent.getNode().getElementType() != KiteElementTypes.IMPORT_STATEMENT) {
+                // This is a raw IMPORT token, not wrapped in IMPORT_STATEMENT
+                // Find the string after FROM
+                PsiElement stringToken = findImportPathStringFromToken(element);
+                if (stringToken != null) {
+                    String importPath = extractStringContent(stringToken.getText());
+                    if (importPath != null && !importPath.isEmpty()) {
+                        PsiFile resolvedFile = KiteImportHelper.resolveFilePath(importPath, containingFile);
+                        if (resolvedFile == null) {
+                            holder.newAnnotation(HighlightSeverity.ERROR,
+                                            "Cannot resolve import path '" + importPath + "'")
+                                    .range(stringToken)
+                                    .highlightType(ProblemHighlightType.LIKE_UNKNOWN_SYMBOL)
+                                    .create();
+                        }
+                    }
+                }
+            }
+        }
+
+        // Recurse into children
+        for (PsiElement child = element.getFirstChild(); child != null; child = child.getNextSibling()) {
+            checkBrokenImportPathsRecursive(child, containingFile, holder);
+        }
+    }
+
+    /**
+     * Find the string token containing the import path in an import statement.
+     * Pattern: import ... from "path"
+     */
+    @Nullable
+    private PsiElement findImportPathString(PsiElement importStatement) {
+        boolean foundFrom = false;
+        for (PsiElement child = importStatement.getFirstChild(); child != null; child = child.getNextSibling()) {
+            if (child.getNode() == null) continue;
+            IElementType childType = child.getNode().getElementType();
+
+            if (childType == KiteTokenTypes.FROM) {
+                foundFrom = true;
+                continue;
+            }
+
+            if (foundFrom) {
+                // Look for any string token type
+                if (childType == KiteTokenTypes.STRING ||
+                    childType == KiteTokenTypes.SINGLE_STRING ||
+                    childType == KiteTokenTypes.DQUOTE) {
+                    return child;
+                }
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Find the import path string starting from a raw IMPORT token.
+     */
+    @Nullable
+    private PsiElement findImportPathStringFromToken(PsiElement importToken) {
+        boolean foundFrom = false;
+        PsiElement sibling = importToken.getNextSibling();
+        while (sibling != null) {
+            if (sibling.getNode() == null) {
+                sibling = sibling.getNextSibling();
+                continue;
+            }
+            IElementType siblingType = sibling.getNode().getElementType();
+
+            if (siblingType == KiteTokenTypes.FROM) {
+                foundFrom = true;
+                sibling = sibling.getNextSibling();
+                continue;
+            }
+
+            if (foundFrom) {
+                if (siblingType == KiteTokenTypes.STRING ||
+                    siblingType == KiteTokenTypes.SINGLE_STRING ||
+                    siblingType == KiteTokenTypes.DQUOTE) {
+                    return sibling;
+                }
+            }
+
+            sibling = sibling.getNextSibling();
+        }
+        return null;
+    }
+
+    /**
+     * Extract the content from a string token, removing quotes.
+     */
+    @Nullable
+    private String extractStringContent(String stringToken) {
+        if (stringToken == null || stringToken.length() < 2) {
+            return null;
+        }
+        // Remove surrounding quotes
+        if ((stringToken.startsWith("\"") && stringToken.endsWith("\"")) ||
+            (stringToken.startsWith("'") && stringToken.endsWith("'"))) {
+            return stringToken.substring(1, stringToken.length() - 1);
+        }
+        return stringToken;
     }
 }

@@ -1,5 +1,7 @@
-import formatName, appName from "common.kite"
+import   formatName from "common.kite"
 import defaultRegion from "common.kite"
+import appName from "common.kite"
+import SharedLogger from "common.kite"
 // Simple Kite example
 // Test cross-file navigation: Cmd+Click on imported symbols
 //import * from "common.kite"
@@ -18,12 +20,15 @@ var myRegions = myRegion
 // Cmd+Click on "formatName" should navigate to common.kite
 var formattedName  = formatName("app", appName)
 var formattedNames = formatName("apps", appName)
-
 schema DatabaseConfig {
   string host
   number port  = 5432
   boolean ssl  = true
   boolean sslu = false
+}
+
+component SharedLogger logger {
+  
 }
 
 @provider(["aws"])
