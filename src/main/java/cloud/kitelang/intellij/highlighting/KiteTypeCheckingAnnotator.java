@@ -126,9 +126,101 @@ public class KiteTypeCheckingAnnotator implements Annotator {
             }
         }
 
+        // Collect symbol names from named import statements
+        // Pattern: import Symbol from "file" or import A, B, C from "file"
+        if (type == KiteElementTypes.IMPORT_STATEMENT) {
+            collectNamedImportSymbols(element, names);
+        }
+
+        // Also check for raw IMPORT tokens at file level (fallback)
+        if (type == KiteTokenTypes.IMPORT) {
+            collectNamedImportSymbolsFromToken(element, names);
+        }
+
         // Recurse into children
         for (PsiElement child = element.getFirstChild(); child != null; child = child.getNextSibling()) {
             collectAllDeclaredNames(child, names);
+        }
+    }
+
+    /**
+     * Collect symbol names from a named import statement.
+     * Pattern: import Symbol from "file" or import A, B, C from "file"
+     * Does NOT collect for wildcard imports (import * from "file").
+     */
+    private void collectNamedImportSymbols(PsiElement importStatement, Set<String> names) {
+        boolean foundImport = false;
+        boolean foundWildcard = false;
+
+        for (PsiElement child = importStatement.getFirstChild(); child != null; child = child.getNextSibling()) {
+            if (child.getNode() == null) continue;
+            IElementType childType = child.getNode().getElementType();
+
+            if (childType == KiteTokenTypes.IMPORT) {
+                foundImport = true;
+                continue;
+            }
+
+            // Check for wildcard import (*)
+            if (foundImport && childType == KiteTokenTypes.MULTIPLY) {
+                foundWildcard = true;
+                break; // Wildcard import - don't collect individual names
+            }
+
+            // Collect identifiers that appear between IMPORT and FROM
+            if (foundImport && childType == KiteTokenTypes.IDENTIFIER) {
+                names.add(child.getText());
+            }
+
+            // Stop at FROM keyword
+            if (childType == KiteTokenTypes.FROM) {
+                break;
+            }
+        }
+    }
+
+    /**
+     * Collect symbol names from a raw IMPORT token (fallback for non-wrapped imports).
+     * Pattern: import Symbol from "file" or import A, B, C from "file"
+     */
+    private void collectNamedImportSymbolsFromToken(PsiElement importToken, Set<String> names) {
+        PsiElement sibling = importToken.getNextSibling();
+
+        while (sibling != null) {
+            if (sibling.getNode() == null) {
+                sibling = sibling.getNextSibling();
+                continue;
+            }
+
+            IElementType siblingType = sibling.getNode().getElementType();
+
+            // Skip whitespace
+            if (isWhitespace(siblingType)) {
+                sibling = sibling.getNextSibling();
+                continue;
+            }
+
+            // Check for wildcard import (*)
+            if (siblingType == KiteTokenTypes.MULTIPLY) {
+                return; // Wildcard import - don't collect individual names
+            }
+
+            // Collect identifiers that appear between IMPORT and FROM
+            if (siblingType == KiteTokenTypes.IDENTIFIER) {
+                names.add(sibling.getText());
+            }
+
+            // Stop at FROM keyword
+            if (siblingType == KiteTokenTypes.FROM) {
+                break;
+            }
+
+            // Stop at newline
+            if (siblingType == KiteTokenTypes.NL || siblingType == KiteTokenTypes.NEWLINE) {
+                break;
+            }
+
+            sibling = sibling.getNextSibling();
         }
     }
 
@@ -217,9 +309,15 @@ public class KiteTypeCheckingAnnotator implements Annotator {
 
     /**
      * Collect declared names from imported files (for cross-file reference validation).
+     * ONLY collects all names from files with WILDCARD imports (import * from "file").
+     * For named imports, the symbol names are already collected by collectNamedImportSymbols.
      */
     private void collectDeclaredNamesFromImports(PsiFile file, Set<String> names, Set<String> visitedPaths) {
-        // Get imported files
+        // First, identify which files have wildcard imports vs named imports
+        Set<String> wildcardImportPaths = new HashSet<>();
+        collectWildcardImportPaths(file, wildcardImportPaths);
+
+        // Get all imported files
         List<PsiFile> importedFiles = KiteImportHelper.getImportedFiles(file);
 
         for (PsiFile importedFile : importedFiles) {
@@ -233,12 +331,56 @@ public class KiteTypeCheckingAnnotator implements Annotator {
             }
             visitedPaths.add(filePath);
 
-            // Collect declared names from this imported file
-            collectAllDeclaredNames(importedFile, names);
+            // Only collect ALL names if this file has a wildcard import
+            // For named imports, symbols are already added by collectNamedImportSymbols
+            if (wildcardImportPaths.contains(filePath)) {
+                // Collect declared names from this imported file
+                collectAllDeclaredNames(importedFile, names);
+            }
 
-            // Recursively check imports in the imported file
+            // Recursively check imports in the imported file (for transitive wildcard imports)
             collectDeclaredNamesFromImports(importedFile, names, visitedPaths);
         }
+    }
+
+    /**
+     * Collect the absolute paths of files that have wildcard imports (import * from "file").
+     */
+    private void collectWildcardImportPaths(PsiFile file, Set<String> wildcardPaths) {
+        for (PsiElement child = file.getFirstChild(); child != null; child = child.getNextSibling()) {
+            if (child.getNode() == null) continue;
+            IElementType type = child.getNode().getElementType();
+
+            if (type == KiteElementTypes.IMPORT_STATEMENT) {
+                if (isWildcardImport(child)) {
+                    // Get the file path for this import
+                    PsiFile importedFile = KiteImportHelper.resolveImport(child, file);
+                    if (importedFile != null && importedFile.getVirtualFile() != null) {
+                        wildcardPaths.add(importedFile.getVirtualFile().getPath());
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Check if an import statement is a wildcard import (import * from "file").
+     */
+    private boolean isWildcardImport(PsiElement importStatement) {
+        boolean foundImport = false;
+        for (PsiElement child = importStatement.getFirstChild(); child != null; child = child.getNextSibling()) {
+            if (child.getNode() == null) continue;
+            IElementType childType = child.getNode().getElementType();
+
+            if (childType == KiteTokenTypes.IMPORT) {
+                foundImport = true;
+            } else if (foundImport && childType == KiteTokenTypes.MULTIPLY) {
+                return true; // Found wildcard
+            } else if (childType == KiteTokenTypes.FROM) {
+                break; // Reached FROM without finding *, not wildcard
+            }
+        }
+        return false;
     }
 
     /**
@@ -287,6 +429,11 @@ public class KiteTypeCheckingAnnotator implements Annotator {
             // Skip decorator names (identifiers after @)
             // Decorators are global/built-in and don't need to be imported
             if (isDecoratorName(element)) {
+                return;
+            }
+
+            // Skip identifiers in import statements - they are being declared/imported, not referenced
+            if (isInsideImportStatement(element)) {
                 return;
             }
 
@@ -932,6 +1079,54 @@ public class KiteTypeCheckingAnnotator implements Annotator {
         PsiElement prev = skipWhitespaceBackward(identifier.getPrevSibling());
         return prev != null && prev.getNode() != null &&
                prev.getNode().getElementType() == KiteTokenTypes.AT;
+    }
+
+    /**
+     * Check if the element is inside an import statement.
+     * Identifiers in import statements are being declared/imported, not referenced.
+     * Patterns:
+     * - import * from "file"
+     * - import SymbolName from "file"
+     * - import A, B, C from "file"
+     */
+    private boolean isInsideImportStatement(PsiElement element) {
+        // Walk up the PSI tree to check if we're inside an IMPORT_STATEMENT
+        PsiElement parent = element.getParent();
+        while (parent != null && !(parent instanceof PsiFile)) {
+            if (parent.getNode() != null &&
+                parent.getNode().getElementType() == KiteElementTypes.IMPORT_STATEMENT) {
+                return true;
+            }
+            parent = parent.getParent();
+        }
+
+        // Also check sibling-level: import might not be wrapped in IMPORT_STATEMENT element
+        // Check if preceded by IMPORT keyword at the same level or nearby
+        PsiElement current = element;
+        while (current != null) {
+            PsiElement prev = current.getPrevSibling();
+            while (prev != null) {
+                if (prev.getNode() != null) {
+                    IElementType prevType = prev.getNode().getElementType();
+                    // Found IMPORT keyword - we're in an import statement
+                    if (prevType == KiteTokenTypes.IMPORT) {
+                        return true;
+                    }
+                    // If we hit a newline or another statement-level element, stop
+                    if (prevType == KiteTokenTypes.NL || prevType == KiteTokenTypes.NEWLINE) {
+                        break;
+                    }
+                }
+                prev = prev.getPrevSibling();
+            }
+            // Move to parent and continue checking
+            current = current.getParent();
+            if (current instanceof PsiFile) {
+                break;
+            }
+        }
+
+        return false;
     }
 
     /**

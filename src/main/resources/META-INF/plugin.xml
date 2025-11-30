@@ -123,7 +123,8 @@
         <ul>
           <li>Follow imports to navigate to declarations in other files</li>
           <li>Cmd+Click (Mac) or Ctrl+Click (Win/Linux) on identifiers from imported modules</li>
-          <li>Supports <code>import * from "path/to/file.kite"</code> syntax</li>
+          <li>Supports wildcard imports: <code>import * from "path/to/file.kite"</code></li>
+          <li>Supports named imports: <code>import Symbol from "file.kite"</code> or <code>import A, B, C from "file.kite"</code></li>
           <li>Automatically resolves relative paths from the current file</li>
           <li>Recursive import resolution for transitive dependencies</li>
         </ul>
@@ -133,6 +134,25 @@
 
     <!-- Short summary of new features and bugfixes in the latest version -->
     <change-notes><![CDATA[
+    <b>0.24.0</b>
+    <ul>
+      <li><b>Named Imports</b> - Full support for named import syntax:
+        <ul>
+          <li>Single symbol: <code>import DatabaseConfig from "schemas.kite"</code></li>
+          <li>Multiple symbols: <code>import formatName, validateEmail from "utils.kite"</code></li>
+          <li>Type checking validates that named imports are in scope</li>
+          <li>Quick-fix automatically uses named import syntax (not wildcard)</li>
+          <li>Merges imports from the same file: adding <code>B</code> when <code>import A from "file"</code> exists becomes <code>import A, B from "file"</code></li>
+        </ul>
+      </li>
+      <li><b>Improved Add Import Quick-fix</b>
+        <ul>
+          <li>Uses named imports instead of wildcard imports</li>
+          <li>Intelligently merges with existing imports from the same file</li>
+          <li>Skips files that already have the symbol imported</li>
+        </ul>
+      </li>
+    </ul>
     <b>0.23.0</b>
     <ul>
       <li><b>Add Import Quick-fix</b> - When you use an undefined symbol that exists in another file:
