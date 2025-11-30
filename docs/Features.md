@@ -171,14 +171,29 @@ Shows hierarchical path in editor header:
 
 ### Available Quick Fixes
 
-| Quick Fix            | Trigger               | Action                   |
-|----------------------|-----------------------|--------------------------|
-| Remove unused import | Unused import warning | Removes import or symbol |
+| Quick Fix            | Trigger                | Action                                    |
+|----------------------|------------------------|-------------------------------------------|
+| Remove unused import | Unused import warning  | Removes import or symbol                  |
+| Add import           | Undefined symbol error | Adds import when symbol exists in project |
+| Optimize imports     | Cmd+Alt+O / Ctrl+Alt+O | Removes all unused imports at once        |
 
-### Planned Quick Fixes
+### Add Import Quick Fix
 
-- Add import for undefined symbol (when symbol exists in another file)
-- Optimize imports (remove all unused)
+When an undefined symbol is detected, the quick fix searches project files:
+
+- **Availability**: Shows when symbol exists in another file that can be imported
+- **Multiple candidates**: If symbol exists in multiple files, offers choice
+- **Existing imports**: Adds to existing import from same file (`import a` → `import a, b`)
+- **Limitation**: Schema names in type positions are excluded from type checking validation
+
+### Optimize Imports
+
+Removes all unused imports via Cmd+Alt+O (Mac) or Ctrl+Alt+O (Windows/Linux):
+
+- Removes entire import lines when no symbols are used
+- Removes individual unused symbols from multi-symbol imports
+- Preserves wildcard imports when any exported symbol is used
+- Detects usage in string interpolation (`$var` and `${var}`)
 
 ---
 
@@ -283,6 +298,8 @@ Shows file structure in tool window with:
 | Broken Import Detection | `highlighting/KiteTypeCheckingAnnotator.java`  |
 | Unused Import Detection | `highlighting/KiteUnusedImportAnnotator.java`  |
 | Remove Import Quick Fix | `quickfix/RemoveUnusedImportQuickFix.java`     |
+| Add Import Quick Fix    | `quickfix/AddImportQuickFix.java`              |
+| Optimize Imports        | `imports/KiteImportOptimizer.java`             |
 | Navigation              | `navigation/KiteGotoDeclarationHandler.java`   |
 | Code Completion         | `completion/KiteCompletionContributor.java`    |
 | Inlay Hints             | `hints/KiteInlayHintsProvider.java`            |
@@ -298,3 +315,5 @@ Shows file structure in tool window with:
 | Broken Imports    | `KiteBrokenImportAnnotatorTest.java`  |
 | Unused Imports    | `KiteUnusedImportAnnotatorTest.java`  |
 | Remove Import Fix | `RemoveUnusedImportQuickFixTest.java` |
+| Add Import Fix    | `AddImportIntentionTest.java`         |
+| Optimize Imports  | `KiteImportOptimizerTest.java`        |

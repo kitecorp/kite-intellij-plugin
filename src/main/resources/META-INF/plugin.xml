@@ -451,6 +451,10 @@
         <lang.formatter language="Kite"
                         implementationClass="cloud.kitelang.intellij.formatter.KiteFormattingModelBuilder"/>
 
+        <!-- Import optimizer (Ctrl+Alt+O / Cmd+Alt+O) -->
+        <lang.importOptimizer language="Kite"
+                              implementationClass="cloud.kitelang.intellij.imports.KiteImportOptimizer"/>
+
         <!-- Code style settings -->
         <langCodeStyleSettingsProvider implementation="cloud.kitelang.intellij.KiteLanguageCodeStyleSettingsProvider"/>
 
