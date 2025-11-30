@@ -8,6 +8,11 @@
 4. **Debug actual problems** - Focus on what's actually broken
 5. **Prefer simple solutions** - Complexity should match the problem
 6. **When stuck, step back** - Look at similar working code
+7. **Follow TDD** - Write tests first, then implement features to make tests pass
+8. **Apply SOLID principles** - Single responsibility, Open/closed, Liskov substitution, Interface segregation,
+   Dependency inversion
+9. **Use Clean Code** - Meaningful names, small functions, clear intent, no side effects
+10. **DRY** - Don't Repeat Yourself; extract common patterns into reusable methods
 
 ## Commands
 
@@ -20,8 +25,27 @@
 
 ## Testing
 
+### Manual Testing
 - Test files: `examples/` directory
 - Main test file: `examples/simple.kite`, `examples/common.kite`
+
+### Unit Tests
+
+```bash
+./gradlew test           # Run all tests
+./gradlew test --rerun-tasks  # Force re-run
+```
+
+- Test base class: `KiteTestBase` extends `BasePlatformTestCase`
+- Test location: `src/test/java/cloud/kitelang/intellij/`
+- Test data: `src/test/resources/testData/`
+
+Key test patterns:
+
+- Use `addFile("name.kite", content)` to add files to test project
+- Use `configureByText(content)` to set up the main test file
+- Use `myFixture.doHighlighting()` to trigger annotators
+- Use `myFixture.getFile().findReferenceAt(offset)` to test references
 
 ## Key Implementation Notes
 
