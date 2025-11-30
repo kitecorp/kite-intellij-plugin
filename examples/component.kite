@@ -1,4 +1,5 @@
 // asd
+var myVar = "from B"
 @count
 component WebServer {
   @unique

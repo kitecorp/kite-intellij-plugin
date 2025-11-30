@@ -1,3 +1,6 @@
+import myVar from "common.kite"
+
+var x = myVar
 component WebServer {
   input string instanceType = "t2.micro"
   input string fromOutput   = "t2.micro"

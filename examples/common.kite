@@ -3,7 +3,7 @@ import unusedSymbol from "common.kite"
 // This file is imported by simple.kite using: import * from "common.kite"
 // Shared type definition
 type Region = "us-east-1" | "us-west-2" | "eu-west-1"
-
+var myVar = "from A"
 // Shared schema for configuration
 schema CommonConfig {
   string   name   = "hi"

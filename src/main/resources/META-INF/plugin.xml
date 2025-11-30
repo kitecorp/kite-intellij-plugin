@@ -435,6 +435,10 @@
         <annotator language="Kite"
                    implementationClass="cloud.kitelang.intellij.highlighting.KiteUnusedImportAnnotator"/>
 
+        <!-- Annotator for duplicate import detection -->
+        <annotator language="Kite"
+                   implementationClass="cloud.kitelang.intellij.highlighting.KiteDuplicateImportAnnotator"/>
+
         <!-- Structure view -->
         <lang.psiStructureViewFactory language="Kite"
                                       implementationClass="cloud.kitelang.intellij.structure.KiteStructureViewBuilderFactory"/>
