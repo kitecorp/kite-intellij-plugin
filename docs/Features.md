@@ -113,7 +113,7 @@ When an unused import is detected, a quick fix is available:
 |-------------------------------|-----------------------------------------------------------|------------|
 | [x] Import Sorting            | Auto-sort imports alphabetically when optimizing          | Easy       |
 | [x] Unused Wildcard Warning   | Warn if `import *` doesn't use any symbol from the file   | Easy       |
-| [ ] Import Folding            | Collapse multiple imports into `[3 imports...]` in editor | Easy       |
+| [x] Import Folding            | Collapse multiple imports into `[3 imports...]` in editor | Easy       |
 | [ ] Wildcard to Named         | Convert `import *` to explicit named imports quick fix    | Medium     |
 | [ ] Import Path Completion    | Autocomplete file paths in import strings                 | Medium     |
 | [ ] Circular Import Detection | Warn when files import each other in a cycle              | Medium     |
@@ -346,3 +346,4 @@ Shows file structure in tool window with:
 | Remove Import Fix | `RemoveUnusedImportQuickFixTest.java`   |
 | Add Import Fix    | `AddImportIntentionTest.java`           |
 | Optimize Imports  | `KiteImportOptimizerTest.java`          |
+| Import Folding    | `KiteFoldingBuilderTest.java`           |

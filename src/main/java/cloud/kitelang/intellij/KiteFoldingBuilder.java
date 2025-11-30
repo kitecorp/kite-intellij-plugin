@@ -8,28 +8,78 @@ import com.intellij.lang.folding.FoldingDescriptor;
 import com.intellij.openapi.editor.Document;
 import com.intellij.openapi.util.TextRange;
 import com.intellij.psi.PsiElement;
+import com.intellij.psi.PsiFile;
 import com.intellij.psi.tree.IElementType;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Provides code folding support for Kite language.
- * Allows collapsing/expanding blocks, comments, arrays, and objects.
+ * Allows collapsing/expanding blocks, comments, arrays, objects, and imports.
  */
 public class KiteFoldingBuilder extends FoldingBuilderEx {
+
+    private static final Pattern IMPORT_PATTERN = Pattern.compile(
+            "^\\s*import\\s+[\\w,\\s*]+\\s+from\\s+[\"'][^\"']+[\"']\\s*(?:\\r?\\n)?",
+            Pattern.MULTILINE
+    );
 
     @NotNull
     @Override
     public FoldingDescriptor[] buildFoldRegions(@NotNull PsiElement root, @NotNull Document document, boolean quick) {
         List<FoldingDescriptor> descriptors = new ArrayList<>();
 
+        // Collect import folding region first
+        collectImportFoldingRegion(root, document, descriptors);
+
         // Traverse the PSI tree and collect foldable regions
         collectFoldingRegions(root, document, descriptors);
 
         return descriptors.toArray(new FoldingDescriptor[0]);
+    }
+
+    /**
+     * Collects import statements and creates a single folding region for them.
+     */
+    private void collectImportFoldingRegion(PsiElement root, Document document, List<FoldingDescriptor> descriptors) {
+        if (!(root instanceof PsiFile)) return;
+
+        String text = root.getText();
+        Matcher matcher = IMPORT_PATTERN.matcher(text);
+
+        List<int[]> importRanges = new ArrayList<>();
+        while (matcher.find()) {
+            importRanges.add(new int[]{matcher.start(), matcher.end()});
+        }
+
+        // Only fold if there are 2+ imports
+        if (importRanges.size() >= 2) {
+            int firstStart = importRanges.get(0)[0];
+            int lastEnd = importRanges.get(importRanges.size() - 1)[1];
+
+            // Trim trailing newline from range
+            while (lastEnd > firstStart && Character.isWhitespace(text.charAt(lastEnd - 1))) {
+                lastEnd--;
+            }
+            lastEnd++; // Include one newline
+
+            TextRange range = new TextRange(firstStart, Math.min(lastEnd, text.length()));
+            int importCount = importRanges.size();
+            String placeholder = "[" + importCount + " imports...]";
+
+            // Find the first import node to attach the folding descriptor to
+            PsiElement firstElement = root.findElementAt(firstStart);
+            ASTNode node = firstElement != null ? firstElement.getNode() : root.getNode();
+
+            if (node != null) {
+                descriptors.add(new FoldingDescriptor(node, range, null, placeholder));
+            }
+        }
     }
 
     private void collectFoldingRegions(PsiElement element, Document document, List<FoldingDescriptor> descriptors) {
