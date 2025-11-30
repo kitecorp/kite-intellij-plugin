@@ -188,6 +188,104 @@ public class KiteUnusedImportAnnotatorTest extends KiteTestBase {
         assertEquals("No imports should produce no warnings", 0, warnings.size());
     }
 
+    // ==================== Wildcard Import Tests ====================
+
+    /**
+     * Test that an unused wildcard import is flagged.
+     */
+    public void testUnusedWildcardImport() {
+        addFile("common.kite", """
+                var alpha = "a"
+                var beta = "b"
+                """);
+
+        configureByText("""
+                import * from "common.kite"
+                
+                var x = "hello"
+                """);
+
+        List<HighlightInfo> warnings = getUnusedImportWarnings();
+        assertEquals("Expected one unused wildcard import warning", 1, warnings.size());
+        assertTrue("Warning should mention unused import",
+                warnings.get(0).getDescription().contains("Unused import"));
+    }
+
+    /**
+     * Test that a used wildcard import is NOT flagged.
+     */
+    public void testUsedWildcardImport() {
+        addFile("common.kite", """
+                var alpha = "a"
+                var beta = "b"
+                """);
+
+        configureByText("""
+                import * from "common.kite"
+                
+                var x = alpha
+                """);
+
+        List<HighlightInfo> warnings = getUnusedImportWarnings();
+        assertEquals("Used wildcard import should not be flagged", 0, warnings.size());
+    }
+
+    /**
+     * Test that wildcard import used via string interpolation is NOT flagged.
+     */
+    public void testWildcardImportUsedInInterpolation() {
+        addFile("common.kite", """
+                var region = "us-east-1"
+                """);
+
+        configureByText("""
+                import * from "common.kite"
+                
+                var endpoint = "https://$region.example.com"
+                """);
+
+        List<HighlightInfo> warnings = getUnusedImportWarnings();
+        assertEquals("Wildcard import used in interpolation should not be flagged", 0, warnings.size());
+    }
+
+    /**
+     * Test that wildcard import used via ${} interpolation is NOT flagged.
+     */
+    public void testWildcardImportUsedInBracedInterpolation() {
+        addFile("common.kite", """
+                var region = "us-east-1"
+                """);
+
+        configureByText("""
+                import * from "common.kite"
+                
+                var endpoint = "https://${region}.example.com"
+                """);
+
+        List<HighlightInfo> warnings = getUnusedImportWarnings();
+        assertEquals("Wildcard import used in ${} interpolation should not be flagged", 0, warnings.size());
+    }
+
+    /**
+     * Test that wildcard import with function usage is NOT flagged.
+     */
+    public void testWildcardImportWithFunctionUsage() {
+        addFile("common.kite", """
+                fun formatName(string name) string {
+                    return "formatted-" + name
+                }
+                """);
+
+        configureByText("""
+                import * from "common.kite"
+                
+                var result = formatName("test")
+                """);
+
+        List<HighlightInfo> warnings = getUnusedImportWarnings();
+        assertEquals("Wildcard import with function usage should not be flagged", 0, warnings.size());
+    }
+
     /**
      * Helper method to get only unused import warnings from highlighting.
      */

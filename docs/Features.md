@@ -112,7 +112,7 @@ When an unused import is detected, a quick fix is available:
 | Feature                       | Description                                               | Complexity |
 |-------------------------------|-----------------------------------------------------------|------------|
 | [x] Import Sorting            | Auto-sort imports alphabetically when optimizing          | Easy       |
-| [ ] Unused Wildcard Warning   | Warn if `import *` doesn't use any symbol from the file   | Easy       |
+| [x] Unused Wildcard Warning   | Warn if `import *` doesn't use any symbol from the file   | Easy       |
 | [ ] Import Folding            | Collapse multiple imports into `[3 imports...]` in editor | Easy       |
 | [ ] Wildcard to Named         | Convert `import *` to explicit named imports quick fix    | Medium     |
 | [ ] Import Path Completion    | Autocomplete file paths in import strings                 | Medium     |
