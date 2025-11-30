@@ -274,6 +274,11 @@ public class KiteCompletionContributor extends CompletionContributor {
                     PsiElement position = parameters.getPosition();
                     PsiElement originalPosition = parameters.getOriginalPosition();
 
+                    // Skip general completions inside import path strings - only show file paths
+                    if (KiteImportPathCompletionProvider.isInsideImportPathString(position)) {
+                        return;
+                    }
+
                     // Check if we're after @ (decorator context)
                     if (isDecoratorContext(position)) {
                         int targetType = detectDecoratorTargetType(parameters);

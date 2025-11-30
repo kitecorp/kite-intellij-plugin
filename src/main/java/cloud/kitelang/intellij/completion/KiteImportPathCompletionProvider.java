@@ -77,8 +77,11 @@ public class KiteImportPathCompletionProvider extends CompletionProvider<Complet
      * Check if the position is inside an import path string.
      * Uses PSI structure to detect if we're inside an IMPORT_STATEMENT
      * and in a string context (after "from" keyword).
+     *
+     * This is a public static method so other completion providers can check
+     * and skip when we're in import path context.
      */
-    private boolean isInsideImportPathString(@NotNull PsiElement position) {
+    public static boolean isInsideImportPathString(@NotNull PsiElement position) {
         // First, check if we're inside an IMPORT_STATEMENT by walking up the tree
         PsiElement importStatement = findParentImportStatement(position);
         if (importStatement == null) {
@@ -117,7 +120,7 @@ public class KiteImportPathCompletionProvider extends CompletionProvider<Complet
      * Walk up the PSI tree to find an IMPORT_STATEMENT ancestor.
      */
     @Nullable
-    private PsiElement findParentImportStatement(@NotNull PsiElement element) {
+    private static PsiElement findParentImportStatement(@NotNull PsiElement element) {
         PsiElement current = element;
         while (current != null && !(current instanceof PsiFile)) {
             if (current.getNode() != null) {
@@ -135,7 +138,7 @@ public class KiteImportPathCompletionProvider extends CompletionProvider<Complet
      * Get the element type of a PSI element.
      */
     @Nullable
-    private IElementType getElementType(@NotNull PsiElement element) {
+    private static IElementType getElementType(@NotNull PsiElement element) {
         if (element.getNode() != null) {
             return element.getNode().getElementType();
         }
@@ -145,7 +148,7 @@ public class KiteImportPathCompletionProvider extends CompletionProvider<Complet
     /**
      * Check if the element type is a string-related token.
      */
-    private boolean isStringToken(@Nullable IElementType type) {
+    private static boolean isStringToken(@Nullable IElementType type) {
         if (type == null) return false;
         return type == KiteTokenTypes.STRING ||
                type == KiteTokenTypes.STRING_TEXT ||
@@ -157,7 +160,7 @@ public class KiteImportPathCompletionProvider extends CompletionProvider<Complet
     /**
      * Check if siblings include quote tokens (indicating we're inside a string).
      */
-    private boolean hasQuoteSiblings(@NotNull PsiElement element) {
+    private static boolean hasQuoteSiblings(@NotNull PsiElement element) {
         PsiElement prev = element.getPrevSibling();
         while (prev != null) {
             IElementType type = getElementType(prev);

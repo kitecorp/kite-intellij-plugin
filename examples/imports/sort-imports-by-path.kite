@@ -1,5 +1,5 @@
 import gammaVar from "gamma.kite"
 import alphaVar from "alpha.kite"
-import betaVar from "beta.kite"
+import betaVar from "gamma.kite"
 
 var x = alphaVar + betaVar + gammaVar
