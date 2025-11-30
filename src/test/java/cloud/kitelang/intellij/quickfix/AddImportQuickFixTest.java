@@ -1,6 +1,10 @@
 package cloud.kitelang.intellij.quickfix;
 
 import cloud.kitelang.intellij.KiteTestBase;
+import com.intellij.codeInsight.daemon.impl.HighlightInfo;
+
+import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * Tests for {@link AddImportQuickFix}.
@@ -10,41 +14,43 @@ import cloud.kitelang.intellij.KiteTestBase;
 public class AddImportQuickFixTest extends KiteTestBase {
 
     /**
-     * Test that highlighting runs without exception for undefined symbols.
+     * Test that undefined symbol is handled gracefully.
+     * Note: Full error reporting requires the full IDE environment.
      */
-    public void testUndefinedSymbolHighlightingRunsWithoutException() {
+    public void testUndefinedSymbolHandledGracefully() {
         configureByText("""
                 var x = undefinedVar
                 """);
 
-        // Verify file parses and highlighting runs without crashing
-        assertNotNull(myFixture.getFile());
-        myFixture.doHighlighting();
+        // Verify highlighting runs without exception
+        List<HighlightInfo> allHighlights = myFixture.doHighlighting();
+        assertNotNull("Highlighting should run", allHighlights);
     }
 
     /**
-     * Test that imported symbol parsing works correctly.
+     * Test that imported symbol produces no error.
      */
-    public void testImportedSymbolParsingWorks() {
+    public void testImportedSymbolNoError() {
         addFile("common.kite", """
                 var defaultRegion = "us-east-1"
                 """);
 
         configureByText("""
                 import defaultRegion from "common.kite"
-                
+
                 var x = defaultRegion
                 """);
 
-        // Verify file parses and highlighting runs without exception
-        assertNotNull(myFixture.getFile());
-        myFixture.doHighlighting();
+        // Verify no errors for valid import
+        List<HighlightInfo> errors = getErrors();
+        assertTrue("Valid import should produce no errors, but got: " + formatErrors(errors), errors.isEmpty());
     }
 
     /**
-     * Test that wildcard import parsing works correctly.
+     * Test that wildcard import is handled correctly.
+     * Note: Full wildcard import resolution requires the full IDE environment.
      */
-    public void testWildcardImportParsingWorks() {
+    public void testWildcardImportHandledGracefully() {
         addFile("common.kite", """
                 var defaultRegion = "us-east-1"
                 var otherVar = "other"
@@ -52,17 +58,17 @@ public class AddImportQuickFixTest extends KiteTestBase {
 
         configureByText("""
                 import * from "common.kite"
-                
+
                 var x = defaultRegion
                 """);
 
-        // Verify file parses and highlighting runs without exception
-        assertNotNull(myFixture.getFile());
-        myFixture.doHighlighting();
+        // Verify highlighting runs without exception
+        List<HighlightInfo> allHighlights = myFixture.doHighlighting();
+        assertNotNull("Highlighting should run", allHighlights);
     }
 
     /**
-     * Test that complex import scenarios parse correctly.
+     * Test that complex import scenarios work correctly.
      */
     public void testComplexImportScenario() {
         addFile("common.kite", """
@@ -76,19 +82,19 @@ public class AddImportQuickFixTest extends KiteTestBase {
         configureByText("""
                 import alpha, beta from "common.kite"
                 import gamma from "other.kite"
-                
+
                 var result = alpha + beta + gamma
                 """);
 
-        // Verify file parses and highlighting runs without exception
-        assertNotNull(myFixture.getFile());
-        myFixture.doHighlighting();
+        // Verify no errors for complex import scenario
+        List<HighlightInfo> errors = getErrors();
+        assertTrue("Complex import should produce no errors, but got: " + formatErrors(errors), errors.isEmpty());
     }
 
     /**
      * Test that functions can be imported and used.
      */
-    public void testImportedFunctionParsingWorks() {
+    public void testImportedFunctionNoError() {
         addFile("common.kite", """
                 fun formatName(string prefix, string name) string {
                     return prefix + "-" + name
@@ -97,19 +103,19 @@ public class AddImportQuickFixTest extends KiteTestBase {
 
         configureByText("""
                 import formatName from "common.kite"
-                
+
                 var x = formatName("app", "server")
                 """);
 
-        // Verify file parses and highlights without crashing
-        assertNotNull(myFixture.getFile());
-        myFixture.doHighlighting();
+        // Verify no errors for function import
+        List<HighlightInfo> errors = getErrors();
+        assertTrue("Valid function import should produce no errors, but got: " + formatErrors(errors), errors.isEmpty());
     }
 
     /**
      * Test that schemas can be imported and used.
      */
-    public void testImportedSchemaParsingWorks() {
+    public void testImportedSchemaNoError() {
         addFile("common.kite", """
                 schema Config {
                     string name
@@ -126,9 +132,9 @@ public class AddImportQuickFixTest extends KiteTestBase {
                 }
                 """);
 
-        // Verify file parses and highlights without crashing
-        assertNotNull(myFixture.getFile());
-        myFixture.doHighlighting();
+        // Verify no errors for schema import
+        List<HighlightInfo> errors = getErrors();
+        assertTrue("Valid schema import should produce no errors, but got: " + formatErrors(errors), errors.isEmpty());
     }
 
     /**
@@ -153,5 +159,17 @@ public class AddImportQuickFixTest extends KiteTestBase {
         assertTrue("Import should exist", importIndex >= 0);
         assertTrue("Var should exist", varIndex >= 0);
         assertTrue("Import should come before var", importIndex < varIndex);
+    }
+
+    /**
+     * Helper method to format errors for assertion messages.
+     */
+    private String formatErrors(List<HighlightInfo> errors) {
+        if (errors.isEmpty()) {
+            return "[]";
+        }
+        return errors.stream()
+                .map(h -> h.getDescription() != null ? h.getDescription() : "null")
+                .collect(Collectors.joining(", ", "[", "]"));
     }
 }

@@ -1,10 +1,15 @@
 package cloud.kitelang.intellij.highlighting;
 
 import cloud.kitelang.intellij.KiteTestBase;
+import com.intellij.codeInsight.daemon.impl.HighlightInfo;
+
+import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * Tests for broken import path detection in {@link KiteTypeCheckingAnnotator}.
- * Verifies that the file parses and the annotator runs without exceptions.
+ * Verifies that the annotator correctly handles import scenarios.
+ * Note: Full error reporting for broken imports requires the full IDE environment.
  */
 public class KiteBrokenImportAnnotatorTest extends KiteTestBase {
 
@@ -18,28 +23,29 @@ public class KiteBrokenImportAnnotatorTest extends KiteTestBase {
 
         configureByText("""
                 import defaultRegion from "common.kite"
-                
+
                 var x = defaultRegion
                 """);
 
-        // Verify file parses without exception
-        assertNotNull(myFixture.getFile());
-        myFixture.doHighlighting();
+        // Verify no errors for valid import
+        List<HighlightInfo> errors = getErrors();
+        assertTrue("Valid import should produce no errors, but got: " + formatErrors(errors), errors.isEmpty());
     }
 
     /**
      * Test that non-existent file import is handled gracefully.
+     * Note: Full error reporting requires the full IDE environment.
      */
     public void testNonExistentFileImportHandledGracefully() {
         configureByText("""
                 import something from "nonexistent.kite"
-                
+
                 var x = "hello"
                 """);
 
-        // Verify file parses and highlighting runs without exception
-        assertNotNull(myFixture.getFile());
-        myFixture.doHighlighting();
+        // Verify highlighting runs without exception
+        List<HighlightInfo> allHighlights = myFixture.doHighlighting();
+        assertNotNull("Highlighting should run", allHighlights);
     }
 
     /**
@@ -48,13 +54,13 @@ public class KiteBrokenImportAnnotatorTest extends KiteTestBase {
     public void testWildcardImportNonExistentFileHandledGracefully() {
         configureByText("""
                 import * from "missing.kite"
-                
+
                 var x = "hello"
                 """);
 
-        // Verify file parses without exception
-        assertNotNull(myFixture.getFile());
-        myFixture.doHighlighting();
+        // Verify highlighting runs without exception
+        List<HighlightInfo> allHighlights = myFixture.doHighlighting();
+        assertNotNull("Highlighting should run", allHighlights);
     }
 
     /**
@@ -63,13 +69,13 @@ public class KiteBrokenImportAnnotatorTest extends KiteTestBase {
     public void testMultiSymbolImportNonExistentFileHandledGracefully() {
         configureByText("""
                 import a, b, c from "notfound.kite"
-                
+
                 var x = "hello"
                 """);
 
-        // Verify file parses without exception
-        assertNotNull(myFixture.getFile());
-        myFixture.doHighlighting();
+        // Verify highlighting runs without exception
+        List<HighlightInfo> allHighlights = myFixture.doHighlighting();
+        assertNotNull("Highlighting should run", allHighlights);
     }
 
     /**
@@ -79,13 +85,13 @@ public class KiteBrokenImportAnnotatorTest extends KiteTestBase {
         configureByText("""
                 import a from "missing1.kite"
                 import b from "missing2.kite"
-                
+
                 var x = "hello"
                 """);
 
-        // Verify file parses without exception
-        assertNotNull(myFixture.getFile());
-        myFixture.doHighlighting();
+        // Verify highlighting runs without exception
+        List<HighlightInfo> allHighlights = myFixture.doHighlighting();
+        assertNotNull("Highlighting should run", allHighlights);
     }
 
     /**
@@ -99,13 +105,13 @@ public class KiteBrokenImportAnnotatorTest extends KiteTestBase {
         configureByText("""
                 import validVar from "valid.kite"
                 import broken from "broken.kite"
-                
+
                 var x = validVar
                 """);
 
-        // Verify file parses without exception
-        assertNotNull(myFixture.getFile());
-        myFixture.doHighlighting();
+        // Verify highlighting runs without exception
+        List<HighlightInfo> allHighlights = myFixture.doHighlighting();
+        assertNotNull("Highlighting should run", allHighlights);
     }
 
     /**
@@ -122,13 +128,13 @@ public class KiteBrokenImportAnnotatorTest extends KiteTestBase {
                 var x = nestedVar
                 """);
 
-        // Verify file parses without exception
-        assertNotNull(myFixture.getFile());
-        myFixture.doHighlighting();
+        // Verify no errors for valid relative import
+        List<HighlightInfo> errors = getErrors();
+        assertTrue("Valid relative path import should produce no errors, but got: " + formatErrors(errors), errors.isEmpty());
     }
 
     /**
-     * Test that import with wrong relative path is handled gracefully.
+     * Test that wrong relative path is handled gracefully.
      */
     public void testWrongRelativePathHandledGracefully() {
         addFile("correct/file.kite", """
@@ -141,24 +147,24 @@ public class KiteBrokenImportAnnotatorTest extends KiteTestBase {
                 var x = myVar
                 """);
 
-        // Verify file parses without exception
-        assertNotNull(myFixture.getFile());
-        myFixture.doHighlighting();
+        // Verify highlighting runs without exception
+        List<HighlightInfo> allHighlights = myFixture.doHighlighting();
+        assertNotNull("Highlighting should run", allHighlights);
     }
 
     /**
      * Test that empty import path is handled gracefully.
      */
-    public void testEmptyImportPath() {
+    public void testEmptyImportPathHandledGracefully() {
         configureByText("""
                 import something from ""
                 
                 var x = "hello"
                 """);
 
-        // Verify file parses without exception
-        assertNotNull(myFixture.getFile());
-        myFixture.doHighlighting();
+        // Verify highlighting runs without exception
+        List<HighlightInfo> allHighlights = myFixture.doHighlighting();
+        assertNotNull("Highlighting should run", allHighlights);
     }
 
     /**
@@ -170,8 +176,20 @@ public class KiteBrokenImportAnnotatorTest extends KiteTestBase {
                 var y = x
                 """);
 
-        // Verify file parses without exception
-        assertNotNull(myFixture.getFile());
-        myFixture.doHighlighting();
+        // Verify no errors
+        List<HighlightInfo> errors = getErrors();
+        assertTrue("File with no imports should produce no errors, but got: " + formatErrors(errors), errors.isEmpty());
+    }
+
+    /**
+     * Helper method to format errors for assertion messages.
+     */
+    private String formatErrors(List<HighlightInfo> errors) {
+        if (errors.isEmpty()) {
+            return "[]";
+        }
+        return errors.stream()
+                .map(h -> h.getDescription() != null ? h.getDescription() : "null")
+                .collect(Collectors.joining(", ", "[", "]"));
     }
 }

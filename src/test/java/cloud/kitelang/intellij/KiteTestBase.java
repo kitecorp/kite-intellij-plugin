@@ -1,16 +1,25 @@
 package cloud.kitelang.intellij;
 
 import com.intellij.testFramework.fixtures.BasePlatformTestCase;
+import com.intellij.testFramework.fixtures.CodeInsightTestFixture;
 
 /**
  * Base test class for Kite language plugin tests.
  * Provides common test setup and utilities.
  */
-public abstract class KiteTestBase extends BasePlatformTestCase {
+public abstract class KiteTestBase extends BasePlatformTestCase implements HighlightingTestSupport {
 
     @Override
     protected String getTestDataPath() {
         return "src/test/resources/testData";
+    }
+
+    /**
+     * Returns the test fixture for use by HighlightingTestSupport.
+     */
+    @Override
+    public CodeInsightTestFixture getFixture() {
+        return myFixture;
     }
 
     /**
