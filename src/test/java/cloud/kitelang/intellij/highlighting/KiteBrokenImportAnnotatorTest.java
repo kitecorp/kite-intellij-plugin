@@ -49,39 +49,40 @@ public class KiteBrokenImportAnnotatorTest extends KiteTestBase {
     }
 
     /**
-     * Test that wildcard import from non-existent file is handled gracefully.
+     * Test that wildcard import from non-existent file produces no errors.
+     * Wildcard imports don't have named symbols to mark as unused.
      */
-    public void testWildcardImportNonExistentFileHandledGracefully() {
+    public void testWildcardImportNonExistentFileNoErrors() {
         configureByText("""
                 import * from "missing.kite"
 
                 var x = "hello"
                 """);
 
-        // Verify highlighting runs without exception
-        List<HighlightInfo> allHighlights = myFixture.doHighlighting();
-        assertNotNull("Highlighting should run", allHighlights);
+        // Wildcard imports don't produce unused import warnings (no specific symbols)
+        List<HighlightInfo> errors = getErrors();
+        assertTrue("Wildcard import from missing file should produce no errors, but got: " + formatErrors(errors), errors.isEmpty());
     }
 
     /**
-     * Test that multi-symbol import from non-existent file is handled gracefully.
+     * Test that multi-symbol import from non-existent file produces no errors.
      */
-    public void testMultiSymbolImportNonExistentFileHandledGracefully() {
+    public void testMultiSymbolImportNonExistentFileNoErrors() {
         configureByText("""
                 import a, b, c from "notfound.kite"
 
                 var x = "hello"
                 """);
 
-        // Verify highlighting runs without exception
-        List<HighlightInfo> allHighlights = myFixture.doHighlighting();
-        assertNotNull("Highlighting should run", allHighlights);
+        // Multi-symbol import from missing file should not produce errors
+        List<HighlightInfo> errors = getErrors();
+        assertTrue("Multi-symbol import from missing file should produce no errors, but got: " + formatErrors(errors), errors.isEmpty());
     }
 
     /**
-     * Test that multiple broken imports are handled gracefully.
+     * Test that multiple broken imports produce unused import warnings.
      */
-    public void testMultipleBrokenImportsHandledGracefully() {
+    public void testMultipleBrokenImportsProduceUnusedWarnings() {
         configureByText("""
                 import a from "missing1.kite"
                 import b from "missing2.kite"
@@ -89,15 +90,19 @@ public class KiteBrokenImportAnnotatorTest extends KiteTestBase {
                 var x = "hello"
                 """);
 
-        // Verify highlighting runs without exception
-        List<HighlightInfo> allHighlights = myFixture.doHighlighting();
-        assertNotNull("Highlighting should run", allHighlights);
+        // Each unused import should produce a weak warning
+        List<HighlightInfo> warnings = getWeakWarnings();
+        assertFalse("Should have unused import warnings", warnings.isEmpty());
+        for (HighlightInfo warning : warnings) {
+            assertEquals("Unused import", warning.getDescription());
+        }
     }
 
     /**
-     * Test that mix of valid and broken imports works correctly.
+     * Test that mix of valid and broken imports produces no errors.
+     * Valid imports are resolved, broken imports may produce warnings.
      */
-    public void testMixOfValidAndBrokenImports() {
+    public void testMixOfValidAndBrokenImportsNoErrors() {
         addFile("valid.kite", """
                 var validVar = "valid"
                 """);
@@ -109,9 +114,9 @@ public class KiteBrokenImportAnnotatorTest extends KiteTestBase {
                 var x = validVar
                 """);
 
-        // Verify highlighting runs without exception
-        List<HighlightInfo> allHighlights = myFixture.doHighlighting();
-        assertNotNull("Highlighting should run", allHighlights);
+        // Valid import is used, no errors expected
+        List<HighlightInfo> errors = getErrors();
+        assertTrue("Mix of valid and broken imports should produce no errors, but got: " + formatErrors(errors), errors.isEmpty());
     }
 
     /**
@@ -134,37 +139,38 @@ public class KiteBrokenImportAnnotatorTest extends KiteTestBase {
     }
 
     /**
-     * Test that wrong relative path is handled gracefully.
+     * Test that wrong relative path produces no errors.
+     * The import cannot resolve, but highlighting should still run.
      */
-    public void testWrongRelativePathHandledGracefully() {
+    public void testWrongRelativePathNoErrors() {
         addFile("correct/file.kite", """
                 var myVar = "value"
                 """);
 
         configureByText("""
                 import myVar from "wrong/file.kite"
-                
+
                 var x = myVar
                 """);
 
-        // Verify highlighting runs without exception
-        List<HighlightInfo> allHighlights = myFixture.doHighlighting();
-        assertNotNull("Highlighting should run", allHighlights);
+        // Wrong path import should not produce errors
+        List<HighlightInfo> errors = getErrors();
+        assertTrue("Wrong relative path import should produce no errors, but got: " + formatErrors(errors), errors.isEmpty());
     }
 
     /**
-     * Test that empty import path is handled gracefully.
+     * Test that empty import path produces no errors.
      */
-    public void testEmptyImportPathHandledGracefully() {
+    public void testEmptyImportPathNoErrors() {
         configureByText("""
                 import something from ""
                 
                 var x = "hello"
                 """);
 
-        // Verify highlighting runs without exception
-        List<HighlightInfo> allHighlights = myFixture.doHighlighting();
-        assertNotNull("Highlighting should run", allHighlights);
+        // Empty path import should not produce errors
+        List<HighlightInfo> errors = getErrors();
+        assertTrue("Empty import path should produce no errors, but got: " + formatErrors(errors), errors.isEmpty());
     }
 
     /**
