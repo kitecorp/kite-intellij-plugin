@@ -11,6 +11,9 @@
 - [Quick Documentation](#quick-documentation)
 - [Structure View](#structure-view)
 - [Formatting](#formatting)
+- [Smart Enter](#smart-enter)
+- [Code Folding](#code-folding)
+- [Refactoring](#refactoring)
 
 ---
 
@@ -200,6 +203,7 @@ Shows hierarchical path in editor header:
 |----------------------|------------------------|-------------------------------------------|
 | Remove unused import | Unused import warning  | Removes import or symbol                  |
 | Add import           | Undefined symbol error | Adds import when symbol exists in project |
+| Wildcard to Named    | `import *` statement   | Converts `import *` to explicit named imports |
 | Optimize imports     | Cmd+Alt+O / Ctrl+Alt+O | Removes all unused imports at once        |
 
 ### Add Import Quick Fix
@@ -317,6 +321,116 @@ Shows file structure in tool window with:
 
 ---
 
+## Smart Enter
+
+Enhanced Enter key behavior for improved editing experience.
+
+### After Opening Brace
+
+When pressing Enter after `{`:
+
+```kite
+// Before (cursor after {):
+schema Config {|
+
+// After:
+schema Config {
+  |
+}
+```
+
+- Auto-inserts closing brace if missing
+- Adds proper indentation (2 spaces)
+- Positions cursor on the indented blank line
+
+### Inside Block Comments
+
+When pressing Enter inside `/* */` comments:
+
+```kite
+// Before:
+/* This is a comment|
+
+// After:
+/* This is a comment
+ * |
+```
+
+- Adds ` * ` prefix to continuation lines
+- Preserves indentation
+
+---
+
+## Code Folding
+
+### Supported Foldable Regions
+
+| Region | Placeholder | Description |
+|--------|-------------|-------------|
+| Multiple imports | `[N imports...]` | Folds 2+ consecutive import statements |
+| Schema blocks | `{...}` | Folds schema body |
+| Component blocks | `{...}` | Folds component body |
+| Function blocks | `{...}` | Folds function body |
+| Resource blocks | `{...}` | Folds resource body |
+| Object literals | `{...}` | Folds inline objects |
+| For statements | `{...}` | Folds for loop body |
+| While statements | `{...}` | Folds while loop body |
+| Block comments | `/*...*/` | Folds multi-line comments |
+
+### Import Folding
+
+- Requires 2+ imports to fold (single import is not folded)
+- Shows count in placeholder: `[3 imports...]`
+- Works with all import types (named, wildcard, multi-symbol)
+- Imports with blank lines between them are still folded together
+
+### Keyboard Shortcuts
+
+| Action | Mac | Windows/Linux |
+|--------|-----|---------------|
+| Collapse | `Cmd+.` or `Cmd+-` | `Ctrl+.` or `Ctrl+-` |
+| Expand | `Cmd+.` or `Cmd++` | `Ctrl+.` or `Ctrl++` |
+| Collapse All | `Cmd+Shift+-` | `Ctrl+Shift+-` |
+| Expand All | `Cmd+Shift++` | `Ctrl+Shift++` |
+
+---
+
+## Refactoring
+
+### Rename (F2)
+
+Rename identifiers with automatic reference updates:
+
+- Variables, inputs, outputs
+- Functions
+- Schemas, components
+- Function parameters
+- In-place editing with preview
+
+### Extract Variable (Cmd+Alt+V / Ctrl+Alt+V)
+
+Extract selected expression into a new variable:
+
+```kite
+// Before: select "a + b"
+var result = a + b * 2
+
+// After:
+var sum = a + b
+var result = sum * 2
+```
+
+**Features:**
+- Extracts literals (string, number, boolean)
+- Extracts binary expressions (+, -, *, /)
+- Extracts function calls
+- Extracts property access
+- Option to replace all occurrences
+- Preserves indentation
+- Places declaration before usage
+
+---
+
 ## Implementation Files
 
 | Feature                    | Main Implementation                                |
@@ -335,6 +449,10 @@ Shows file structure in tool window with:
 | Quick Documentation        | `documentation/KiteDocumentationProvider.java`     |
 | Structure View             | `structure/KiteStructureViewElement.java`          |
 | Formatter                  | `formatter/KiteBlock.java`                         |
+| Code Folding               | `KiteFoldingBuilder.java`                          |
+| Smart Enter                | `editor/KiteEnterHandlerDelegate.java`             |
+| Extract Variable           | `refactoring/KiteIntroduceVariableHandler.java`    |
+| Refactoring Support        | `refactoring/KiteRefactoringSupportProvider.java`  |
 
 ## Test Files
 
@@ -350,3 +468,7 @@ Shows file structure in tool window with:
 | Import Folding         | `KiteFoldingBuilderTest.java`            |
 | Wildcard to Named      | `WildcardToNamedImportQuickFixTest.java` |
 | Import Path Completion | `KiteImportPathCompletionTest.java`      |
+| Code Folding           | `KiteFoldingBuilderTest.java`            |
+| Smart Enter            | `KiteEnterHandlerDelegateTest.java`      |
+| Extract Variable       | `KiteExtractVariableTest.java`           |
+| Refactoring            | `KiteRefactoringTest.java`               |
