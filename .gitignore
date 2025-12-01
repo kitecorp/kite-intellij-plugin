@@ -27,3 +27,6 @@ out/
 
 # Test output
 test-output/
+/.intellijPlatform/localPlatformArtifacts/IC-241.14494.240/bundledModule-intellij-platform-test-runtime-IC-241.14494.240.xml
+/.intellijPlatform/coroutines-javaagent-legacy.jar
+/.intellijPlatform/self-update.lock

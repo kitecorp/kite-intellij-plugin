@@ -128,6 +128,36 @@ When an unused import is detected, a quick fix is available:
 
 ## Navigation
 
+### Go to Class (Cmd+O / Ctrl+N)
+
+Navigate to schemas and components by name:
+
+- Opens a popup to search by name
+- Fuzzy matching supported
+- Shows file location
+- Works across all project files
+
+**Finds:**
+- Schemas
+- Components
+
+### Go to Symbol (Cmd+Alt+O / Ctrl+Alt+Shift+N)
+
+Navigate to any declaration by name:
+
+- Opens a popup to search by name
+- Fuzzy matching supported
+- Shows file location and type icon
+- Works across all project files
+
+**Finds:**
+- Schemas
+- Components
+- Functions
+- Variables
+- Resources
+- Type aliases
+
 ### Go to Declaration (Cmd+Click / Ctrl+Click)
 
 Navigate to the definition of:
@@ -443,6 +473,8 @@ var result = sum * 2
 | Add Import Quick Fix       | `quickfix/AddImportQuickFix.java`                  |
 | Optimize Imports           | `imports/KiteImportOptimizer.java`                 |
 | Navigation                 | `navigation/KiteGotoDeclarationHandler.java`       |
+| Go to Class                | `navigation/KiteGotoClassContributor.java`         |
+| Go to Symbol               | `navigation/KiteGotoSymbolContributor.java`        |
 | Code Completion            | `completion/KiteCompletionContributor.java`        |
 | Import Path Completion     | `completion/KiteImportPathCompletionProvider.java` |
 | Inlay Hints                | `hints/KiteInlayHintsProvider.java`                |

@@ -459,6 +459,14 @@
         <lang.importOptimizer language="Kite"
                               implementationClass="cloud.kitelang.intellij.imports.KiteImportOptimizer"/>
 
+        <!-- Go to Class (Cmd+O / Ctrl+N) - schemas and components -->
+        <gotoClassContributor
+                implementation="cloud.kitelang.intellij.navigation.KiteGotoClassContributor"/>
+
+        <!-- Go to Symbol (Cmd+Alt+O / Ctrl+Alt+Shift+N) - all declarations -->
+        <gotoSymbolContributor
+                implementation="cloud.kitelang.intellij.navigation.KiteGotoSymbolContributor"/>
+
         <!-- Code style settings -->
         <langCodeStyleSettingsProvider implementation="cloud.kitelang.intellij.KiteLanguageCodeStyleSettingsProvider"/>
 
