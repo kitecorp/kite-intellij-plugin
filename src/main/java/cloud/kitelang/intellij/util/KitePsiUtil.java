@@ -1,5 +1,6 @@
 package cloud.kitelang.intellij.util;
 
+import cloud.kitelang.intellij.highlighting.KiteTypeCheckingAnnotator;
 import cloud.kitelang.intellij.psi.KiteElementTypes;
 import cloud.kitelang.intellij.psi.KiteTokenTypes;
 import com.intellij.psi.PsiElement;

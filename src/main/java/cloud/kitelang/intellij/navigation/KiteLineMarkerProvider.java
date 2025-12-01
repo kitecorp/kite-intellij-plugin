@@ -6,6 +6,7 @@ import cloud.kitelang.intellij.psi.KiteTokenTypes;
 import cloud.kitelang.intellij.reference.KiteImportHelper;
 import cloud.kitelang.intellij.structure.KiteStructureViewIcons;
 import cloud.kitelang.intellij.util.KitePsiUtil;
+import cloud.kitelang.intellij.util.KiteSchemaHelper;
 import com.intellij.codeInsight.daemon.GutterIconNavigationHandler;
 import com.intellij.codeInsight.daemon.LineMarkerInfo;
 import com.intellij.codeInsight.daemon.LineMarkerProvider;
@@ -127,18 +128,7 @@ public class KiteLineMarkerProvider implements LineMarkerProvider {
      * Instantiation: component WebServer serviceA { ... } (2 identifiers before LBRACE)
      */
     private boolean isComponentInstantiation(PsiElement componentDecl) {
-        int identifierCount = 0;
-        for (PsiElement child = componentDecl.getFirstChild(); child != null; child = child.getNextSibling()) {
-            if (child.getNode() == null) continue;
-            IElementType type = child.getNode().getElementType();
-
-            if (type == KiteTokenTypes.IDENTIFIER) {
-                identifierCount++;
-            } else if (type == KiteTokenTypes.LBRACE) {
-                break;
-            }
-        }
-        return identifierCount >= 2;
+        return KiteSchemaHelper.isComponentInstantiation(componentDecl);
     }
 
     /**

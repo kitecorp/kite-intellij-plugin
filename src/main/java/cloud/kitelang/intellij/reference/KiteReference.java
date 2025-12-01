@@ -3,6 +3,7 @@ package cloud.kitelang.intellij.reference;
 import cloud.kitelang.intellij.psi.KiteElementTypes;
 import cloud.kitelang.intellij.psi.KiteTokenTypes;
 import cloud.kitelang.intellij.util.KitePsiUtil;
+import cloud.kitelang.intellij.util.KiteSchemaHelper;
 import com.intellij.openapi.util.TextRange;
 import com.intellij.psi.*;
 import com.intellij.psi.tree.IElementType;
@@ -200,27 +201,7 @@ public class KiteReference extends PsiReferenceBase<PsiElement> implements PsiPo
      */
     @Nullable
     private String getComponentTypeName(PsiElement componentDeclaration) {
-        // Structure: COMPONENT <type> <name> { ... } for instances
-        // Structure: COMPONENT <name> { ... } for type definitions
-        // We need to find TWO identifiers before the LBRACE to identify an instance
-        List<String> identifiers = new ArrayList<>();
-
-        for (PsiElement child = componentDeclaration.getFirstChild(); child != null; child = child.getNextSibling()) {
-            IElementType type = child.getNode().getElementType();
-            if (type == KiteTokenTypes.IDENTIFIER) {
-                identifiers.add(child.getText());
-            } else if (type == KiteTokenTypes.LBRACE) {
-                break;
-            }
-        }
-
-        // If we have 2 identifiers, first is type, second is instance name
-        if (identifiers.size() >= 2) {
-            return identifiers.get(0);
-        }
-
-        // Only 1 identifier = this is a type definition, not an instance
-        return null;
+        return KiteSchemaHelper.extractComponentTypeName(componentDeclaration);
     }
 
     /**

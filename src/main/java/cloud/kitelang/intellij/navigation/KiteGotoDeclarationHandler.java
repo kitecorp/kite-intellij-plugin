@@ -522,44 +522,7 @@ public class KiteGotoDeclarationHandler implements GotoDeclarationHandler {
      */
     @Nullable
     private String getComponentTypeName(PsiElement componentDeclaration) {
-        if (componentDeclaration.getNode().getElementType() != KiteElementTypes.COMPONENT_DECLARATION) {
-            return null;
-        }
-
-        PsiElement child = componentDeclaration.getFirstChild();
-        String firstIdentifier = null;
-        String secondIdentifier = null;
-        boolean foundComponent = false;
-
-        while (child != null) {
-            IElementType childType = child.getNode().getElementType();
-
-            if (childType == KiteTokenTypes.COMPONENT) {
-                foundComponent = true;
-            } else if (foundComponent && childType == KiteTokenTypes.IDENTIFIER) {
-                if (firstIdentifier == null) {
-                    firstIdentifier = child.getText();
-                } else if (secondIdentifier == null) {
-                    secondIdentifier = child.getText();
-                }
-            } else if (childType == KiteTokenTypes.LBRACE) {
-                // Stop at opening brace
-                break;
-            }
-
-            child = child.getNextSibling();
-        }
-
-        // If we found two identifiers before {, this is an instance
-        // Return the first identifier (the type name)
-        if (firstIdentifier != null && secondIdentifier != null) {
-            LOG.info("[KiteGotoDecl] Component INSTANCE: type=" + firstIdentifier + ", name=" + secondIdentifier);
-            return firstIdentifier;
-        }
-
-        // Only one identifier - this is a type definition, not an instance
-        LOG.info("[KiteGotoDecl] Component TYPE definition: " + firstIdentifier);
-        return null;
+        return KiteSchemaHelper.extractComponentTypeName(componentDeclaration);
     }
 
     /**

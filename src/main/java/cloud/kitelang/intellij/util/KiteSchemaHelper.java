@@ -245,6 +245,65 @@ public final class KiteSchemaHelper {
         return null;
     }
 
+    /**
+     * Extract the component type name from a component declaration (instantiation only).
+     * Pattern: component TypeName instanceName { ... }
+     * Returns the type name only if this is an instantiation (2 identifiers before {).
+     * Returns null for type definitions (only 1 identifier).
+     */
+    @Nullable
+    public static String extractComponentTypeName(PsiElement componentDecl) {
+        if (componentDecl.getNode() == null ||
+            componentDecl.getNode().getElementType() != KiteElementTypes.COMPONENT_DECLARATION) {
+            return null;
+        }
+
+        var child = componentDecl.getFirstChild();
+        String firstIdentifier = null;
+        String secondIdentifier = null;
+        var foundComponent = false;
+
+        while (child != null) {
+            if (child.getNode() != null) {
+                var childType = child.getNode().getElementType();
+
+                if (childType == KiteTokenTypes.COMPONENT) {
+                    foundComponent = true;
+                } else if (foundComponent && childType == KiteTokenTypes.IDENTIFIER) {
+                    if (firstIdentifier == null) {
+                        firstIdentifier = child.getText();
+                    } else if (secondIdentifier == null) {
+                        secondIdentifier = child.getText();
+                    }
+                } else if (childType == KiteTokenTypes.LBRACE) {
+                    break;
+                }
+            }
+            child = child.getNextSibling();
+        }
+
+        // If we found two identifiers before {, this is an instantiation
+        // Return the first identifier (the type name)
+        if (firstIdentifier != null && secondIdentifier != null) {
+            return firstIdentifier;
+        }
+
+        // Only one identifier - this is a type definition, not an instance
+        return null;
+    }
+
+    /**
+     * Check if a component declaration is an instantiation (not a type definition).
+     * An instantiation has pattern: component TypeName instanceName { ... } (2 identifiers)
+     * A type definition has pattern: component TypeName { ... } (1 identifier)
+     *
+     * @param componentDecl The component declaration element
+     * @return true if this is an instantiation, false if it's a type definition
+     */
+    public static boolean isComponentInstantiation(PsiElement componentDecl) {
+        return extractComponentTypeName(componentDecl) != null;
+    }
+
     // Whitespace helpers - delegate to KitePsiUtil
     private static PsiElement skipWhitespaceForward(PsiElement element) {
         return KitePsiUtil.skipWhitespace(element);

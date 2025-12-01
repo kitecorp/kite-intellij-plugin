@@ -343,27 +343,13 @@ public class KiteInlayHintsProvider implements InlayHintsProvider<KiteInlayHints
          * Get the resource type name from a resource declaration.
          * Pattern: resource TypeName instanceName { ... }
          * Returns the first identifier after RESOURCE keyword.
+         *
+         * @see KiteSchemaHelper#extractResourceTypeName(PsiElement)
          */
         @Nullable
         private String getResourceTypeName(ASTNode resourceNode) {
-            boolean foundResource = false;
-            for (ASTNode child : resourceNode.getChildren(null)) {
-                IElementType childType = child.getElementType();
-
-                if (childType == KiteTokenTypes.RESOURCE) {
-                    foundResource = true;
-                    continue;
-                }
-
-                if (foundResource && childType == KiteTokenTypes.IDENTIFIER) {
-                    return child.getText(); // First identifier is the type name
-                }
-
-                if (childType == KiteTokenTypes.LBRACE) {
-                    break;
-                }
-            }
-            return null;
+            var psi = resourceNode.getPsi();
+            return psi != null ? KiteSchemaHelper.extractResourceTypeName(psi) : null;
         }
 
         /**
@@ -399,55 +385,19 @@ public class KiteInlayHintsProvider implements InlayHintsProvider<KiteInlayHints
          * Definition: component TypeName { ... } (one identifier)
          */
         private boolean isComponentInstantiation(ASTNode componentNode) {
-            int identifierCount = 0;
-            boolean foundComponent = false;
-
-            for (ASTNode child : componentNode.getChildren(null)) {
-                IElementType type = child.getElementType();
-
-                if (type == KiteTokenTypes.COMPONENT) {
-                    foundComponent = true;
-                    continue;
-                }
-
-                if (foundComponent && type == KiteTokenTypes.IDENTIFIER) {
-                    identifierCount++;
-                }
-
-                if (type == KiteTokenTypes.LBRACE) {
-                    break;
-                }
-            }
-
-            // Two identifiers means it's an instantiation (TypeName instanceName)
-            return identifierCount == 2;
+            var psi = componentNode.getPsi();
+            return psi != null && KiteSchemaHelper.isComponentInstantiation(psi);
         }
 
         /**
          * Get the component type name from a component instantiation.
          * Pattern: component TypeName instanceName { ... }
-         * Returns the first identifier after COMPONENT keyword.
+         * Returns the type name only if this is an instantiation (2 identifiers before {).
          */
         @Nullable
         private String getComponentTypeName(ASTNode componentNode) {
-            boolean foundComponent = false;
-            for (ASTNode child : componentNode.getChildren(null)) {
-                IElementType childType = child.getElementType();
-
-                if (childType == KiteTokenTypes.COMPONENT) {
-                    foundComponent = true;
-                    continue;
-                }
-
-                if (foundComponent && childType == KiteTokenTypes.IDENTIFIER) {
-                    return child.getText(); // First identifier is the type name
-                }
-
-                if (childType == KiteTokenTypes.LBRACE) {
-                    break;
-                }
-            }
-            return null;
+            var psi = componentNode.getPsi();
+            return psi != null ? KiteSchemaHelper.extractComponentTypeName(psi) : null;
         }
 
         /**

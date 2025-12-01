@@ -472,15 +472,7 @@ public class KiteGeneralCompletionProvider extends CompletionProvider<Completion
      * Check if a component declaration is an instantiation
      */
     private boolean isComponentInstantiation(PsiElement componentDecl) {
-        int identifierCount = 0;
-        PsiElement child = componentDecl.getFirstChild();
-        while (child != null) {
-            IElementType type = child.getNode().getElementType();
-            if (type == KiteTokenTypes.IDENTIFIER) identifierCount++;
-            else if (type == KiteTokenTypes.LBRACE) break;
-            child = child.getNextSibling();
-        }
-        return identifierCount >= 2;
+        return KiteSchemaHelper.isComponentInstantiation(componentDecl);
     }
 
     /**
@@ -488,15 +480,7 @@ public class KiteGeneralCompletionProvider extends CompletionProvider<Completion
      */
     @Nullable
     private String getComponentTypeName(PsiElement componentDecl) {
-        boolean foundComponent = false;
-        PsiElement child = componentDecl.getFirstChild();
-        while (child != null) {
-            IElementType type = child.getNode().getElementType();
-            if (type == KiteTokenTypes.COMPONENT) foundComponent = true;
-            else if (foundComponent && type == KiteTokenTypes.IDENTIFIER) return child.getText();
-            child = child.getNextSibling();
-        }
-        return null;
+        return KiteSchemaHelper.extractComponentTypeName(componentDecl);
     }
 
     /**

@@ -688,7 +688,7 @@ public class KiteTypeCheckingAnnotator implements Annotator {
     }
 
     @Nullable
-    private String findForLoopVariable(PsiElement forStatement) {
+    public static String findForLoopVariable(PsiElement forStatement) {
         boolean foundFor = false;
         for (PsiElement child = forStatement.getFirstChild(); child != null; child = child.getNextSibling()) {
             if (child.getNode() == null) continue;
