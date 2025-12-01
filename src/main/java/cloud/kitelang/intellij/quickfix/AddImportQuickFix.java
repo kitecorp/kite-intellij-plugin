@@ -4,6 +4,7 @@ import cloud.kitelang.intellij.KiteFileType;
 import cloud.kitelang.intellij.psi.KiteElementTypes;
 import cloud.kitelang.intellij.psi.KiteTokenTypes;
 import cloud.kitelang.intellij.reference.KiteImportHelper;
+import cloud.kitelang.intellij.util.KitePsiUtil;
 import com.intellij.codeInsight.intention.HighPriorityAction;
 import com.intellij.codeInsight.intention.impl.BaseIntentionAction;
 import com.intellij.openapi.editor.Editor;
@@ -595,7 +596,7 @@ public class AddImportQuickFix extends BaseIntentionAction implements HighPriori
 
         // Check if this is a declaration
         if (isDeclarationType(type)) {
-            String name = findDeclarationName(element, type);
+            String name = KitePsiUtil.findDeclarationName(element, type);
             if (symbolName.equals(name)) {
                 return true;
             }
@@ -620,62 +621,6 @@ public class AddImportQuickFix extends BaseIntentionAction implements HighPriori
                type == KiteElementTypes.SCHEMA_DECLARATION ||
                type == KiteElementTypes.FUNCTION_DECLARATION ||
                type == KiteElementTypes.TYPE_DECLARATION;
-    }
-
-    @Nullable
-    private static String findDeclarationName(@NotNull PsiElement declaration, @NotNull IElementType type) {
-        // For function declarations, the name is after FUN and before LPAREN
-        if (type == KiteElementTypes.FUNCTION_DECLARATION) {
-            boolean foundFun = false;
-            for (PsiElement child = declaration.getFirstChild(); child != null; child = child.getNextSibling()) {
-                if (child.getNode() == null) continue;
-                IElementType childType = child.getNode().getElementType();
-
-                if (childType == KiteTokenTypes.FUN) {
-                    foundFun = true;
-                } else if (foundFun && childType == KiteTokenTypes.IDENTIFIER) {
-                    return child.getText();
-                } else if (childType == KiteTokenTypes.LPAREN) {
-                    break;
-                }
-            }
-            return null;
-        }
-
-        // For component declarations, handle both definitions and instantiations
-        if (type == KiteElementTypes.COMPONENT_DECLARATION) {
-            List<String> identifiers = new ArrayList<>();
-            for (PsiElement child = declaration.getFirstChild(); child != null; child = child.getNextSibling()) {
-                if (child.getNode() == null) continue;
-                IElementType childType = child.getNode().getElementType();
-
-                if (childType == KiteTokenTypes.IDENTIFIER) {
-                    identifiers.add(child.getText());
-                } else if (childType == KiteTokenTypes.LBRACE) {
-                    break;
-                }
-            }
-            // Return the last identifier (instance name for instantiations, type name for definitions)
-            return identifiers.isEmpty() ? null : identifiers.get(identifiers.size() - 1);
-        }
-
-        // Default: find identifier before = or {
-        PsiElement lastIdentifier = null;
-        for (PsiElement child = declaration.getFirstChild(); child != null; child = child.getNextSibling()) {
-            if (child.getNode() == null) continue;
-            IElementType childType = child.getNode().getElementType();
-
-            if (childType == KiteTokenTypes.IDENTIFIER) {
-                lastIdentifier = child;
-            } else if (childType == KiteTokenTypes.ASSIGN ||
-                       childType == KiteTokenTypes.LBRACE ||
-                       childType == KiteTokenTypes.PLUS_ASSIGN) {
-                if (lastIdentifier != null) {
-                    return lastIdentifier.getText();
-                }
-            }
-        }
-        return lastIdentifier != null ? lastIdentifier.getText() : null;
     }
 
     /**

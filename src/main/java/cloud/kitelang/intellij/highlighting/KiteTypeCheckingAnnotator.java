@@ -99,7 +99,7 @@ public class KiteTypeCheckingAnnotator implements Annotator {
 
         // Check if this is a declaration
         if (KiteDeclarationHelper.isDeclarationType(type)) {
-            String name = findDeclarationName(element, type);
+            String name = KitePsiUtil.findDeclarationName(element, type);
             if (name != null) {
                 names.add(name);
             }
@@ -668,47 +668,6 @@ public class KiteTypeCheckingAnnotator implements Annotator {
     }
 
     // ========== Declaration Name Finding ==========
-
-    @Nullable
-    private String findDeclarationName(PsiElement declaration, IElementType type) {
-        if (type == KiteElementTypes.COMPONENT_DECLARATION) {
-            return findComponentName(declaration);
-        }
-
-        if (type == KiteElementTypes.FUNCTION_DECLARATION) {
-            boolean foundFun = false;
-            for (PsiElement child = declaration.getFirstChild(); child != null; child = child.getNextSibling()) {
-                if (child.getNode() == null) continue;
-                IElementType childType = child.getNode().getElementType();
-
-                if (childType == KiteTokenTypes.FUN) {
-                    foundFun = true;
-                } else if (foundFun && childType == KiteTokenTypes.IDENTIFIER) {
-                    return child.getText();
-                } else if (childType == KiteTokenTypes.LPAREN) {
-                    break;
-                }
-            }
-            return null;
-        }
-
-        PsiElement lastIdentifier = null;
-        for (PsiElement child = declaration.getFirstChild(); child != null; child = child.getNextSibling()) {
-            if (child.getNode() == null) continue;
-            IElementType childType = child.getNode().getElementType();
-
-            if (childType == KiteTokenTypes.IDENTIFIER) {
-                lastIdentifier = child;
-            } else if (childType == KiteTokenTypes.ASSIGN ||
-                       childType == KiteTokenTypes.LBRACE ||
-                       childType == KiteTokenTypes.PLUS_ASSIGN) {
-                if (lastIdentifier != null) {
-                    return lastIdentifier.getText();
-                }
-            }
-        }
-        return lastIdentifier != null ? lastIdentifier.getText() : null;
-    }
 
     @Nullable
     private String findComponentName(PsiElement componentDecl) {
