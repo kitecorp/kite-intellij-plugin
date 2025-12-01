@@ -199,6 +199,7 @@ public final class KitePsiUtil {
      * <p>
      * Handles different declaration patterns:
      * <ul>
+     *   <li>For-loops: identifier after FOR keyword and before IN</li>
      *   <li>Functions: name after FUN keyword and before LPAREN</li>
      *   <li>Components: last identifier before LBRACE (handles both definitions and instantiations)</li>
      *   <li>Default (variables, resources, schemas, types): last identifier before = or {</li>
@@ -210,6 +211,24 @@ public final class KitePsiUtil {
      */
     @Nullable
     public static String findDeclarationName(@NotNull PsiElement declaration, @NotNull IElementType type) {
+        // For for-loop statements, the name is after FOR and before IN
+        if (type == KiteElementTypes.FOR_STATEMENT) {
+            boolean foundFor = false;
+            for (PsiElement child = declaration.getFirstChild(); child != null; child = child.getNextSibling()) {
+                if (child.getNode() == null) continue;
+                IElementType childType = child.getNode().getElementType();
+
+                if (childType == KiteTokenTypes.FOR) {
+                    foundFor = true;
+                } else if (foundFor && childType == KiteTokenTypes.IDENTIFIER) {
+                    return child.getText();
+                } else if (childType == KiteTokenTypes.IN) {
+                    break;
+                }
+            }
+            return null;
+        }
+
         // For function declarations, the name is after FUN and before LPAREN
         if (type == KiteElementTypes.FUNCTION_DECLARATION) {
             boolean foundFun = false;

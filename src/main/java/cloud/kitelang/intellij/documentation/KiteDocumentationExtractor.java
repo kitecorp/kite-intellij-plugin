@@ -2,6 +2,7 @@ package cloud.kitelang.intellij.documentation;
 
 import cloud.kitelang.intellij.psi.KiteElementTypes;
 import cloud.kitelang.intellij.psi.KiteTokenTypes;
+import cloud.kitelang.intellij.util.KiteDeclarationHelper;
 import cloud.kitelang.intellij.util.KitePsiUtil;
 import com.intellij.psi.*;
 import com.intellij.psi.tree.IElementType;
@@ -48,21 +49,14 @@ public final class KiteDocumentationExtractor {
 
     /**
      * Check if the element is a declaration.
+     *
+     * @see KiteDeclarationHelper#isDeclarationType(IElementType)
      */
     public static boolean isDeclaration(@Nullable PsiElement element) {
         if (element == null || element.getNode() == null) {
             return false;
         }
-        IElementType type = element.getNode().getElementType();
-        return type == KiteElementTypes.VARIABLE_DECLARATION ||
-               type == KiteElementTypes.INPUT_DECLARATION ||
-               type == KiteElementTypes.OUTPUT_DECLARATION ||
-               type == KiteElementTypes.RESOURCE_DECLARATION ||
-               type == KiteElementTypes.COMPONENT_DECLARATION ||
-               type == KiteElementTypes.SCHEMA_DECLARATION ||
-               type == KiteElementTypes.FUNCTION_DECLARATION ||
-               type == KiteElementTypes.TYPE_DECLARATION ||
-               type == KiteElementTypes.FOR_STATEMENT;
+        return KiteDeclarationHelper.isDeclarationType(element.getNode().getElementType());
     }
 
     /**
@@ -82,79 +76,22 @@ public final class KiteDocumentationExtractor {
 
     /**
      * Find a declaration by name in the file.
+     *
+     * @see KiteDeclarationHelper#findDeclaration(PsiFile, String)
      */
     @Nullable
     public static PsiElement findDeclarationByName(PsiFile file, String name) {
-        return findDeclarationRecursive(file, name);
-    }
-
-    @Nullable
-    private static PsiElement findDeclarationRecursive(PsiElement element, String name) {
-        if (element.getNode() == null) {
-            return null;
-        }
-
-        IElementType type = element.getNode().getElementType();
-
-        if (isDeclaration(element)) {
-            String declName = getDeclarationName(element, type);
-            if (name.equals(declName)) {
-                return element;
-            }
-        }
-
-        // Recurse into children
-        PsiElement child = element.getFirstChild();
-        while (child != null) {
-            PsiElement result = findDeclarationRecursive(child, name);
-            if (result != null) {
-                return result;
-            }
-            child = child.getNextSibling();
-        }
-
-        return null;
+        return KiteDeclarationHelper.findDeclaration(file, name);
     }
 
     /**
      * Get the name from a declaration element.
+     *
+     * @see KitePsiUtil#findDeclarationName(PsiElement, IElementType)
      */
     @Nullable
     public static String getDeclarationName(PsiElement declaration, IElementType declarationType) {
-        if (declarationType == KiteElementTypes.FOR_STATEMENT) {
-            // For statements: find identifier after 'for' keyword
-            boolean foundFor = false;
-            PsiElement child = declaration.getFirstChild();
-            while (child != null) {
-                IElementType childType = child.getNode().getElementType();
-                if (childType == KiteTokenTypes.FOR) {
-                    foundFor = true;
-                } else if (foundFor && childType == KiteTokenTypes.IDENTIFIER) {
-                    return child.getText();
-                }
-                child = child.getNextSibling();
-            }
-            return null;
-        }
-
-        // For most declarations: find the last identifier before '=' or '{'
-        PsiElement lastIdentifier = null;
-        PsiElement child = declaration.getFirstChild();
-        while (child != null) {
-            IElementType childType = child.getNode().getElementType();
-            if (childType == KiteTokenTypes.IDENTIFIER) {
-                lastIdentifier = child;
-            } else if (childType == KiteTokenTypes.ASSIGN ||
-                       childType == KiteTokenTypes.LBRACE ||
-                       childType == KiteTokenTypes.PLUS_ASSIGN) {
-                if (lastIdentifier != null) {
-                    return lastIdentifier.getText();
-                }
-            }
-            child = child.getNextSibling();
-        }
-
-        return lastIdentifier != null ? lastIdentifier.getText() : null;
+        return KitePsiUtil.findDeclarationName(declaration, declarationType);
     }
 
     /**

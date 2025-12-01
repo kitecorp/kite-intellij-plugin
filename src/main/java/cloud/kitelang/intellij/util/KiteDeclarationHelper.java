@@ -128,7 +128,8 @@ public final class KiteDeclarationHelper {
                type == KiteElementTypes.COMPONENT_DECLARATION ||
                type == KiteElementTypes.SCHEMA_DECLARATION ||
                type == KiteElementTypes.FUNCTION_DECLARATION ||
-               type == KiteElementTypes.TYPE_DECLARATION;
+               type == KiteElementTypes.TYPE_DECLARATION ||
+               type == KiteElementTypes.FOR_STATEMENT;
     }
 
     /**
@@ -143,61 +144,12 @@ public final class KiteDeclarationHelper {
 
     /**
      * Find the name in a declaration.
+     *
+     * @see KitePsiUtil#findDeclarationName(PsiElement, IElementType)
      */
     @Nullable
     public static String findNameInDeclaration(PsiElement declaration, IElementType declarationType) {
-        // For-loop special case: "for identifier in ..."
-        if (declarationType == KiteElementTypes.FOR_STATEMENT) {
-            boolean foundFor = false;
-            PsiElement child = declaration.getFirstChild();
-            while (child != null) {
-                IElementType childType = child.getNode().getElementType();
-                if (childType == KiteTokenTypes.FOR) {
-                    foundFor = true;
-                } else if (foundFor && childType == KiteTokenTypes.IDENTIFIER) {
-                    return child.getText();
-                }
-                child = child.getNextSibling();
-            }
-            return null;
-        }
-
-        // Function special case: "fun functionName(...) returnType {"
-        // The function name is the first identifier after 'fun'
-        if (declarationType == KiteElementTypes.FUNCTION_DECLARATION) {
-            boolean foundFun = false;
-            PsiElement child = declaration.getFirstChild();
-            while (child != null) {
-                IElementType childType = child.getNode().getElementType();
-                if (childType == KiteTokenTypes.FUN) {
-                    foundFun = true;
-                } else if (foundFun && childType == KiteTokenTypes.IDENTIFIER) {
-                    return child.getText();
-                } else if (childType == KiteTokenTypes.LPAREN) {
-                    break; // Stop at opening paren if no identifier found
-                }
-                child = child.getNextSibling();
-            }
-            return null;
-        }
-
-        // For other declarations: find the last identifier before '=' or '{'
-        String lastIdentifier = null;
-        PsiElement child = declaration.getFirstChild();
-        while (child != null) {
-            IElementType childType = child.getNode().getElementType();
-            if (childType == KiteTokenTypes.IDENTIFIER) {
-                lastIdentifier = child.getText();
-            } else if (childType == KiteTokenTypes.ASSIGN ||
-                       childType == KiteTokenTypes.LBRACE ||
-                       childType == KiteTokenTypes.PLUS_ASSIGN) {
-                if (lastIdentifier != null) {
-                    return lastIdentifier;
-                }
-            }
-            child = child.getNextSibling();
-        }
-        return lastIdentifier;
+        return KitePsiUtil.findDeclarationName(declaration, declarationType);
     }
 
     /**

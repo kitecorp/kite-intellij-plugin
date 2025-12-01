@@ -2,6 +2,7 @@ package cloud.kitelang.intellij.reference;
 
 import cloud.kitelang.intellij.psi.KiteElementTypes;
 import cloud.kitelang.intellij.psi.KiteTokenTypes;
+import cloud.kitelang.intellij.util.KiteDeclarationHelper;
 import com.intellij.codeInsight.highlighting.HighlightedReference;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.util.TextRange;
@@ -70,15 +71,7 @@ public class KiteStringInterpolationReference extends PsiReferenceBase<PsiElemen
     }
 
     private boolean isDeclarationType(IElementType type) {
-        return type == KiteElementTypes.VARIABLE_DECLARATION ||
-               type == KiteElementTypes.INPUT_DECLARATION ||
-               type == KiteElementTypes.OUTPUT_DECLARATION ||
-               type == KiteElementTypes.RESOURCE_DECLARATION ||
-               type == KiteElementTypes.COMPONENT_DECLARATION ||
-               type == KiteElementTypes.SCHEMA_DECLARATION ||
-               type == KiteElementTypes.FUNCTION_DECLARATION ||
-               type == KiteElementTypes.TYPE_DECLARATION ||
-               type == KiteElementTypes.FOR_STATEMENT;
+        return KiteDeclarationHelper.isDeclarationType(type);
     }
 
     /**
