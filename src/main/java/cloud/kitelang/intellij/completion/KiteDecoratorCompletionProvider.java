@@ -1,6 +1,6 @@
 package cloud.kitelang.intellij.completion;
 
-import cloud.kitelang.intellij.documentation.KiteDocumentationProvider;
+import cloud.kitelang.intellij.documentation.KiteDecoratorDocumentation;
 import cloud.kitelang.intellij.psi.KiteElementTypes;
 import cloud.kitelang.intellij.psi.KiteTokenTypes;
 import cloud.kitelang.intellij.structure.KiteStructureViewIcons;
@@ -287,8 +287,8 @@ public class KiteDecoratorCompletionProvider extends CompletionProvider<Completi
             }
 
             // Use DecoratorLookupItem as the lookup object to enable documentation popup
-            KiteDocumentationProvider.DecoratorLookupItem lookupItem =
-                    new KiteDocumentationProvider.DecoratorLookupItem(decorator.name);
+            KiteDecoratorDocumentation.DecoratorLookupItem lookupItem =
+                    new KiteDecoratorDocumentation.DecoratorLookupItem(decorator.name);
 
             LookupElementBuilder element = LookupElementBuilder.create(lookupItem, decorator.name)
                     .withIcon(KiteStructureViewIcons.DECORATOR)
