@@ -504,3 +504,4 @@ var result = sum * 2
 | Smart Enter            | `KiteEnterHandlerDelegateTest.java`      |
 | Extract Variable       | `KiteExtractVariableTest.java`           |
 | Refactoring            | `KiteRefactoringTest.java`               |
+| Go to Class/Symbol     | `KiteGotoContributorTest.java`           |
