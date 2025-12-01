@@ -5,6 +5,7 @@ import cloud.kitelang.intellij.KiteLanguage;
 import cloud.kitelang.intellij.psi.KiteElementTypes;
 import cloud.kitelang.intellij.psi.KiteTokenTypes;
 import cloud.kitelang.intellij.reference.KiteImportHelper;
+import cloud.kitelang.intellij.util.KiteDeclarationHelper;
 import cloud.kitelang.intellij.util.KitePsiUtil;
 import cloud.kitelang.intellij.util.KiteSchemaHelper;
 import com.intellij.codeInsight.navigation.actions.GotoDeclarationHandler;
@@ -385,9 +386,9 @@ public class KiteGotoDeclarationHandler implements GotoDeclarationHandler {
      */
     @Nullable
     private PsiElement getPropertyAccessObject(PsiElement element) {
-        PsiElement prev = skipWhitespaceBackward(element.getPrevSibling());
+        PsiElement prev = KitePsiUtil.skipWhitespaceBackward(element.getPrevSibling());
         if (prev != null && prev.getNode().getElementType() == KiteTokenTypes.DOT) {
-            PsiElement objectElement = skipWhitespaceBackward(prev.getPrevSibling());
+            PsiElement objectElement = KitePsiUtil.skipWhitespaceBackward(prev.getPrevSibling());
             if (objectElement != null && objectElement.getNode().getElementType() == KiteTokenTypes.IDENTIFIER) {
                 return objectElement;
             }
@@ -407,11 +408,11 @@ public class KiteGotoDeclarationHandler implements GotoDeclarationHandler {
 
         // Walk backward through the chain: identifier <- DOT <- identifier <- DOT <- ...
         while (true) {
-            PsiElement prev = skipWhitespaceBackward(current.getPrevSibling());
+            PsiElement prev = KitePsiUtil.skipWhitespaceBackward(current.getPrevSibling());
 
             if (prev != null && prev.getNode().getElementType() == KiteTokenTypes.DOT) {
                 // Found DOT before us, get the identifier before the DOT
-                PsiElement objectElement = skipWhitespaceBackward(prev.getPrevSibling());
+                PsiElement objectElement = KitePsiUtil.skipWhitespaceBackward(prev.getPrevSibling());
                 if (objectElement != null && objectElement.getNode().getElementType() == KiteTokenTypes.IDENTIFIER) {
                     chain.add(0, objectElement.getText()); // Add at beginning to maintain order
                     current = objectElement;
@@ -610,7 +611,7 @@ public class KiteGotoDeclarationHandler implements GotoDeclarationHandler {
             // Look for OUTPUT_DECLARATION or INPUT_DECLARATION inside braces
             if (currentInsideBraces &&
                 (childType == KiteElementTypes.OUTPUT_DECLARATION || childType == KiteElementTypes.INPUT_DECLARATION)) {
-                PsiElement nameElement = findNameInDeclaration(child, childType);
+                PsiElement nameElement = KiteDeclarationHelper.findNameElementInDeclaration(child, childType);
                 if (nameElement != null && propertyName.equals(nameElement.getText()) && nameElement != sourceElement) {
                     LOG.info("[KiteGotoDecl] Found " + childType + " named '" + propertyName + "'");
                     return nameElement;
@@ -661,12 +662,12 @@ public class KiteGotoDeclarationHandler implements GotoDeclarationHandler {
                 String identText = child.getText();
                 if (propertyName.equals(identText)) {
                     // Check if followed by = or :
-                    PsiElement next = skipWhitespaceForward(child.getNextSibling());
+                    PsiElement next = KitePsiUtil.skipWhitespace(child.getNextSibling());
                     if (next != null) {
                         IElementType nextType = next.getNode().getElementType();
                         if (nextType == KiteTokenTypes.ASSIGN || nextType == KiteTokenTypes.COLON) {
                             // Get the value after = or :
-                            PsiElement value = skipWhitespaceForward(next.getNextSibling());
+                            PsiElement value = KitePsiUtil.skipWhitespace(next.getNextSibling());
                             if (value != null) {
                                 return value;
                             }
@@ -678,7 +679,7 @@ public class KiteGotoDeclarationHandler implements GotoDeclarationHandler {
             // DON'T recurse into nested OBJECT_LITERALs - we only want direct children
             if (childType == KiteElementTypes.OBJECT_LITERAL) {
                 // Skip nested objects when searching at current level
-            } else if (child.getFirstChild() != null && !isDeclarationType(childType)) {
+            } else if (child.getFirstChild() != null && !KiteDeclarationHelper.isDeclarationType(childType)) {
                 PsiElement result = findPropertyValueRecursive(child, propertyName, currentInsideBraces);
                 if (result != null) {
                     return result;
@@ -721,7 +722,7 @@ public class KiteGotoDeclarationHandler implements GotoDeclarationHandler {
                 String identText = child.getText();
                 if (propertyName.equals(identText) && child != sourceElement) {
                     // Check if followed by : (object literal property)
-                    PsiElement next = skipWhitespaceForward(child.getNextSibling());
+                    PsiElement next = KitePsiUtil.skipWhitespace(child.getNextSibling());
                     if (next != null && next.getNode().getElementType() == KiteTokenTypes.COLON) {
                         return child;
                     }
@@ -793,7 +794,7 @@ public class KiteGotoDeclarationHandler implements GotoDeclarationHandler {
                 String identText = child.getText();
                 if (propertyName.equals(identText) && child != sourceElement) {
                     // Check if this identifier is followed by = or : (property assignment)
-                    PsiElement next = skipWhitespaceForward(child.getNextSibling());
+                    PsiElement next = KitePsiUtil.skipWhitespace(child.getNextSibling());
                     if (next != null) {
                         IElementType nextType = next.getNode().getElementType();
                         if (nextType == KiteTokenTypes.ASSIGN ||
@@ -806,15 +807,15 @@ public class KiteGotoDeclarationHandler implements GotoDeclarationHandler {
             }
 
             // Check for input/output/var declarations inside braces
-            if (currentInsideBraces && isDeclarationType(childType)) {
-                PsiElement declName = findNameInDeclaration(child, childType);
+            if (currentInsideBraces && KiteDeclarationHelper.isDeclarationType(childType)) {
+                PsiElement declName = KiteDeclarationHelper.findNameElementInDeclaration(child, childType);
                 if (declName != null && propertyName.equals(declName.getText()) && declName != sourceElement) {
                     return declName;
                 }
             }
 
             // Recurse into composite elements, but not into nested declarations
-            if (child.getFirstChild() != null && !isDeclarationType(childType)) {
+            if (child.getFirstChild() != null && !KiteDeclarationHelper.isDeclarationType(childType)) {
                 PsiElement result = findPropertyRecursive(child, propertyName, sourceElement, currentInsideBraces);
                 if (result != null) {
                     return result;
@@ -852,9 +853,9 @@ public class KiteGotoDeclarationHandler implements GotoDeclarationHandler {
         IElementType type = element.getNode().getElementType();
         LOG.info("[findDeclaration] Searching in element type: " + type + " for: " + targetName);
 
-        if (isDeclarationType(type)) {
+        if (KiteDeclarationHelper.isDeclarationType(type)) {
             LOG.info("[findDeclaration] Found declaration type: " + type);
-            PsiElement nameElement = findNameInDeclaration(element, type);
+            PsiElement nameElement = KiteDeclarationHelper.findNameElementInDeclaration(element, type);
             LOG.info("[findDeclaration] Declaration name element: " + (nameElement != null ? nameElement.getText() : "null"));
             if (nameElement != null && targetName.equals(nameElement.getText()) && nameElement != sourceElement) {
                 LOG.info("[findDeclaration] MATCH FOUND: " + nameElement.getText() + " at " + nameElement.getTextRange());
@@ -938,7 +939,7 @@ public class KiteGotoDeclarationHandler implements GotoDeclarationHandler {
             // Inside parameter list
             if (inParams) {
                 // Skip whitespace
-                if (isWhitespace(childType)) {
+                if (KitePsiUtil.isWhitespace(childType)) {
                     child = child.getNextSibling();
                     continue;
                 }
@@ -990,7 +991,7 @@ public class KiteGotoDeclarationHandler implements GotoDeclarationHandler {
             IElementType siblingType = sibling.getNode().getElementType();
 
             // Skip whitespace
-            if (isWhitespace(siblingType)) {
+            if (KitePsiUtil.isWhitespace(siblingType)) {
                 sibling = sibling.getNextSibling();
                 continue;
             }
@@ -1023,8 +1024,8 @@ public class KiteGotoDeclarationHandler implements GotoDeclarationHandler {
     private PsiElement findDeclarationElement(PsiElement element, String targetName) {
         IElementType type = element.getNode().getElementType();
 
-        if (isDeclarationType(type)) {
-            PsiElement nameElement = findNameInDeclaration(element, type);
+        if (KiteDeclarationHelper.isDeclarationType(type)) {
+            PsiElement nameElement = KiteDeclarationHelper.findNameElementInDeclaration(element, type);
             if (nameElement != null && targetName.equals(nameElement.getText())) {
                 return element; // Return the whole declaration, not just the name
             }
@@ -1041,100 +1042,6 @@ public class KiteGotoDeclarationHandler implements GotoDeclarationHandler {
         }
 
         return null;
-    }
-
-    private boolean isDeclarationType(IElementType type) {
-        return type == KiteElementTypes.VARIABLE_DECLARATION ||
-               type == KiteElementTypes.INPUT_DECLARATION ||
-               type == KiteElementTypes.OUTPUT_DECLARATION ||
-               type == KiteElementTypes.RESOURCE_DECLARATION ||
-               type == KiteElementTypes.COMPONENT_DECLARATION ||
-               type == KiteElementTypes.SCHEMA_DECLARATION ||
-               type == KiteElementTypes.FUNCTION_DECLARATION ||
-               type == KiteElementTypes.TYPE_DECLARATION ||
-               type == KiteElementTypes.FOR_STATEMENT;
-    }
-
-    /**
-     * Find the name identifier within a declaration.
-     */
-    @Nullable
-    private PsiElement findNameInDeclaration(PsiElement declaration, IElementType declarationType) {
-        if (declarationType == KiteElementTypes.FOR_STATEMENT) {
-            // For loop: "for identifier in ..." - name is right after 'for'
-            boolean foundFor = false;
-            PsiElement child = declaration.getFirstChild();
-            while (child != null) {
-                IElementType childType = child.getNode().getElementType();
-                if (childType == KiteTokenTypes.FOR) {
-                    foundFor = true;
-                } else if (foundFor && childType == KiteTokenTypes.IDENTIFIER) {
-                    return child;
-                }
-                child = child.getNextSibling();
-            }
-        }
-
-        // Special handling for function declarations
-        // Pattern: fun name(params) returnType { ... }
-        // The function name is the identifier after FUN and before LPAREN
-        if (declarationType == KiteElementTypes.FUNCTION_DECLARATION) {
-            boolean foundFun = false;
-            PsiElement child = declaration.getFirstChild();
-            while (child != null) {
-                IElementType childType = child.getNode().getElementType();
-                if (childType == KiteTokenTypes.FUN) {
-                    foundFun = true;
-                } else if (foundFun && childType == KiteTokenTypes.IDENTIFIER) {
-                    return child; // First identifier after FUN is the function name
-                } else if (childType == KiteTokenTypes.LPAREN) {
-                    break; // Stop at opening paren
-                }
-                child = child.getNextSibling();
-            }
-            return null;
-        }
-
-        // For var/input/output: keyword [type] name [= value]
-        // For resource/component/schema: keyword [type] name { ... }
-        // Find the identifier that comes before '=' or '{'
-        PsiElement lastIdentifier = null;
-        PsiElement child = declaration.getFirstChild();
-        while (child != null) {
-            IElementType childType = child.getNode().getElementType();
-            if (childType == KiteTokenTypes.IDENTIFIER) {
-                lastIdentifier = child;
-            } else if (childType == KiteTokenTypes.ASSIGN ||
-                       childType == KiteTokenTypes.LBRACE ||
-                       childType == KiteTokenTypes.PLUS_ASSIGN) {
-                if (lastIdentifier != null) {
-                    return lastIdentifier;
-                }
-            }
-            child = child.getNextSibling();
-        }
-
-        return lastIdentifier;
-    }
-
-    @Nullable
-    private PsiElement skipWhitespaceBackward(@Nullable PsiElement element) {
-        while (element != null && isWhitespace(element.getNode().getElementType())) {
-            element = element.getPrevSibling();
-        }
-        return element;
-    }
-
-    @Nullable
-    private PsiElement skipWhitespaceForward(@Nullable PsiElement element) {
-        while (element != null && isWhitespace(element.getNode().getElementType())) {
-            element = element.getNextSibling();
-        }
-        return element;
-    }
-
-    private boolean isWhitespace(IElementType type) {
-        return KitePsiUtil.isWhitespace(type);
     }
 
     /**
@@ -1324,7 +1231,7 @@ public class KiteGotoDeclarationHandler implements GotoDeclarationHandler {
             }
 
             if (foundLParen) {
-                if (isWhitespace(childType)) {
+                if (KitePsiUtil.isWhitespace(childType)) {
                     child = child.getNextSibling();
                     continue;
                 }
@@ -1448,7 +1355,7 @@ public class KiteGotoDeclarationHandler implements GotoDeclarationHandler {
 
         // First, check if this identifier comes AFTER an equals sign
         // If so, it's a value (reference), not a declaration name - it SHOULD be navigable
-        PsiElement prev = skipWhitespaceBackward(element.getPrevSibling());
+        PsiElement prev = KitePsiUtil.skipWhitespaceBackward(element.getPrevSibling());
         LOG.info("[isDeclarationName] prev element: " + (prev != null ? prev.getText() + " (" + prev.getNode().getElementType() + ")" : "null"));
         if (prev != null && prev.getNode().getElementType() == KiteTokenTypes.ASSIGN) {
             // This identifier comes after =, so it's a value, not a declaration name
@@ -1457,7 +1364,7 @@ public class KiteGotoDeclarationHandler implements GotoDeclarationHandler {
         }
 
         // Check if this identifier is followed by = or { or += or : (declaration/property pattern)
-        PsiElement next = skipWhitespaceForward(element.getNextSibling());
+        PsiElement next = KitePsiUtil.skipWhitespace(element.getNextSibling());
         LOG.info("[isDeclarationName] next element: " + (next != null ? next.getText() + " (" + next.getNode().getElementType() + ")" : "null"));
         if (next != null) {
             IElementType nextType = next.getNode().getElementType();
@@ -1489,9 +1396,9 @@ public class KiteGotoDeclarationHandler implements GotoDeclarationHandler {
         PsiElement parent = element.getParent();
         if (parent != null) {
             IElementType parentType = parent.getNode().getElementType();
-            if (isDeclarationType(parentType)) {
+            if (KiteDeclarationHelper.isDeclarationType(parentType)) {
                 // Find the name element in this declaration
-                PsiElement nameElement = findNameInDeclaration(parent, parentType);
+                PsiElement nameElement = KiteDeclarationHelper.findNameElementInDeclaration(parent, parentType);
                 if (nameElement == element) {
                     return true;
                 }
@@ -1537,7 +1444,7 @@ public class KiteGotoDeclarationHandler implements GotoDeclarationHandler {
             IElementType currentType = current.getNode().getElementType();
 
             // Skip whitespace
-            if (isWhitespace(currentType)) {
+            if (KitePsiUtil.isWhitespace(currentType)) {
                 current = current.getPrevSibling();
                 continue;
             }
@@ -1618,7 +1525,7 @@ public class KiteGotoDeclarationHandler implements GotoDeclarationHandler {
     @Nullable
     private ResourcePropertyInfo getResourcePropertyInfo(PsiElement element) {
         // First check if this identifier is followed by = (property assignment)
-        PsiElement next = skipWhitespaceForward(element.getNextSibling());
+        PsiElement next = KitePsiUtil.skipWhitespace(element.getNextSibling());
         if (next == null || next.getNode() == null ||
             next.getNode().getElementType() != KiteTokenTypes.ASSIGN) {
             return null;
@@ -1676,13 +1583,14 @@ public class KiteGotoDeclarationHandler implements GotoDeclarationHandler {
     @Nullable
     private PsiElement findSchemaPropertyElement(PsiFile file, String schemaName, String propertyName) {
         // Search in current file
-        PsiElement result = findSchemaPropertyRecursive(file, schemaName, propertyName);
+        var result = findSchemaPropertyRecursive(file, schemaName, propertyName);
         if (result != null) {
             return result;
         }
 
         // Search in imported files
-        return findSchemaPropertyInImports(file, schemaName, propertyName, new HashSet<>());
+        return KiteImportHelper.searchInImports(file,
+                importedFile -> findSchemaPropertyRecursive(importedFile, schemaName, propertyName));
     }
 
     /**
@@ -1694,7 +1602,7 @@ public class KiteGotoDeclarationHandler implements GotoDeclarationHandler {
 
         if (element.getNode().getElementType() == KiteElementTypes.SCHEMA_DECLARATION) {
             // Check if this is the schema we're looking for
-            String name = extractSchemaName(element);
+            var name = KiteSchemaHelper.extractSchemaName(element);
             if (schemaName.equals(name)) {
                 // Found the schema - now find the property
                 return findPropertyNameInSchema(element, propertyName);
@@ -1712,55 +1620,6 @@ public class KiteGotoDeclarationHandler implements GotoDeclarationHandler {
         return null;
     }
 
-    /**
-     * Search for schema property in imported files.
-     */
-    @Nullable
-    private PsiElement findSchemaPropertyInImports(PsiFile file, String schemaName, String propertyName, Set<String> visited) {
-        List<PsiFile> importedFiles = KiteImportHelper.getImportedFiles(file);
-
-        for (PsiFile importedFile : importedFiles) {
-            if (importedFile == null || importedFile.getVirtualFile() == null) continue;
-
-            String path = importedFile.getVirtualFile().getPath();
-            if (visited.contains(path)) continue;
-            visited.add(path);
-
-            PsiElement result = findSchemaPropertyRecursive(importedFile, schemaName, propertyName);
-            if (result != null) return result;
-
-            // Recursively check imports
-            result = findSchemaPropertyInImports(importedFile, schemaName, propertyName, visited);
-            if (result != null) return result;
-        }
-
-        return null;
-    }
-
-    /**
-     * Get the schema name from a schema declaration.
-     */
-    @Nullable
-    private String extractSchemaName(PsiElement schemaDecl) {
-        boolean foundSchema = false;
-        PsiElement child = schemaDecl.getFirstChild();
-
-        while (child != null) {
-            if (child.getNode() != null) {
-                IElementType type = child.getNode().getElementType();
-
-                if (type == KiteTokenTypes.SCHEMA) {
-                    foundSchema = true;
-                } else if (foundSchema && type == KiteTokenTypes.IDENTIFIER) {
-                    return child.getText();
-                } else if (type == KiteTokenTypes.LBRACE) {
-                    break;
-                }
-            }
-            child = child.getNextSibling();
-        }
-        return null;
-    }
 
     /**
      * Find the property NAME element in a schema (the identifier, not the type).
@@ -1783,7 +1642,7 @@ public class KiteGotoDeclarationHandler implements GotoDeclarationHandler {
                     break;
                 } else if (insideBraces) {
                     // Skip whitespace
-                    if (isWhitespace(type)) {
+                    if (KitePsiUtil.isWhitespace(type)) {
                         child = child.getNextSibling();
                         continue;
                     }

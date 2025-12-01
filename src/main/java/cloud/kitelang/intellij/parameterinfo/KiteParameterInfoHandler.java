@@ -314,47 +314,14 @@ public class KiteParameterInfoHandler implements ParameterInfoHandler<PsiElement
     @Nullable
     private KiteFunctionInfo findFunctionInfo(PsiFile file, String functionName) {
         // First, search in the current file
-        KiteFunctionInfo info = findFunctionInfoRecursive(file.getNode(), functionName);
+        var info = findFunctionInfoRecursive(file.getNode(), functionName);
         if (info != null) {
             return info;
         }
 
         // If not found, search in imported files
-        return findFunctionInfoInImports(file, functionName, new HashSet<>());
-    }
-
-    /**
-     * Search for function info in imported files.
-     */
-    @Nullable
-    private KiteFunctionInfo findFunctionInfoInImports(PsiFile file, String functionName, Set<String> visitedPaths) {
-        List<PsiFile> importedFiles = KiteImportHelper.getImportedFiles(file);
-
-        for (PsiFile importedFile : importedFiles) {
-            if (importedFile == null || importedFile.getVirtualFile() == null) {
-                continue;
-            }
-
-            String filePath = importedFile.getVirtualFile().getPath();
-            if (visitedPaths.contains(filePath)) {
-                continue; // Already visited
-            }
-            visitedPaths.add(filePath);
-
-            // Search in this imported file
-            KiteFunctionInfo info = findFunctionInfoRecursive(importedFile.getNode(), functionName);
-            if (info != null) {
-                return info;
-            }
-
-            // Recursively search in files imported by this file
-            info = findFunctionInfoInImports(importedFile, functionName, visitedPaths);
-            if (info != null) {
-                return info;
-            }
-        }
-
-        return null;
+        return KiteImportHelper.searchInImports(file,
+                importedFile -> findFunctionInfoRecursive(importedFile.getNode(), functionName));
     }
 
     @Nullable

@@ -16,6 +16,8 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -662,5 +664,106 @@ public class KiteImportHelper {
         }
 
         return relPath.length() > 0 ? relPath.toString() : toVFile.getName();
+    }
+
+    /**
+     * Generic utility for searching through imports recursively.
+     * This replaces duplicate *InImports() methods throughout the codebase.
+     * <p>
+     * Usage example:
+     * <pre>
+     * String type = KiteImportHelper.searchInImports(file, importedFile ->
+     *     findIdentifierType(importedFile.getNode(), identifierName)
+     * );
+     * </pre>
+     *
+     * @param file         The starting file
+     * @param fileSearcher Function that searches a single file and returns result (or null if not found)
+     * @param <T>          The return type
+     * @return The first non-null result found, or null if not found in any imported file
+     */
+    @Nullable
+    public static <T> T searchInImports(@NotNull PsiFile file, @NotNull Function<PsiFile, T> fileSearcher) {
+        return searchInImportsRecursive(file, fileSearcher, new HashSet<>());
+    }
+
+    /**
+     * Search through imports recursively, tracking visited files to prevent cycles.
+     */
+    @Nullable
+    private static <T> T searchInImportsRecursive(@NotNull PsiFile file,
+                                                   @NotNull Function<PsiFile, T> fileSearcher,
+                                                   @NotNull Set<String> visited) {
+        var importedFiles = getImportedFiles(file);
+        for (var importedFile : importedFiles) {
+            if (importedFile == null || importedFile.getVirtualFile() == null) {
+                continue;
+            }
+
+            var path = importedFile.getVirtualFile().getPath();
+            if (visited.contains(path)) {
+                continue;
+            }
+            visited.add(path);
+
+            // Search in this file
+            var result = fileSearcher.apply(importedFile);
+            if (result != null) {
+                return result;
+            }
+
+            // Recursively search in imported files
+            result = searchInImportsRecursive(importedFile, fileSearcher, visited);
+            if (result != null) {
+                return result;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Iterate over all imported files recursively, calling the consumer for each file.
+     * Use this for aggregation patterns that need to collect data from all imports.
+     * <p>
+     * Usage example:
+     * <pre>
+     * Map&lt;String, String&gt; results = new HashMap&lt;&gt;();
+     * KiteImportHelper.forEachImport(file, importedFile ->
+     *     collectFromFile(importedFile, results)
+     * );
+     * </pre>
+     *
+     * @param file         The starting file
+     * @param fileConsumer Consumer that processes each imported file
+     */
+    public static void forEachImport(@NotNull PsiFile file, @NotNull Consumer<PsiFile> fileConsumer) {
+        forEachImportRecursive(file, fileConsumer, new HashSet<>());
+    }
+
+    /**
+     * Iterate over imports recursively, tracking visited files to prevent cycles.
+     */
+    private static void forEachImportRecursive(@NotNull PsiFile file,
+                                                @NotNull Consumer<PsiFile> fileConsumer,
+                                                @NotNull Set<String> visited) {
+        var importedFiles = getImportedFiles(file);
+        for (var importedFile : importedFiles) {
+            if (importedFile == null || importedFile.getVirtualFile() == null) {
+                continue;
+            }
+
+            var path = importedFile.getVirtualFile().getPath();
+            if (visited.contains(path)) {
+                continue;
+            }
+            visited.add(path);
+
+            // Process this file
+            fileConsumer.accept(importedFile);
+
+            // Recursively process imported files
+            forEachImportRecursive(importedFile, fileConsumer, visited);
+        }
     }
 }

@@ -2,8 +2,8 @@ package cloud.kitelang.intellij.refactoring;
 
 import cloud.kitelang.intellij.KiteFileType;
 import cloud.kitelang.intellij.KiteLanguage;
-import cloud.kitelang.intellij.psi.KiteElementTypes;
 import cloud.kitelang.intellij.psi.KiteTokenTypes;
+import cloud.kitelang.intellij.util.KiteDeclarationHelper;
 import cloud.kitelang.intellij.util.KitePsiUtil;
 import com.intellij.openapi.actionSystem.CommonDataKeys;
 import com.intellij.openapi.actionSystem.DataContext;
@@ -14,7 +14,6 @@ import com.intellij.openapi.ui.Messages;
 import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiFile;
 import com.intellij.psi.PsiFileFactory;
-import com.intellij.psi.TokenType;
 import com.intellij.psi.tree.IElementType;
 import com.intellij.refactoring.rename.RenameHandler;
 import org.jetbrains.annotations.NotNull;
@@ -222,7 +221,7 @@ public class KiteRenameHandler implements RenameHandler {
      */
     @Nullable
     private PsiElement findDeclarationByName(@NotNull PsiFile psiFile, @NotNull String name) {
-        return findDeclarationRecursive(psiFile, name, null);
+        return KiteDeclarationHelper.findDeclarationNameElement(psiFile, name);
     }
 
     /**
@@ -230,34 +229,8 @@ public class KiteRenameHandler implements RenameHandler {
      */
     @Nullable
     private PsiElement findDeclaration(@NotNull PsiElement element, @NotNull PsiFile psiFile) {
-        String name = getIdentifierName(element);
-
-        // Search for declarations in the file
-        return findDeclarationRecursive(psiFile, name, element);
-    }
-
-    @Nullable
-    private PsiElement findDeclarationRecursive(@NotNull PsiElement element, @NotNull String name, @Nullable PsiElement original) {
-        IElementType type = element.getNode().getElementType();
-
-        if (isDeclarationType(type)) {
-            PsiElement nameElement = findNameInDeclaration(element, type);
-            if (nameElement != null && name.equals(getIdentifierName(nameElement))) {
-                return nameElement;
-            }
-        }
-
-        // Recurse into children
-        PsiElement child = element.getFirstChild();
-        while (child != null) {
-            PsiElement result = findDeclarationRecursive(child, name, original);
-            if (result != null) {
-                return result;
-            }
-            child = child.getNextSibling();
-        }
-
-        return null;
+        var name = getIdentifierName(element);
+        return KiteDeclarationHelper.findDeclarationNameElement(psiFile, name);
     }
 
     /**
@@ -381,50 +354,12 @@ public class KiteRenameHandler implements RenameHandler {
     }
 
     private boolean isDeclarationType(IElementType type) {
-        return type == KiteElementTypes.VARIABLE_DECLARATION ||
-               type == KiteElementTypes.INPUT_DECLARATION ||
-               type == KiteElementTypes.OUTPUT_DECLARATION ||
-               type == KiteElementTypes.RESOURCE_DECLARATION ||
-               type == KiteElementTypes.COMPONENT_DECLARATION ||
-               type == KiteElementTypes.SCHEMA_DECLARATION ||
-               type == KiteElementTypes.FUNCTION_DECLARATION ||
-               type == KiteElementTypes.TYPE_DECLARATION ||
-               type == KiteElementTypes.FOR_STATEMENT;
+        return KiteDeclarationHelper.isDeclarationType(type);
     }
 
     @Nullable
     private PsiElement findNameInDeclaration(PsiElement declaration, IElementType declarationType) {
-        if (declarationType == KiteElementTypes.FOR_STATEMENT) {
-            boolean foundFor = false;
-            PsiElement child = declaration.getFirstChild();
-            while (child != null) {
-                IElementType childType = child.getNode().getElementType();
-                if (childType == KiteTokenTypes.FOR) {
-                    foundFor = true;
-                } else if (foundFor && childType == KiteTokenTypes.IDENTIFIER) {
-                    return child;
-                }
-                child = child.getNextSibling();
-            }
-        }
-
-        PsiElement lastIdentifier = null;
-        PsiElement child = declaration.getFirstChild();
-        while (child != null) {
-            IElementType childType = child.getNode().getElementType();
-            if (childType == KiteTokenTypes.IDENTIFIER) {
-                lastIdentifier = child;
-            } else if (childType == KiteTokenTypes.ASSIGN ||
-                       childType == KiteTokenTypes.LBRACE ||
-                       childType == KiteTokenTypes.PLUS_ASSIGN) {
-                if (lastIdentifier != null) {
-                    return lastIdentifier;
-                }
-            }
-            child = child.getNextSibling();
-        }
-
-        return lastIdentifier;
+        return KiteDeclarationHelper.findNameElementInDeclaration(declaration, declarationType);
     }
 
     private boolean isWhitespace(IElementType type) {

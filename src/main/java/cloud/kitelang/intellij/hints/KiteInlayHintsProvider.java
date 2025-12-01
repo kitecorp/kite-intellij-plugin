@@ -465,14 +465,15 @@ public class KiteInlayHintsProvider implements InlayHintsProvider<KiteInlayHints
          * Returns a map of input name to type.
          */
         private java.util.Map<String, String> findComponentInputTypes(PsiFile file, String componentTypeName) {
-            java.util.Map<String, String> inputTypes = new java.util.HashMap<>();
+            var inputTypes = new java.util.HashMap<String, String>();
 
             // Search in current file
             findComponentInputTypesRecursive(file.getNode(), componentTypeName, inputTypes);
 
             // If not found, search in imported files
             if (inputTypes.isEmpty()) {
-                findComponentInputTypesInImports(file, componentTypeName, inputTypes, new HashSet<>());
+                KiteImportHelper.forEachImport(file, importedFile ->
+                        findComponentInputTypesRecursive(importedFile.getNode(), componentTypeName, inputTypes));
             }
 
             return inputTypes;
@@ -499,29 +500,6 @@ public class KiteInlayHintsProvider implements InlayHintsProvider<KiteInlayHints
             for (ASTNode child : node.getChildren(null)) {
                 findComponentInputTypesRecursive(child, componentTypeName, inputTypes);
                 if (!inputTypes.isEmpty()) return; // Found it
-            }
-        }
-
-        /**
-         * Search for component input types in imported files.
-         */
-        private void findComponentInputTypesInImports(PsiFile file, String componentTypeName,
-                                                      java.util.Map<String, String> inputTypes, Set<String> visited) {
-            List<PsiFile> importedFiles = KiteImportHelper.getImportedFiles(file);
-
-            for (PsiFile importedFile : importedFiles) {
-                if (importedFile == null || importedFile.getVirtualFile() == null) continue;
-
-                String path = importedFile.getVirtualFile().getPath();
-                if (visited.contains(path)) continue;
-                visited.add(path);
-
-                findComponentInputTypesRecursive(importedFile.getNode(), componentTypeName, inputTypes);
-                if (!inputTypes.isEmpty()) return;
-
-                // Recursively check imports
-                findComponentInputTypesInImports(importedFile, componentTypeName, inputTypes, visited);
-                if (!inputTypes.isEmpty()) return;
             }
         }
 
@@ -717,11 +695,12 @@ public class KiteInlayHintsProvider implements InlayHintsProvider<KiteInlayHints
         @Nullable
         private String inferTypeFromIdentifier(PsiFile file, String identifierName) {
             // Search in current file
-            String type = findIdentifierType(file.getNode(), identifierName);
+            var type = findIdentifierType(file.getNode(), identifierName);
             if (type != null) return type;
 
             // Search in imported files
-            return findIdentifierTypeInImports(file, identifierName, new HashSet<>());
+            return KiteImportHelper.searchInImports(file,
+                    importedFile -> findIdentifierType(importedFile.getNode(), identifierName));
         }
 
         /**
@@ -754,41 +733,17 @@ public class KiteInlayHintsProvider implements InlayHintsProvider<KiteInlayHints
         }
 
         /**
-         * Find identifier type in imported files.
-         */
-        @Nullable
-        private String findIdentifierTypeInImports(PsiFile file, String identifierName, Set<String> visited) {
-            List<PsiFile> importedFiles = KiteImportHelper.getImportedFiles(file);
-
-            for (PsiFile importedFile : importedFiles) {
-                if (importedFile == null || importedFile.getVirtualFile() == null) continue;
-
-                String path = importedFile.getVirtualFile().getPath();
-                if (visited.contains(path)) continue;
-                visited.add(path);
-
-                String type = findIdentifierType(importedFile.getNode(), identifierName);
-                if (type != null) return type;
-
-                // Recursively check imports
-                type = findIdentifierTypeInImports(importedFile, identifierName, visited);
-                if (type != null) return type;
-            }
-
-            return null;
-        }
-
-        /**
          * Infer type from a function call by looking up the function's return type.
          */
         @Nullable
         private String inferTypeFromFunctionCall(PsiFile file, String functionName) {
             // Search in current file
-            String type = findFunctionReturnType(file.getNode(), functionName);
+            var type = findFunctionReturnType(file.getNode(), functionName);
             if (type != null) return type;
 
             // Search in imported files
-            return findFunctionReturnTypeInImports(file, functionName, new HashSet<>());
+            return KiteImportHelper.searchInImports(file,
+                    importedFile -> findFunctionReturnType(importedFile.getNode(), functionName));
         }
 
         /**
@@ -867,47 +822,23 @@ public class KiteInlayHintsProvider implements InlayHintsProvider<KiteInlayHints
         }
 
         /**
-         * Find function return type in imported files.
-         */
-        @Nullable
-        private String findFunctionReturnTypeInImports(PsiFile file, String functionName, Set<String> visited) {
-            List<PsiFile> importedFiles = KiteImportHelper.getImportedFiles(file);
-
-            for (PsiFile importedFile : importedFiles) {
-                if (importedFile == null || importedFile.getVirtualFile() == null) continue;
-
-                String path = importedFile.getVirtualFile().getPath();
-                if (visited.contains(path)) continue;
-                visited.add(path);
-
-                String type = findFunctionReturnType(importedFile.getNode(), functionName);
-                if (type != null) return type;
-
-                // Recursively check imports
-                type = findFunctionReturnTypeInImports(importedFile, functionName, visited);
-                if (type != null) return type;
-            }
-
-            return null;
-        }
-
-        /**
          * Infer type from a property access expression (e.g., api.endpoint).
          * Resolves the object, then looks up the property type.
          */
         @Nullable
         private String inferTypeFromPropertyAccess(PsiFile file, String objectName, String propertyName) {
             // First, find what type 'objectName' is (should be a component instance or resource)
-            String objectType = findComponentOrResourceType(file.getNode(), objectName);
+            var objectType = findComponentOrResourceType(file.getNode(), objectName);
             if (objectType == null) {
                 // Check in imports
-                objectType = findComponentOrResourceTypeInImports(file, objectName, new HashSet<>());
+                objectType = KiteImportHelper.searchInImports(file,
+                        importedFile -> findComponentOrResourceType(importedFile.getNode(), objectName));
             }
 
             if (objectType == null) return null;
 
             // Now look up the output type from the component definition
-            java.util.Map<String, String> outputTypes = findComponentOutputTypes(file, objectType);
+            var outputTypes = findComponentOutputTypes(file, objectType);
             return outputTypes.get(propertyName);
         }
 
@@ -964,42 +895,19 @@ public class KiteInlayHintsProvider implements InlayHintsProvider<KiteInlayHints
         }
 
         /**
-         * Find component/resource type in imported files.
-         */
-        @Nullable
-        private String findComponentOrResourceTypeInImports(PsiFile file, String instanceName, Set<String> visited) {
-            List<PsiFile> importedFiles = KiteImportHelper.getImportedFiles(file);
-
-            for (PsiFile importedFile : importedFiles) {
-                if (importedFile == null || importedFile.getVirtualFile() == null) continue;
-
-                String path = importedFile.getVirtualFile().getPath();
-                if (visited.contains(path)) continue;
-                visited.add(path);
-
-                String type = findComponentOrResourceType(importedFile.getNode(), instanceName);
-                if (type != null) return type;
-
-                type = findComponentOrResourceTypeInImports(importedFile, instanceName, visited);
-                if (type != null) return type;
-            }
-
-            return null;
-        }
-
-        /**
          * Find component output types by searching for the component definition.
          * Returns a map of output name to type.
          */
         private java.util.Map<String, String> findComponentOutputTypes(PsiFile file, String componentTypeName) {
-            java.util.Map<String, String> outputTypes = new java.util.HashMap<>();
+            var outputTypes = new java.util.HashMap<String, String>();
 
             // Search in current file
             findComponentOutputTypesRecursive(file.getNode(), componentTypeName, outputTypes);
 
             // If not found, search in imported files
             if (outputTypes.isEmpty()) {
-                findComponentOutputTypesInImports(file, componentTypeName, outputTypes, new HashSet<>());
+                KiteImportHelper.forEachImport(file, importedFile ->
+                        findComponentOutputTypesRecursive(importedFile.getNode(), componentTypeName, outputTypes));
             }
 
             return outputTypes;
@@ -1027,29 +935,6 @@ public class KiteInlayHintsProvider implements InlayHintsProvider<KiteInlayHints
             for (ASTNode child : node.getChildren(null)) {
                 findComponentOutputTypesRecursive(child, componentTypeName, outputTypes);
                 if (!outputTypes.isEmpty()) return; // Found it
-            }
-        }
-
-        /**
-         * Search for component output types in imported files.
-         */
-        private void findComponentOutputTypesInImports(PsiFile file, String componentTypeName,
-                                                       java.util.Map<String, String> outputTypes, Set<String> visited) {
-            List<PsiFile> importedFiles = KiteImportHelper.getImportedFiles(file);
-
-            for (PsiFile importedFile : importedFiles) {
-                if (importedFile == null || importedFile.getVirtualFile() == null) continue;
-
-                String path = importedFile.getVirtualFile().getPath();
-                if (visited.contains(path)) continue;
-                visited.add(path);
-
-                findComponentOutputTypesRecursive(importedFile.getNode(), componentTypeName, outputTypes);
-                if (!outputTypes.isEmpty()) return;
-
-                // Recursively check imports
-                findComponentOutputTypesInImports(importedFile, componentTypeName, outputTypes, visited);
-                if (!outputTypes.isEmpty()) return;
             }
         }
 
@@ -1320,49 +1205,18 @@ public class KiteInlayHintsProvider implements InlayHintsProvider<KiteInlayHints
          * First searches in the current file, then in imported files.
          */
         private List<String> findFunctionParameters(PsiFile file, String functionName) {
-            List<String> params = new ArrayList<>();
+            var params = new ArrayList<String>();
 
             // Search the current file for function declarations
             searchForFunctionDeclaration(file.getNode(), functionName, params);
 
             // If not found, search in imported files
             if (params.isEmpty()) {
-                searchFunctionParametersInImports(file, functionName, params, new HashSet<>());
+                KiteImportHelper.forEachImport(file, importedFile ->
+                        searchForFunctionDeclaration(importedFile.getNode(), functionName, params));
             }
 
             return params;
-        }
-
-        /**
-         * Search for function parameters in imported files.
-         */
-        private void searchFunctionParametersInImports(PsiFile file, String functionName,
-                                                       List<String> params, Set<String> visitedPaths) {
-            List<PsiFile> importedFiles = KiteImportHelper.getImportedFiles(file);
-
-            for (PsiFile importedFile : importedFiles) {
-                if (importedFile == null || importedFile.getVirtualFile() == null) {
-                    continue;
-                }
-
-                String filePath = importedFile.getVirtualFile().getPath();
-                if (visitedPaths.contains(filePath)) {
-                    continue; // Already visited
-                }
-                visitedPaths.add(filePath);
-
-                // Search in this imported file
-                searchForFunctionDeclaration(importedFile.getNode(), functionName, params);
-                if (!params.isEmpty()) {
-                    return; // Found it
-                }
-
-                // Recursively search in files imported by this file
-                searchFunctionParametersInImports(importedFile, functionName, params, visitedPaths);
-                if (!params.isEmpty()) {
-                    return; // Found it
-                }
-            }
         }
 
         /**

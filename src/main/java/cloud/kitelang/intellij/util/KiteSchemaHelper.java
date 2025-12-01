@@ -38,14 +38,15 @@ public final class KiteSchemaHelper {
      * Searches in current file and imported files.
      */
     public static Map<String, SchemaPropertyInfo> findSchemaProperties(PsiFile file, String schemaName) {
-        Map<String, SchemaPropertyInfo> properties = new HashMap<>();
+        var properties = new HashMap<String, SchemaPropertyInfo>();
 
         // Search in current file
         findSchemaPropertiesRecursive(file, schemaName, properties);
 
         // If not found, search in imported files
         if (properties.isEmpty()) {
-            findSchemaPropertiesInImports(file, schemaName, properties, new HashSet<>());
+            KiteImportHelper.forEachImport(file, importedFile ->
+                    findSchemaPropertiesRecursive(importedFile, schemaName, properties));
         }
 
         return properties;
@@ -72,29 +73,6 @@ public final class KiteSchemaHelper {
             findSchemaPropertiesRecursive(child, schemaName, properties);
             if (!properties.isEmpty()) return; // Found it
             child = child.getNextSibling();
-        }
-    }
-
-    /**
-     * Search for schema properties in imported files.
-     */
-    private static void findSchemaPropertiesInImports(PsiFile file, String schemaName,
-                                                      Map<String, SchemaPropertyInfo> properties, Set<String> visited) {
-        List<PsiFile> importedFiles = KiteImportHelper.getImportedFiles(file);
-
-        for (PsiFile importedFile : importedFiles) {
-            if (importedFile == null || importedFile.getVirtualFile() == null) continue;
-
-            String path = importedFile.getVirtualFile().getPath();
-            if (visited.contains(path)) continue;
-            visited.add(path);
-
-            findSchemaPropertiesRecursive(importedFile, schemaName, properties);
-            if (!properties.isEmpty()) return;
-
-            // Recursively check imports
-            findSchemaPropertiesInImports(importedFile, schemaName, properties, visited);
-            if (!properties.isEmpty()) return;
         }
     }
 

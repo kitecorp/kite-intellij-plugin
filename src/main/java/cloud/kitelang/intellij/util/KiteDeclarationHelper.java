@@ -153,6 +153,94 @@ public final class KiteDeclarationHelper {
     }
 
     /**
+     * Find the name element (PsiElement) in a declaration.
+     * Returns the actual identifier element, not just the text.
+     * <p>
+     * Handles different declaration patterns:
+     * <ul>
+     *   <li>For-loops: identifier after FOR keyword and before IN</li>
+     *   <li>Functions: name after FUN keyword and before LPAREN</li>
+     *   <li>Default (variables, resources, schemas, types): last identifier before = or { or +=</li>
+     * </ul>
+     */
+    @Nullable
+    public static PsiElement findNameElementInDeclaration(PsiElement declaration, IElementType declarationType) {
+        // For-loop: identifier after FOR keyword
+        if (declarationType == KiteElementTypes.FOR_STATEMENT) {
+            var foundFor = false;
+            var child = declaration.getFirstChild();
+            while (child != null) {
+                if (child.getNode() != null) {
+                    var childType = child.getNode().getElementType();
+                    if (childType == KiteTokenTypes.FOR) {
+                        foundFor = true;
+                    } else if (foundFor && childType == KiteTokenTypes.IDENTIFIER) {
+                        return child;
+                    }
+                }
+                child = child.getNextSibling();
+            }
+            return null;
+        }
+
+        // Function: name after FUN keyword and before LPAREN
+        if (declarationType == KiteElementTypes.FUNCTION_DECLARATION) {
+            var foundFun = false;
+            var child = declaration.getFirstChild();
+            while (child != null) {
+                if (child.getNode() != null) {
+                    var childType = child.getNode().getElementType();
+                    if (childType == KiteTokenTypes.FUN) {
+                        foundFun = true;
+                    } else if (foundFun && childType == KiteTokenTypes.IDENTIFIER) {
+                        return child; // First identifier after FUN is the function name
+                    } else if (childType == KiteTokenTypes.LPAREN) {
+                        break; // Stop at opening paren
+                    }
+                }
+                child = child.getNextSibling();
+            }
+            return null;
+        }
+
+        // Default: find last identifier before = or { or +=
+        PsiElement lastIdentifier = null;
+        var child = declaration.getFirstChild();
+        while (child != null) {
+            var childType = child.getNode().getElementType();
+            if (childType == KiteTokenTypes.IDENTIFIER) {
+                lastIdentifier = child;
+            } else if (childType == KiteTokenTypes.ASSIGN ||
+                       childType == KiteTokenTypes.LBRACE ||
+                       childType == KiteTokenTypes.PLUS_ASSIGN) {
+                if (lastIdentifier != null) {
+                    return lastIdentifier;
+                }
+            }
+            child = child.getNextSibling();
+        }
+
+        return lastIdentifier;
+    }
+
+    /**
+     * Find a declaration's name element by name in the file.
+     * Returns the name identifier PsiElement, not the declaration element.
+     */
+    @Nullable
+    public static PsiElement findDeclarationNameElement(PsiFile file, String name) {
+        final PsiElement[] result = {null};
+
+        collectDeclarations(file, (declName, declarationType, element) -> {
+            if (name.equals(declName) && result[0] == null) {
+                result[0] = findNameElementInDeclaration(element, declarationType);
+            }
+        });
+
+        return result[0];
+    }
+
+    /**
      * Get display text for a declaration type.
      */
     public static String getTypeTextForDeclaration(IElementType type) {
