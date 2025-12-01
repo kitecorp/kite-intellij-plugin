@@ -1,7 +1,5 @@
 package cloud.kitelang.intellij.reference;
 
-import cloud.kitelang.intellij.psi.KiteElementTypes;
-import cloud.kitelang.intellij.psi.KiteTokenTypes;
 import cloud.kitelang.intellij.util.KiteDeclarationHelper;
 import com.intellij.codeInsight.highlighting.HighlightedReference;
 import com.intellij.openapi.diagnostic.Logger;
@@ -50,8 +48,8 @@ public class KiteStringInterpolationReference extends PsiReferenceBase<PsiElemen
     private PsiElement findDeclaration(PsiElement element, String targetName) {
         IElementType type = element.getNode().getElementType();
 
-        if (isDeclarationType(type)) {
-            PsiElement nameElement = findNameInDeclaration(element, type);
+        if (KiteDeclarationHelper.isDeclarationType(type)) {
+            var nameElement = KiteDeclarationHelper.findNameElementInDeclaration(element, type);
             if (nameElement != null && targetName.equals(nameElement.getText())) {
                 return nameElement;
             }
@@ -68,51 +66,5 @@ public class KiteStringInterpolationReference extends PsiReferenceBase<PsiElemen
         }
 
         return null;
-    }
-
-    private boolean isDeclarationType(IElementType type) {
-        return KiteDeclarationHelper.isDeclarationType(type);
-    }
-
-    /**
-     * Find the name identifier within a declaration.
-     */
-    @Nullable
-    private PsiElement findNameInDeclaration(PsiElement declaration, IElementType declarationType) {
-        if (declarationType == KiteElementTypes.FOR_STATEMENT) {
-            // For loop: "for identifier in ..." - name is right after 'for'
-            boolean foundFor = false;
-            PsiElement child = declaration.getFirstChild();
-            while (child != null) {
-                IElementType childType = child.getNode().getElementType();
-                if (childType == KiteTokenTypes.FOR) {
-                    foundFor = true;
-                } else if (foundFor && childType == KiteTokenTypes.IDENTIFIER) {
-                    return child;
-                }
-                child = child.getNextSibling();
-            }
-        }
-
-        // For var/input/output: keyword [type] name [= value]
-        // For resource/component/schema/function: keyword [type] name { ... }
-        // Find the identifier that comes before '=' or '{'
-        PsiElement lastIdentifier = null;
-        PsiElement child = declaration.getFirstChild();
-        while (child != null) {
-            IElementType childType = child.getNode().getElementType();
-            if (childType == KiteTokenTypes.IDENTIFIER) {
-                lastIdentifier = child;
-            } else if (childType == KiteTokenTypes.ASSIGN ||
-                       childType == KiteTokenTypes.LBRACE ||
-                       childType == KiteTokenTypes.PLUS_ASSIGN) {
-                if (lastIdentifier != null) {
-                    return lastIdentifier;
-                }
-            }
-            child = child.getNextSibling();
-        }
-
-        return lastIdentifier;
     }
 }

@@ -1,7 +1,6 @@
 package cloud.kitelang.intellij.reference;
 
-import cloud.kitelang.intellij.psi.KiteElementTypes;
-import cloud.kitelang.intellij.psi.KiteTokenTypes;
+import cloud.kitelang.intellij.util.KiteDeclarationHelper;
 import com.intellij.openapi.util.TextRange;
 import com.intellij.psi.*;
 import com.intellij.psi.tree.IElementType;
@@ -64,8 +63,8 @@ public class KiteImportSymbolReference extends PsiReferenceBase<PsiElement> impl
     private void findDeclarationsInFile(PsiElement element, String targetName, List<ResolveResult> results) {
         IElementType type = element.getNode().getElementType();
 
-        if (isDeclarationType(type)) {
-            PsiElement nameElement = findNameInDeclaration(element, type);
+        if (KiteDeclarationHelper.isDeclarationType(type)) {
+            var nameElement = KiteDeclarationHelper.findNameElementInDeclaration(element, type);
             if (nameElement != null && targetName.equals(nameElement.getText())) {
                 results.add(new PsiElementResolveResult(nameElement));
                 return; // Found it
@@ -78,43 +77,5 @@ public class KiteImportSymbolReference extends PsiReferenceBase<PsiElement> impl
             findDeclarationsInFile(child, targetName, results);
             child = child.getNextSibling();
         }
-    }
-
-    private boolean isDeclarationType(IElementType type) {
-        return type == KiteElementTypes.VARIABLE_DECLARATION ||
-               type == KiteElementTypes.INPUT_DECLARATION ||
-               type == KiteElementTypes.OUTPUT_DECLARATION ||
-               type == KiteElementTypes.RESOURCE_DECLARATION ||
-               type == KiteElementTypes.COMPONENT_DECLARATION ||
-               type == KiteElementTypes.SCHEMA_DECLARATION ||
-               type == KiteElementTypes.FUNCTION_DECLARATION ||
-               type == KiteElementTypes.TYPE_DECLARATION;
-    }
-
-    /**
-     * Find the name identifier within a declaration.
-     */
-    @Nullable
-    private PsiElement findNameInDeclaration(PsiElement declaration, IElementType declarationType) {
-        // For var/input/output: keyword [type] name [= value]
-        // For resource/component/schema/function: keyword [type] name { ... }
-        // Find the identifier that comes before '=' or '{'
-        PsiElement lastIdentifier = null;
-        PsiElement child = declaration.getFirstChild();
-        while (child != null) {
-            IElementType childType = child.getNode().getElementType();
-            if (childType == KiteTokenTypes.IDENTIFIER) {
-                lastIdentifier = child;
-            } else if (childType == KiteTokenTypes.ASSIGN ||
-                       childType == KiteTokenTypes.LBRACE ||
-                       childType == KiteTokenTypes.PLUS_ASSIGN) {
-                if (lastIdentifier != null) {
-                    return lastIdentifier;
-                }
-            }
-            child = child.getNextSibling();
-        }
-
-        return lastIdentifier;
     }
 }

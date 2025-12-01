@@ -6,6 +6,7 @@ import cloud.kitelang.intellij.psi.KiteTokenTypes;
 import cloud.kitelang.intellij.quickfix.RemoveUnusedImportQuickFix;
 import cloud.kitelang.intellij.quickfix.WildcardToNamedImportQuickFix;
 import cloud.kitelang.intellij.reference.KiteImportHelper;
+import cloud.kitelang.intellij.util.KiteDeclarationHelper;
 import cloud.kitelang.intellij.util.KitePsiUtil;
 import com.intellij.codeInspection.ProblemHighlightType;
 import com.intellij.lang.annotation.AnnotationHolder;
@@ -388,8 +389,8 @@ public class KiteUnusedImportAnnotator implements Annotator {
         IElementType type = element.getNode().getElementType();
 
         // Check for declaration types
-        if (isDeclarationType(type)) {
-            String name = KitePsiUtil.findDeclarationName(element, type);
+        if (KiteDeclarationHelper.isDeclarationType(type)) {
+            var name = KitePsiUtil.findDeclarationName(element, type);
             if (name != null && !name.isEmpty()) {
                 symbols.add(name);
             }
@@ -404,19 +405,5 @@ public class KiteUnusedImportAnnotator implements Annotator {
             }
             collectExportedSymbolsRecursive(child, symbols);
         }
-    }
-
-    /**
-     * Check if an element type is a declaration.
-     */
-    private boolean isDeclarationType(IElementType type) {
-        return type == KiteElementTypes.VARIABLE_DECLARATION ||
-               type == KiteElementTypes.INPUT_DECLARATION ||
-               type == KiteElementTypes.OUTPUT_DECLARATION ||
-               type == KiteElementTypes.RESOURCE_DECLARATION ||
-               type == KiteElementTypes.COMPONENT_DECLARATION ||
-               type == KiteElementTypes.SCHEMA_DECLARATION ||
-               type == KiteElementTypes.FUNCTION_DECLARATION ||
-               type == KiteElementTypes.TYPE_DECLARATION;
     }
 }
