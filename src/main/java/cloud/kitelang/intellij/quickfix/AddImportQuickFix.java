@@ -4,6 +4,7 @@ import cloud.kitelang.intellij.KiteFileType;
 import cloud.kitelang.intellij.psi.KiteElementTypes;
 import cloud.kitelang.intellij.psi.KiteTokenTypes;
 import cloud.kitelang.intellij.reference.KiteImportHelper;
+import cloud.kitelang.intellij.util.KiteDeclarationHelper;
 import cloud.kitelang.intellij.util.KitePsiUtil;
 import com.intellij.codeInsight.intention.HighPriorityAction;
 import com.intellij.codeInsight.intention.impl.BaseIntentionAction;
@@ -386,7 +387,7 @@ public class AddImportQuickFix extends BaseIntentionAction implements HighPriori
                 lastImportEnd = child.getTextRange().getEndOffset();
                 // Skip past any trailing newlines
                 PsiElement next = child.getNextSibling();
-                while (next != null && isWhitespaceOrNewline(next)) {
+                while (next != null && KitePsiUtil.isWhitespaceElement(next)) {
                     if (next.getText().contains("\n")) {
                         lastImportEnd = next.getTextRange().getEndOffset();
                         break;
@@ -410,15 +411,6 @@ public class AddImportQuickFix extends BaseIntentionAction implements HighPriori
         }
 
         return lastImportEnd;
-    }
-
-    private boolean isWhitespaceOrNewline(@NotNull PsiElement element) {
-        if (element.getNode() == null) return false;
-        IElementType type = element.getNode().getElementType();
-        return type == com.intellij.psi.TokenType.WHITE_SPACE ||
-               type == KiteTokenTypes.WHITESPACE ||
-               type == KiteTokenTypes.NL ||
-               type == KiteTokenTypes.NEWLINE;
     }
 
     /**
@@ -595,7 +587,7 @@ public class AddImportQuickFix extends BaseIntentionAction implements HighPriori
         IElementType type = element.getNode().getElementType();
 
         // Check if this is a declaration
-        if (isDeclarationType(type)) {
+        if (KiteDeclarationHelper.isDeclarationType(type)) {
             String name = KitePsiUtil.findDeclarationName(element, type);
             if (symbolName.equals(name)) {
                 return true;
@@ -610,17 +602,6 @@ public class AddImportQuickFix extends BaseIntentionAction implements HighPriori
         }
 
         return false;
-    }
-
-    private static boolean isDeclarationType(IElementType type) {
-        return type == KiteElementTypes.VARIABLE_DECLARATION ||
-               type == KiteElementTypes.INPUT_DECLARATION ||
-               type == KiteElementTypes.OUTPUT_DECLARATION ||
-               type == KiteElementTypes.RESOURCE_DECLARATION ||
-               type == KiteElementTypes.COMPONENT_DECLARATION ||
-               type == KiteElementTypes.SCHEMA_DECLARATION ||
-               type == KiteElementTypes.FUNCTION_DECLARATION ||
-               type == KiteElementTypes.TYPE_DECLARATION;
     }
 
     /**

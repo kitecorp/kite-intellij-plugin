@@ -16,7 +16,6 @@ import com.intellij.openapi.editor.markup.GutterIconRenderer;
 import com.intellij.psi.NavigatablePsiElement;
 import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiFile;
-import com.intellij.psi.TokenType;
 import com.intellij.psi.tree.IElementType;
 import com.intellij.util.Function;
 import org.jetbrains.annotations.NotNull;
@@ -355,7 +354,7 @@ public class KiteLineMarkerProvider implements LineMarkerProvider {
      * A reference is an identifier that is not followed by = { += :
      */
     private boolean isReference(PsiElement identifier) {
-        PsiElement next = skipWhitespace(identifier.getNextSibling());
+        var next = KitePsiUtil.skipWhitespace(identifier.getNextSibling());
         if (next == null) {
             return true; // End of block, probably a reference
         }
@@ -371,7 +370,7 @@ public class KiteLineMarkerProvider implements LineMarkerProvider {
         }
 
         // Also check if it's the name in a declaration (after keyword)
-        PsiElement prev = skipWhitespaceBackward(identifier.getPrevSibling());
+        var prev = KitePsiUtil.skipWhitespaceBackward(identifier.getPrevSibling());
         if (prev != null) {
             IElementType prevType = prev.getNode().getElementType();
             // If preceded by FUN, it's the function name
@@ -386,7 +385,7 @@ public class KiteLineMarkerProvider implements LineMarkerProvider {
                 prevType == KiteTokenTypes.INPUT ||
                 prevType == KiteTokenTypes.OUTPUT) {
                 // Check if followed by = (type name = value or name = value)
-                PsiElement afterThis = skipWhitespace(identifier.getNextSibling());
+                var afterThis = KitePsiUtil.skipWhitespace(identifier.getNextSibling());
                 if (afterThis != null) {
                     IElementType afterType = afterThis.getNode().getElementType();
                     if (afterType == KiteTokenTypes.ASSIGN) {
@@ -401,14 +400,14 @@ public class KiteLineMarkerProvider implements LineMarkerProvider {
             // it might be a type annotation, so check further
             if (prevType == KiteTokenTypes.IDENTIFIER) {
                 // Check if we're in a declaration context
-                PsiElement prevPrev = skipWhitespaceBackward(prev.getPrevSibling());
+                var prevPrev = KitePsiUtil.skipWhitespaceBackward(prev.getPrevSibling());
                 if (prevPrev != null) {
                     IElementType prevPrevType = prevPrev.getNode().getElementType();
                     if (prevPrevType == KiteTokenTypes.VAR ||
                         prevPrevType == KiteTokenTypes.INPUT ||
                         prevPrevType == KiteTokenTypes.OUTPUT) {
                         // This could be: var type name - this is the name
-                        PsiElement afterThis = skipWhitespace(identifier.getNextSibling());
+                        var afterThis = KitePsiUtil.skipWhitespace(identifier.getNextSibling());
                         if (afterThis != null && afterThis.getNode().getElementType() == KiteTokenTypes.ASSIGN) {
                             return false; // It's the variable name
                         }
@@ -418,35 +417,6 @@ public class KiteLineMarkerProvider implements LineMarkerProvider {
         }
 
         return true;
-    }
-
-    /**
-     * Skip whitespace tokens forward.
-     */
-    @Nullable
-    private PsiElement skipWhitespace(@Nullable PsiElement element) {
-        while (element != null && element.getNode() != null && isWhitespace(element.getNode().getElementType())) {
-            element = element.getNextSibling();
-        }
-        return element;
-    }
-
-    /**
-     * Skip whitespace tokens backward.
-     */
-    @Nullable
-    private PsiElement skipWhitespaceBackward(@Nullable PsiElement element) {
-        while (element != null && element.getNode() != null && isWhitespace(element.getNode().getElementType())) {
-            element = element.getPrevSibling();
-        }
-        return element;
-    }
-
-    /**
-     * Check if element type is whitespace.
-     */
-    private boolean isWhitespace(IElementType type) {
-        return KitePsiUtil.isWhitespace(type);
     }
 
     /**

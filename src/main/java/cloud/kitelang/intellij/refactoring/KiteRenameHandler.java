@@ -81,7 +81,7 @@ public class KiteRenameHandler implements RenameHandler {
         PsiElement element = psiFile.findElementAt(offset);
 
         // If we're right after an identifier, try to get the previous element
-        if (element != null && isWhitespace(element.getNode().getElementType())) {
+        if (element != null && KitePsiUtil.isWhitespace(element.getNode().getElementType())) {
             if (offset > 0) {
                 element = psiFile.findElementAt(offset - 1);
             }
@@ -351,19 +351,6 @@ public class KiteRenameHandler implements RenameHandler {
         }
 
         return null;
-    }
-
-    private boolean isDeclarationType(IElementType type) {
-        return KiteDeclarationHelper.isDeclarationType(type);
-    }
-
-    @Nullable
-    private PsiElement findNameInDeclaration(PsiElement declaration, IElementType declarationType) {
-        return KiteDeclarationHelper.findNameElementInDeclaration(declaration, declarationType);
-    }
-
-    private boolean isWhitespace(IElementType type) {
-        return KitePsiUtil.isWhitespace(type);
     }
 
     /**

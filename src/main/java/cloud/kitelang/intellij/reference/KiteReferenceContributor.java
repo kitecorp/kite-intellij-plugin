@@ -3,6 +3,7 @@ package cloud.kitelang.intellij.reference;
 import cloud.kitelang.intellij.KiteLanguage;
 import cloud.kitelang.intellij.psi.KiteElementTypes;
 import cloud.kitelang.intellij.psi.KiteTokenTypes;
+import cloud.kitelang.intellij.util.KiteDeclarationHelper;
 import cloud.kitelang.intellij.util.KitePsiUtil;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.util.TextRange;
@@ -207,7 +208,7 @@ public class KiteReferenceContributor extends PsiReferenceContributor {
     private static boolean isDeclarationName(@NotNull PsiElement element) {
         // First, check if this identifier comes AFTER an equals sign
         // If so, it's a value (reference), not a declaration name - it SHOULD be navigable
-        PsiElement prev = skipWhitespaceBackward(element.getPrevSibling());
+        var prev = KitePsiUtil.skipWhitespaceBackward(element.getPrevSibling());
         LOG.info("[isDeclarationName] Checking: '" + element.getText() + "', prev=" +
                  (prev != null ? prev.getText() + " (" + prev.getNode().getElementType() + ")" : "null"));
         if (prev != null && prev.getNode().getElementType() == KiteTokenTypes.ASSIGN) {
@@ -217,7 +218,7 @@ public class KiteReferenceContributor extends PsiReferenceContributor {
         }
 
         // Check if this identifier is followed by = or { or += (declaration pattern)
-        PsiElement next = skipWhitespaceForward(element.getNextSibling());
+        var next = KitePsiUtil.skipWhitespace(element.getNextSibling());
         if (next != null) {
             IElementType nextType = next.getNode().getElementType();
             if (nextType == KiteTokenTypes.ASSIGN ||
@@ -247,9 +248,9 @@ public class KiteReferenceContributor extends PsiReferenceContributor {
         PsiElement parent = element.getParent();
         if (parent != null) {
             IElementType parentType = parent.getNode().getElementType();
-            if (isDeclarationType(parentType)) {
+            if (KiteDeclarationHelper.isDeclarationType(parentType)) {
                 // Find the name element in this declaration
-                PsiElement nameElement = findNameInDeclaration(parent, parentType);
+                var nameElement = KiteDeclarationHelper.findNameElementInDeclaration(parent, parentType);
                 if (nameElement == element) {
                     LOG.info("[isDeclarationName] '" + element.getText() + "' is declaration name in parent -> returning true");
                     return true;
@@ -284,7 +285,7 @@ public class KiteReferenceContributor extends PsiReferenceContributor {
                     break;
                 }
                 // Stop if we hit another declaration type (but not schema)
-                if (isDeclarationType(parentType) && parentType != KiteElementTypes.SCHEMA_DECLARATION) {
+                if (KiteDeclarationHelper.isDeclarationType(parentType) && parentType != KiteElementTypes.SCHEMA_DECLARATION) {
                     LOG.info("[isSchemaPropertyName] Hit other declaration type: " + parentType + " -> returning false");
                     return false;
                 }
@@ -361,7 +362,7 @@ public class KiteReferenceContributor extends PsiReferenceContributor {
         }
 
         // We're inside a schema body. Now check if this identifier follows a type.
-        PsiElement prev = skipWhitespaceBackward(element.getPrevSibling());
+        var prev = KitePsiUtil.skipWhitespaceBackward(element.getPrevSibling());
         boolean result = isAfterTypeInSchemaBody(element, prev);
         LOG.info("[isSchemaPropertyBySiblings] isAfterTypeInSchemaBody result: " + result);
         return result;
@@ -396,7 +397,7 @@ public class KiteReferenceContributor extends PsiReferenceContributor {
         if (prevType == KiteElementTypes.ARRAY_LITERAL) {
             LOG.info("[isAfterTypeInSchemaBody] prev is ARRAY_LITERAL, checking for type before it");
             // The type name comes before the ARRAY_LITERAL
-            PsiElement beforeArray = skipWhitespaceBackward(prev.getPrevSibling());
+            var beforeArray = KitePsiUtil.skipWhitespaceBackward(prev.getPrevSibling());
             LOG.info("[isAfterTypeInSchemaBody] beforeArray=" +
                      (beforeArray != null ? "'" + beforeArray.getText() + "' (" + beforeArray.getNode().getElementType() + ")" : "null"));
             if (beforeArray != null && beforeArray.getNode().getElementType() == KiteTokenTypes.IDENTIFIER) {
@@ -411,11 +412,11 @@ public class KiteReferenceContributor extends PsiReferenceContributor {
         if (prevType == KiteTokenTypes.RBRACK) {
             LOG.info("[isAfterTypeInSchemaBody] prev is RBRACK, checking for array pattern");
             // Walk back to find: type [ ]
-            PsiElement beforeBrack = skipWhitespaceBackward(prev.getPrevSibling());
+            var beforeBrack = KitePsiUtil.skipWhitespaceBackward(prev.getPrevSibling());
             LOG.info("[isAfterTypeInSchemaBody] beforeBrack=" +
                      (beforeBrack != null ? "'" + beforeBrack.getText() + "' (" + beforeBrack.getNode().getElementType() + ")" : "null"));
             if (beforeBrack != null && beforeBrack.getNode().getElementType() == KiteTokenTypes.LBRACK) {
-                PsiElement beforeLBrack = skipWhitespaceBackward(beforeBrack.getPrevSibling());
+                var beforeLBrack = KitePsiUtil.skipWhitespaceBackward(beforeBrack.getPrevSibling());
                 LOG.info("[isAfterTypeInSchemaBody] beforeLBrack=" +
                          (beforeLBrack != null ? "'" + beforeLBrack.getText() + "' (" + beforeLBrack.getNode().getElementType() + ")" : "null"));
                 if (beforeLBrack != null && beforeLBrack.getNode().getElementType() == KiteTokenTypes.IDENTIFIER) {
@@ -440,7 +441,7 @@ public class KiteReferenceContributor extends PsiReferenceContributor {
             // For other identifiers, check that this identifier isn't followed by = or { (which would make it a name, not a type)
             // In schema: "type name" vs "name ="
             // The previous identifier is a type if it comes after LBRACE, NL, or start of schema
-            PsiElement beforePrev = skipWhitespaceBackward(prev.getPrevSibling());
+            var beforePrev = KitePsiUtil.skipWhitespaceBackward(prev.getPrevSibling());
             if (beforePrev != null) {
                 IElementType beforePrevType = beforePrev.getNode().getElementType();
                 LOG.info("[isAfterTypeInSchemaBody] beforePrev: '" + beforePrev.getText() + "' (" + beforePrevType + ")");
@@ -484,80 +485,6 @@ public class KiteReferenceContributor extends PsiReferenceContributor {
                type == KiteTokenTypes.NULL ||
                type == KiteTokenTypes.RBRACE ||
                type == KiteTokenTypes.RBRACK;
-    }
-
-    private static boolean isDeclarationType(IElementType type) {
-        return type == KiteElementTypes.VARIABLE_DECLARATION ||
-               type == KiteElementTypes.INPUT_DECLARATION ||
-               type == KiteElementTypes.OUTPUT_DECLARATION ||
-               type == KiteElementTypes.RESOURCE_DECLARATION ||
-               type == KiteElementTypes.COMPONENT_DECLARATION ||
-               type == KiteElementTypes.SCHEMA_DECLARATION ||
-               type == KiteElementTypes.FUNCTION_DECLARATION ||
-               type == KiteElementTypes.TYPE_DECLARATION ||
-               type == KiteElementTypes.FOR_STATEMENT;
-    }
-
-    /**
-     * Find the name identifier within a declaration.
-     */
-    @Nullable
-    private static PsiElement findNameInDeclaration(PsiElement declaration, IElementType declarationType) {
-        if (declarationType == KiteElementTypes.FOR_STATEMENT) {
-            // For loop: "for identifier in ..." - name is right after 'for'
-            boolean foundFor = false;
-            PsiElement child = declaration.getFirstChild();
-            while (child != null) {
-                IElementType childType = child.getNode().getElementType();
-                if (childType == KiteTokenTypes.FOR) {
-                    foundFor = true;
-                } else if (foundFor && childType == KiteTokenTypes.IDENTIFIER) {
-                    return child;
-                }
-                child = child.getNextSibling();
-            }
-        }
-
-        // For var/input/output: keyword [type] name [= value]
-        // For resource/component/schema/function: keyword [type] name { ... }
-        // Find the identifier that comes before '=' or '{'
-        PsiElement lastIdentifier = null;
-        PsiElement child = declaration.getFirstChild();
-        while (child != null) {
-            IElementType childType = child.getNode().getElementType();
-            if (childType == KiteTokenTypes.IDENTIFIER) {
-                lastIdentifier = child;
-            } else if (childType == KiteTokenTypes.ASSIGN ||
-                       childType == KiteTokenTypes.LBRACE ||
-                       childType == KiteTokenTypes.PLUS_ASSIGN) {
-                if (lastIdentifier != null) {
-                    return lastIdentifier;
-                }
-            }
-            child = child.getNextSibling();
-        }
-
-        return lastIdentifier;
-    }
-
-    @Nullable
-    private static PsiElement skipWhitespaceForward(@Nullable PsiElement element) {
-        while (element != null && isWhitespace(element.getNode().getElementType())) {
-            element = element.getNextSibling();
-        }
-        return element;
-    }
-
-    @Nullable
-    private static PsiElement skipWhitespaceBackward(@Nullable PsiElement element) {
-        while (element != null && isWhitespace(element.getNode().getElementType())) {
-            element = element.getPrevSibling();
-        }
-        return element;
-    }
-
-    private static boolean isWhitespace(IElementType type) {
-        return KitePsiUtil.isWhitespace(type);
     }
 
     // Pattern to extract import path from import statement line
