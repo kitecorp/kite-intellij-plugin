@@ -4,14 +4,17 @@ import cloud.kitelang.intellij.psi.KiteTokenTypes;
 import com.intellij.lang.refactoring.RefactoringSupportProvider;
 import com.intellij.psi.PsiElement;
 import com.intellij.psi.tree.IElementType;
+import com.intellij.refactoring.RefactoringActionHandler;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Refactoring support provider for Kite language.
- * Enables rename refactoring for identifiers.
+ * Enables rename and extract variable refactorings.
  */
 public class KiteRefactoringSupportProvider extends RefactoringSupportProvider {
+
+    private final KiteIntroduceVariableHandler introduceVariableHandler = new KiteIntroduceVariableHandler();
 
     @Override
     public boolean isMemberInplaceRenameAvailable(@NotNull PsiElement element, @Nullable PsiElement context) {
@@ -27,5 +30,17 @@ public class KiteRefactoringSupportProvider extends RefactoringSupportProvider {
         IElementType elementType = element.getNode().getElementType();
         return elementType == KiteTokenTypes.IDENTIFIER ||
                elementType == KiteTokenTypes.INTERP_SIMPLE;
+    }
+
+    @Override
+    @Nullable
+    public RefactoringActionHandler getIntroduceVariableHandler() {
+        return introduceVariableHandler;
+    }
+
+    @Override
+    @Nullable
+    public RefactoringActionHandler getIntroduceVariableHandler(PsiElement element) {
+        return introduceVariableHandler;
     }
 }

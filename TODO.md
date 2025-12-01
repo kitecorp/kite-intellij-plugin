@@ -6,6 +6,18 @@ All test gaps have been addressed! See Completed section below.
 
 ---
 
+## Skipped/Deferred Features
+
+> **Check this section first before suggesting other work.**
+
+These features were considered but deferred for later implementation:
+
+- [x] **Extract Variable Refactoring** - Select expression, create variable (21 tests)
+- [ ] **Extract Function Refactoring** - Select statements, create function with parameters
+- [ ] **Inline Variable Refactoring** - Remove variable, substitute value everywhere
+
+---
+
 ## New Features
 
 ### High Priority - Inspections Framework ✅ ALL COMPLETED (12 inspections, 177 tests)
@@ -35,13 +47,6 @@ All test gaps have been addressed! See Completed section below.
 - [x] `KiteNamingConventionInspection` + tests (16 tests)
 - [x] `KiteLargeFunctionInspection` + tests (10 tests)
 - [x] `KiteDeepNestingInspection` + tests (12 tests)
-
-### Medium-High Priority
-
-- [ ] **Custom Refactorings** (8-12 hrs)
-  - Extract Variable - select expression, create variable
-  - Extract Function - select statements, create function
-  - Inline Variable - remove var, substitute everywhere
 
 ### Medium Priority
 
