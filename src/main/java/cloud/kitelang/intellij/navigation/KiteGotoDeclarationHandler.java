@@ -6,6 +6,7 @@ import cloud.kitelang.intellij.psi.KiteElementTypes;
 import cloud.kitelang.intellij.psi.KiteTokenTypes;
 import cloud.kitelang.intellij.reference.KiteImportHelper;
 import cloud.kitelang.intellij.util.KitePsiUtil;
+import cloud.kitelang.intellij.util.KiteSchemaHelper;
 import com.intellij.codeInsight.navigation.actions.GotoDeclarationHandler;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.editor.Editor;
@@ -1667,7 +1668,7 @@ public class KiteGotoDeclarationHandler implements GotoDeclarationHandler {
                 current.getNode().getElementType() == KiteElementTypes.RESOURCE_DECLARATION) {
                 // Check if we're inside the braces
                 if (isInsideBraces(element, current)) {
-                    String schemaName = extractResourceTypeName(current);
+                    String schemaName = KiteSchemaHelper.extractResourceTypeName(current);
                     if (schemaName != null) {
                         return new ResourcePropertyInfo(schemaName, current);
                     }
@@ -1703,32 +1704,6 @@ public class KiteGotoDeclarationHandler implements GotoDeclarationHandler {
 
         return lbraceOffset != -1 && rbraceOffset != -1 &&
                posOffset > lbraceOffset && posOffset < rbraceOffset;
-    }
-
-    /**
-     * Extract the resource type name (schema name) from a resource declaration.
-     * Pattern: resource TypeName instanceName { ... }
-     */
-    @Nullable
-    private String extractResourceTypeName(PsiElement resourceDecl) {
-        boolean foundResource = false;
-        PsiElement child = resourceDecl.getFirstChild();
-
-        while (child != null) {
-            if (child.getNode() != null) {
-                IElementType type = child.getNode().getElementType();
-
-                if (type == KiteTokenTypes.RESOURCE) {
-                    foundResource = true;
-                } else if (foundResource && type == KiteTokenTypes.IDENTIFIER) {
-                    return child.getText(); // First identifier is the type name
-                } else if (type == KiteTokenTypes.LBRACE) {
-                    break;
-                }
-            }
-            child = child.getNextSibling();
-        }
-        return null;
     }
 
     /**

@@ -227,20 +227,12 @@ public final class KiteSchemaHelper {
         return null;
     }
 
-    // Whitespace helper
+    // Whitespace helpers - delegate to KitePsiUtil
     private static PsiElement skipWhitespaceForward(PsiElement element) {
-        while (element != null && isWhitespace(element)) {
-            element = element.getNextSibling();
-        }
-        return element;
+        return KitePsiUtil.skipWhitespace(element);
     }
 
     private static boolean isWhitespace(PsiElement element) {
-        if (element == null || element.getNode() == null) return false;
-        IElementType type = element.getNode().getElementType();
-        return type == com.intellij.psi.TokenType.WHITE_SPACE ||
-               type == KiteTokenTypes.NL ||
-               type == KiteTokenTypes.WHITESPACE ||
-               type == KiteTokenTypes.NEWLINE;
+        return KitePsiUtil.isWhitespaceElement(element);
     }
 }
