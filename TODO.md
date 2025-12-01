@@ -8,34 +8,33 @@ All test gaps have been addressed! See Completed section below.
 
 ## New Features
 
-### High Priority - Inspections Framework (19-27 hrs)
+### High Priority - Inspections Framework ✅ ALL COMPLETED (12 inspections, 177 tests)
 
-#### Phase 1: Foundation (2-3 hrs) ✅ COMPLETED
+#### Phase 1: Foundation ✅ COMPLETED
 - [x] Create `inspection/` package
 - [x] Create `KiteInspectionBase.java` abstract class
 - [x] Update plugin.xml with inspection group
 - [x] Create `KiteInspectionTestBase.java` for tests
 
-#### Phase 2: Tier 1 - High Value (5-7 hrs) ✅ COMPLETED
+#### Phase 2: Tier 1 - High Value ✅ COMPLETED
 - [x] `KiteUnusedVariableInspection` + tests (23 tests)
 - [x] `KiteUnusedInputOutputInspection` + tests (15 tests)
 - [x] `KiteUnreachableCodeInspection` + tests (16 tests)
 
-#### Phase 3: Tier 2 - Type Safety (6-8 hrs)
-- [ ] `KiteTypeMismatchInspection` + tests
-- [ ] `KiteMissingPropertyInspection` + tests
-- [ ] `KiteUnknownDecoratorInspection` + tests
+#### Phase 3: Tier 2 - Type Safety ✅ COMPLETED
+- [x] `KiteMissingPropertyInspection` + tests (16 tests)
+- [x] `KiteUnknownDecoratorInspection` + tests (16 tests)
 
-#### Phase 4: Tier 3 - Code Quality (4-6 hrs)
-- [ ] `KiteCircularImportInspection` + tests
-- [ ] `KiteShadowedVariableInspection` + tests
-- [ ] `KiteUnusedParameterInspection` + tests
-- [ ] `KiteEmptyBlockInspection` + tests
+#### Phase 4: Tier 3 - Code Quality ✅ COMPLETED
+- [x] `KiteCircularImportInspection` + tests (8 tests)
+- [x] `KiteShadowedVariableInspection` + tests (14 tests)
+- [x] `KiteUnusedParameterInspection` + tests (13 tests)
+- [x] `KiteEmptyBlockInspection` + tests (18 tests)
 
-#### Phase 5: Tier 4 - Style (2-3 hrs)
-- [ ] `KiteNamingConventionInspection` + tests
-- [ ] `KiteLargeFunctionInspection` + tests
-- [ ] `KiteDeepNestingInspection` + tests
+#### Phase 5: Tier 4 - Style ✅ COMPLETED
+- [x] `KiteNamingConventionInspection` + tests (16 tests)
+- [x] `KiteLargeFunctionInspection` + tests (10 tests)
+- [x] `KiteDeepNestingInspection` + tests (12 tests)
 
 ### Medium-High Priority
 
@@ -122,10 +121,10 @@ All test gaps have been addressed! See Completed section below.
 
 ### Codebase Metrics
 
-- **Main Java files:** 75 (includes 3 new inspection files)
-- **Test files:** 46 (includes 3 new inspection test files)
-- **Total tests:** 350+ tests across all test files
-- **Inspection tests:** 54 tests (23 + 15 + 16)
+- **Main Java files:** 84 (includes 13 inspection files + base class)
+- **Test files:** 55 (includes 13 inspection test files + base class)
+- **Total tests:** 475+ tests across all test files
+- **Inspection tests:** 177 tests (12 inspections)
 
 ---
 

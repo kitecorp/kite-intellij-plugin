@@ -611,6 +611,30 @@
                          enabledByDefault="true"
                          level="WEAK WARNING"/>
 
+        <localInspection language="Kite"
+                         implementationClass="cloud.kitelang.intellij.inspection.KiteNamingConventionInspection"
+                         groupName="Kite"
+                         shortName="KiteNamingConvention"
+                         displayName="Naming convention"
+                         enabledByDefault="true"
+                         level="WEAK WARNING"/>
+
+        <localInspection language="Kite"
+                         implementationClass="cloud.kitelang.intellij.inspection.KiteLargeFunctionInspection"
+                         groupName="Kite"
+                         shortName="KiteLargeFunction"
+                         displayName="Function too large"
+                         enabledByDefault="true"
+                         level="WEAK WARNING"/>
+
+        <localInspection language="Kite"
+                         implementationClass="cloud.kitelang.intellij.inspection.KiteDeepNestingInspection"
+                         groupName="Kite"
+                         shortName="KiteDeepNesting"
+                         displayName="Deep nesting"
+                         enabledByDefault="true"
+                         level="WEAK WARNING"/>
+
     </extensions>
 
     <!-- Actions -->
