@@ -536,6 +536,33 @@
         <codeInsight.lineMarkerProvider language="Kite"
                                         implementationClass="cloud.kitelang.intellij.navigation.KiteLineMarkerProvider"/>
 
+        <!-- ========== Inspections ========== -->
+        <!-- Kite code inspections for batch analysis and configurable checks -->
+
+        <localInspection language="Kite"
+                         implementationClass="cloud.kitelang.intellij.inspection.KiteUnusedVariableInspection"
+                         groupName="Kite"
+                         shortName="KiteUnusedVariable"
+                         displayName="Unused variable"
+                         enabledByDefault="true"
+                         level="WARNING"/>
+
+        <localInspection language="Kite"
+                         implementationClass="cloud.kitelang.intellij.inspection.KiteUnusedInputOutputInspection"
+                         groupName="Kite"
+                         shortName="KiteUnusedInputOutput"
+                         displayName="Unused input/output"
+                         enabledByDefault="true"
+                         level="WARNING"/>
+
+        <localInspection language="Kite"
+                         implementationClass="cloud.kitelang.intellij.inspection.KiteUnreachableCodeInspection"
+                         groupName="Kite"
+                         shortName="KiteUnreachableCode"
+                         displayName="Unreachable code"
+                         enabledByDefault="true"
+                         level="WARNING"/>
+
     </extensions>
 
     <!-- Actions -->
