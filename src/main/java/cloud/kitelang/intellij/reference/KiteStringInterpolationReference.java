@@ -7,7 +7,6 @@ import com.intellij.openapi.util.TextRange;
 import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiFile;
 import com.intellij.psi.PsiReferenceBase;
-import com.intellij.psi.tree.IElementType;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -36,35 +35,8 @@ public class KiteStringInterpolationReference extends PsiReferenceBase<PsiElemen
         }
 
         // Search for declaration in file scope
-        PsiElement result = findDeclaration(file, variableName);
+        PsiElement result = KiteDeclarationHelper.findDeclarationNameElement(file, variableName);
         LOG.info("[KiteStringInterpRef] resolve() result for " + variableName + ": " + (result != null ? result.getText() : "null"));
         return result;
-    }
-
-    /**
-     * Find a declaration with the given name in the file.
-     */
-    @Nullable
-    private PsiElement findDeclaration(PsiElement element, String targetName) {
-        IElementType type = element.getNode().getElementType();
-
-        if (KiteDeclarationHelper.isDeclarationType(type)) {
-            var nameElement = KiteDeclarationHelper.findNameElementInDeclaration(element, type);
-            if (nameElement != null && targetName.equals(nameElement.getText())) {
-                return nameElement;
-            }
-        }
-
-        // Recurse into children
-        PsiElement child = element.getFirstChild();
-        while (child != null) {
-            PsiElement result = findDeclaration(child, targetName);
-            if (result != null) {
-                return result;
-            }
-            child = child.getNextSibling();
-        }
-
-        return null;
     }
 }

@@ -3,6 +3,7 @@ package cloud.kitelang.intellij.highlighting;
 import cloud.kitelang.intellij.KiteLanguage;
 import cloud.kitelang.intellij.psi.KiteElementTypes;
 import cloud.kitelang.intellij.psi.KiteTokenTypes;
+import cloud.kitelang.intellij.util.KiteDeclarationHelper;
 import com.intellij.lang.annotation.AnnotationHolder;
 import com.intellij.lang.annotation.Annotator;
 import com.intellij.lang.annotation.HighlightSeverity;
@@ -125,91 +126,33 @@ public class KiteDuplicateDeclarationAnnotator implements Annotator {
     }
 
     /**
+     * Check if a type is a declaration type that should be checked for duplicates.
+     * Excludes FOR_STATEMENT since for-loop variables have block scope.
+     */
+    private boolean isCheckableDeclarationType(IElementType type) {
+        return type == KiteElementTypes.INPUT_DECLARATION ||
+               type == KiteElementTypes.OUTPUT_DECLARATION ||
+               type == KiteElementTypes.VARIABLE_DECLARATION ||
+               type == KiteElementTypes.RESOURCE_DECLARATION ||
+               type == KiteElementTypes.COMPONENT_DECLARATION ||
+               type == KiteElementTypes.SCHEMA_DECLARATION ||
+               type == KiteElementTypes.FUNCTION_DECLARATION ||
+               type == KiteElementTypes.TYPE_DECLARATION;
+    }
+
+    /**
      * Extract declaration info from an element
      */
     @Nullable
     private DeclarationInfo extractDeclarationInfo(PsiElement element, IElementType type) {
-        if (type == KiteElementTypes.INPUT_DECLARATION ||
-            type == KiteElementTypes.OUTPUT_DECLARATION ||
-            type == KiteElementTypes.VARIABLE_DECLARATION ||
-            type == KiteElementTypes.RESOURCE_DECLARATION ||
-            type == KiteElementTypes.COMPONENT_DECLARATION ||
-            type == KiteElementTypes.SCHEMA_DECLARATION ||
-            type == KiteElementTypes.FUNCTION_DECLARATION ||
-            type == KiteElementTypes.TYPE_DECLARATION) {
-
-            PsiElement nameElement = findDeclarationName(element, type);
+        if (isCheckableDeclarationType(type)) {
+            PsiElement nameElement = KiteDeclarationHelper.findNameElementInDeclaration(element, type);
             if (nameElement != null) {
                 String name = nameElement.getText();
                 return new DeclarationInfo(name, nameElement, type);
             }
         }
         return null;
-    }
-
-    /**
-     * Find the name identifier within a declaration
-     */
-    @Nullable
-    private PsiElement findDeclarationName(PsiElement declaration, IElementType declarationType) {
-        // For component declarations, we need to distinguish between:
-        // - "component WebServer { ... }" - declaration, name is "WebServer"
-        // - "component WebServer serviceA { ... }" - instantiation, name is "serviceA"
-        if (declarationType == KiteElementTypes.COMPONENT_DECLARATION) {
-            return findComponentName(declaration);
-        }
-
-        // For other declarations: keyword [type] name [= value] or keyword [type] name { ... }
-        // Find the identifier that comes before '=' or '{' or newline
-        PsiElement lastIdentifier = null;
-        for (PsiElement child = declaration.getFirstChild(); child != null; child = child.getNextSibling()) {
-            if (child.getNode() == null) continue;
-            IElementType childType = child.getNode().getElementType();
-
-            if (childType == KiteTokenTypes.IDENTIFIER) {
-                lastIdentifier = child;
-            } else if (childType == KiteTokenTypes.ASSIGN ||
-                       childType == KiteTokenTypes.LBRACE ||
-                       childType == KiteTokenTypes.PLUS_ASSIGN ||
-                       childType == KiteTokenTypes.NL) {
-                if (lastIdentifier != null) {
-                    return lastIdentifier;
-                }
-            }
-        }
-        return lastIdentifier;
-    }
-
-    /**
-     * Find the name of a component (handles both declarations and instantiations)
-     */
-    @Nullable
-    private PsiElement findComponentName(PsiElement componentDecl) {
-        // Count identifiers to determine if it's a declaration or instantiation
-        List<PsiElement> identifiers = new ArrayList<>();
-
-        for (PsiElement child = componentDecl.getFirstChild(); child != null; child = child.getNextSibling()) {
-            if (child.getNode() == null) continue;
-            IElementType type = child.getNode().getElementType();
-
-            if (type == KiteTokenTypes.IDENTIFIER) {
-                identifiers.add(child);
-            } else if (type == KiteTokenTypes.LBRACE) {
-                break;
-            }
-        }
-
-        if (identifiers.isEmpty()) {
-            return null;
-        }
-
-        // If there's only one identifier, it's a type declaration (component WebServer { ... })
-        // If there are two, the second is the instance name (component WebServer serviceA { ... })
-        if (identifiers.size() == 1) {
-            return identifiers.get(0); // Type name for declarations
-        } else {
-            return identifiers.get(identifiers.size() - 1); // Instance name for instantiations
-        }
     }
 
     /**
