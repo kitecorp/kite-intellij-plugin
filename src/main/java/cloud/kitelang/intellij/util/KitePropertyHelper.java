@@ -9,7 +9,7 @@ import org.jetbrains.annotations.Nullable;
 import java.util.HashSet;
 import java.util.Set;
 
-import static cloud.kitelang.intellij.completion.KiteCompletionHelper.skipWhitespaceForward;
+import static cloud.kitelang.intellij.util.KitePsiUtil.skipWhitespaceForward;
 
 /**
  * Helper class for property-related operations.

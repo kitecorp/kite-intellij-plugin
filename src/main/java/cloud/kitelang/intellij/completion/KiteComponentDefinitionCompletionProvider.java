@@ -20,8 +20,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import static cloud.kitelang.intellij.completion.KiteCompletionHelper.isWhitespace;
-import static cloud.kitelang.intellij.completion.KiteCompletionHelper.skipWhitespaceBackward;
+import static cloud.kitelang.intellij.util.KitePsiUtil.isWhitespace;
+import static cloud.kitelang.intellij.util.KitePsiUtil.skipWhitespaceBackward;
 
 /**
  * Provides completions inside component definition bodies.

@@ -58,6 +58,18 @@ public final class KitePsiUtil {
     }
 
     /**
+     * Skip whitespace tokens forward (alias for {@link #skipWhitespace(PsiElement)}).
+     *
+     * @param element The starting element
+     * @return The first non-whitespace element, or null if none found
+     * @see #skipWhitespace(PsiElement)
+     */
+    @Nullable
+    public static PsiElement skipWhitespaceForward(@Nullable PsiElement element) {
+        return skipWhitespace(element);
+    }
+
+    /**
      * Skip whitespace tokens backward.
      *
      * @param element The starting element
@@ -95,6 +107,18 @@ public final class KitePsiUtil {
             return false;
         }
         return isWhitespace(element.getNode().getElementType());
+    }
+
+    /**
+     * Check if a PSI element is whitespace (including newlines).
+     * Alias for {@link #isWhitespaceElement(PsiElement)} for API consistency.
+     *
+     * @param element The element to check
+     * @return true if the element represents whitespace
+     * @see #isWhitespaceElement(PsiElement)
+     */
+    public static boolean isWhitespace(@Nullable PsiElement element) {
+        return isWhitespaceElement(element);
     }
 
     /**

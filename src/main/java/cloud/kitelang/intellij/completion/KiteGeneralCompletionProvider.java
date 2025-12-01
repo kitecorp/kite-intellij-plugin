@@ -24,8 +24,8 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
 
-import static cloud.kitelang.intellij.completion.KiteCompletionHelper.skipWhitespaceBackward;
-import static cloud.kitelang.intellij.completion.KiteCompletionHelper.skipWhitespaceForward;
+import static cloud.kitelang.intellij.util.KitePsiUtil.skipWhitespaceBackward;
+import static cloud.kitelang.intellij.util.KitePsiUtil.skipWhitespaceForward;
 
 /**
  * Provides general code completion for the Kite language.

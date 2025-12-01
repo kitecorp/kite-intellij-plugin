@@ -3,6 +3,7 @@ package cloud.kitelang.intellij.completion;
 import cloud.kitelang.intellij.documentation.KiteDecoratorDocumentation;
 import cloud.kitelang.intellij.psi.KiteElementTypes;
 import cloud.kitelang.intellij.psi.KiteTokenTypes;
+import cloud.kitelang.intellij.util.KitePsiUtil;
 import cloud.kitelang.intellij.structure.KiteStructureViewIcons;
 import com.intellij.codeInsight.completion.*;
 import com.intellij.codeInsight.lookup.LookupElementBuilder;
@@ -351,14 +352,14 @@ public class KiteDecoratorCompletionProvider extends CompletionProvider<Completi
                     if (parenDepth == 0) {
                         // Found the opening paren, look for identifier before it (decorator name)
                         PsiElement prev = current.getPrevSibling();
-                        while (prev != null && KiteCompletionHelper.isWhitespace(prev)) {
+                        while (prev != null && KitePsiUtil.isWhitespace(prev)) {
                             prev = prev.getPrevSibling();
                         }
                         if (prev != null && prev.getNode() != null &&
                             prev.getNode().getElementType() == KiteTokenTypes.IDENTIFIER) {
                             // Check if this is preceded by @ (it's a decorator)
                             PsiElement beforeIdent = prev.getPrevSibling();
-                            while (beforeIdent != null && KiteCompletionHelper.isWhitespace(beforeIdent)) {
+                            while (beforeIdent != null && KitePsiUtil.isWhitespace(beforeIdent)) {
                                 beforeIdent = beforeIdent.getPrevSibling();
                             }
                             if (beforeIdent != null && beforeIdent.getNode() != null &&
