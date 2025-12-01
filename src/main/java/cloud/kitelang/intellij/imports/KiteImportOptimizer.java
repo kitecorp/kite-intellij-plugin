@@ -5,6 +5,7 @@ import cloud.kitelang.intellij.psi.KiteElementTypes;
 import cloud.kitelang.intellij.psi.KiteTokenTypes;
 import cloud.kitelang.intellij.reference.KiteImportHelper;
 import cloud.kitelang.intellij.util.KiteDeclarationHelper;
+import cloud.kitelang.intellij.util.KiteIdentifierContextHelper;
 import cloud.kitelang.intellij.util.KitePsiUtil;
 import com.intellij.lang.ImportOptimizer;
 import com.intellij.openapi.editor.Document;
@@ -116,7 +117,7 @@ public class KiteImportOptimizer implements ImportOptimizer {
         }
 
         // Collect identifier usages
-        if (type == KiteTokenTypes.IDENTIFIER && !isInsideImport(element)) {
+        if (type == KiteTokenTypes.IDENTIFIER && !KiteIdentifierContextHelper.isInsideImportStatement(element)) {
             usedSymbols.add(element.getText());
         }
 
@@ -142,36 +143,6 @@ public class KiteImportOptimizer implements ImportOptimizer {
         for (PsiElement child = element.getFirstChild(); child != null; child = child.getNextSibling()) {
             collectUsedSymbolsRecursive(child, usedSymbols);
         }
-    }
-
-    private boolean isInsideImport(PsiElement element) {
-        PsiElement parent = element.getParent();
-        while (parent != null && !(parent instanceof PsiFile)) {
-            if (parent.getNode() != null) {
-                IElementType type = parent.getNode().getElementType();
-                if (type == KiteElementTypes.IMPORT_STATEMENT) {
-                    return true;
-                }
-            }
-            parent = parent.getParent();
-        }
-
-        // Also check siblings for flat PSI structure
-        PsiElement sibling = element.getPrevSibling();
-        while (sibling != null) {
-            if (sibling.getNode() != null) {
-                IElementType sibType = sibling.getNode().getElementType();
-                if (sibType == KiteTokenTypes.IMPORT) {
-                    return true;
-                }
-                if (sibType == KiteTokenTypes.NL || sibType == KiteTokenTypes.NEWLINE) {
-                    break;
-                }
-            }
-            sibling = sibling.getPrevSibling();
-        }
-
-        return false;
     }
 
     private void extractInterpolationsFromString(String text, Set<String> usedSymbols) {

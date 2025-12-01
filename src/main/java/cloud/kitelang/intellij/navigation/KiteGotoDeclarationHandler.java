@@ -1537,7 +1537,7 @@ public class KiteGotoDeclarationHandler implements GotoDeclarationHandler {
             if (current.getNode() != null &&
                 current.getNode().getElementType() == KiteElementTypes.RESOURCE_DECLARATION) {
                 // Check if we're inside the braces
-                if (isInsideBraces(element, current)) {
+                if (KitePsiUtil.isInsideBraces(element, current)) {
                     String schemaName = KiteSchemaHelper.extractResourceTypeName(current);
                     if (schemaName != null) {
                         return new ResourcePropertyInfo(schemaName, current);
@@ -1547,33 +1547,6 @@ public class KiteGotoDeclarationHandler implements GotoDeclarationHandler {
             current = current.getParent();
         }
         return null;
-    }
-
-    /**
-     * Check if position is inside the braces of a declaration.
-     */
-    private boolean isInsideBraces(PsiElement position, PsiElement declaration) {
-        int posOffset = position.getTextOffset();
-
-        // Find LBRACE and RBRACE positions
-        int lbraceOffset = -1;
-        int rbraceOffset = -1;
-
-        PsiElement child = declaration.getFirstChild();
-        while (child != null) {
-            if (child.getNode() != null) {
-                IElementType type = child.getNode().getElementType();
-                if (type == KiteTokenTypes.LBRACE && lbraceOffset == -1) {
-                    lbraceOffset = child.getTextOffset();
-                } else if (type == KiteTokenTypes.RBRACE) {
-                    rbraceOffset = child.getTextOffset();
-                }
-            }
-            child = child.getNextSibling();
-        }
-
-        return lbraceOffset != -1 && rbraceOffset != -1 &&
-               posOffset > lbraceOffset && posOffset < rbraceOffset;
     }
 
     /**

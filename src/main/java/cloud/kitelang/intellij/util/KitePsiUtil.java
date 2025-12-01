@@ -31,6 +31,7 @@ import java.util.List;
  *   <li>{@link #isDescendantOf} - Check parent-child relationship</li>
  *   <li>{@link #findFirstChildOfType} - Find child by element type</li>
  *   <li>{@link #getElementType} - Safely get element type (null-safe)</li>
+ *   <li>{@link #isInsideBraces} - Check if position is inside declaration braces</li>
  * </ul>
  *
  * @see KiteIdentifierContextHelper for identifier-specific navigation
@@ -282,5 +283,47 @@ public final class KitePsiUtil {
             }
         }
         return lastIdentifier != null ? lastIdentifier.getText() : null;
+    }
+
+    /**
+     * Check if a position element is inside the braces of a declaration.
+     * <p>
+     * This method determines if the given position is between the opening {@code {}
+     * and closing {@code }} brace of a declaration element such as a resource,
+     * component, schema, or function body.
+     * <p>
+     * Handles unclosed braces gracefully: if the opening brace is found but the
+     * closing brace is missing (user still typing), the position is still considered
+     * "inside" the braces.
+     *
+     * @param position    The position element to check (e.g., cursor location)
+     * @param declaration The declaration element containing the braces
+     * @return true if position is inside the braces, false otherwise
+     */
+    public static boolean isInsideBraces(PsiElement position, PsiElement declaration) {
+        var posOffset = position.getTextOffset();
+        var lbraceOffset = -1;
+        var rbraceOffset = -1;
+        var foundLBrace = false;
+
+        for (var child = declaration.getFirstChild(); child != null; child = child.getNextSibling()) {
+            if (child.getNode() != null) {
+                var type = child.getNode().getElementType();
+                if (type == KiteTokenTypes.LBRACE) {
+                    foundLBrace = true;
+                    lbraceOffset = child.getTextOffset();
+                } else if (type == KiteTokenTypes.RBRACE && foundLBrace) {
+                    rbraceOffset = child.getTextOffset();
+                    break;
+                }
+            }
+        }
+
+        // Position is inside if:
+        // 1. We found an opening brace
+        // 2. Position is after the opening brace
+        // 3. Either closing brace is missing (unclosed) or position is before closing brace
+        return foundLBrace && lbraceOffset >= 0 && posOffset > lbraceOffset &&
+               (rbraceOffset < 0 || posOffset < rbraceOffset);
     }
 }

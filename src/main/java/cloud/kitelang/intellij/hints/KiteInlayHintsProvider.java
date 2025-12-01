@@ -4,6 +4,7 @@ import cloud.kitelang.intellij.KiteLanguage;
 import cloud.kitelang.intellij.psi.KiteElementTypes;
 import cloud.kitelang.intellij.psi.KiteTokenTypes;
 import cloud.kitelang.intellij.reference.KiteImportHelper;
+import cloud.kitelang.intellij.util.KitePsiUtil;
 import cloud.kitelang.intellij.util.KiteSchemaHelper;
 import com.intellij.codeInsight.hints.*;
 import com.intellij.codeInsight.hints.presentation.InlayPresentation;
@@ -320,7 +321,7 @@ public class KiteInlayHintsProvider implements InlayHintsProvider<KiteInlayHints
 
                     // Check if followed by =
                     ASTNode next = child.getTreeNext();
-                    while (next != null && isWhitespaceToken(next.getElementType())) {
+                    while (next != null && KitePsiUtil.isWhitespace(next.getElementType())) {
                         next = next.getTreeNext();
                     }
 
@@ -368,15 +369,6 @@ public class KiteInlayHintsProvider implements InlayHintsProvider<KiteInlayHints
                 properties.put(entry.getKey(), entry.getValue().type);
             }
             return properties;
-        }
-
-        /**
-         * Check if token type is whitespace.
-         *
-         * @see cloud.kitelang.intellij.util.KitePsiUtil#isWhitespace(IElementType)
-         */
-        private boolean isWhitespaceToken(IElementType type) {
-            return cloud.kitelang.intellij.util.KitePsiUtil.isWhitespace(type);
         }
 
         /**
@@ -441,7 +433,7 @@ public class KiteInlayHintsProvider implements InlayHintsProvider<KiteInlayHints
 
                     // Check if followed by =
                     ASTNode next = child.getTreeNext();
-                    while (next != null && isWhitespaceToken(next.getElementType())) {
+                    while (next != null && KitePsiUtil.isWhitespace(next.getElementType())) {
                         next = next.getTreeNext();
                     }
 
@@ -542,7 +534,7 @@ public class KiteInlayHintsProvider implements InlayHintsProvider<KiteInlayHints
                 IElementType childType = child.getElementType();
 
                 // Skip whitespace
-                if (isWhitespaceToken(childType)) continue;
+                if (KitePsiUtil.isWhitespace(childType)) continue;
 
                 if (childType == KiteTokenTypes.INPUT) {
                     foundInput = true;
@@ -653,7 +645,7 @@ public class KiteInlayHintsProvider implements InlayHintsProvider<KiteInlayHints
 
                 // Check what follows the identifier
                 ASTNode next = valueNode.getTreeNext();
-                while (next != null && isWhitespaceToken(next.getElementType())) {
+                while (next != null && KitePsiUtil.isWhitespace(next.getElementType())) {
                     next = next.getTreeNext();
                 }
 
@@ -666,7 +658,7 @@ public class KiteInlayHintsProvider implements InlayHintsProvider<KiteInlayHints
                 } else if (next != null && next.getElementType() == KiteTokenTypes.DOT) {
                     // This is a property access (e.g., api.endpoint) - look up property type
                     ASTNode propNode = next.getTreeNext();
-                    while (propNode != null && isWhitespaceToken(propNode.getElementType())) {
+                    while (propNode != null && KitePsiUtil.isWhitespace(propNode.getElementType())) {
                         propNode = propNode.getTreeNext();
                     }
                     if (propNode != null && propNode.getElementType() == KiteTokenTypes.IDENTIFIER) {
@@ -765,7 +757,7 @@ public class KiteInlayHintsProvider implements InlayHintsProvider<KiteInlayHints
                     IElementType childType = child.getElementType();
 
                     // Skip whitespace
-                    if (isWhitespaceToken(childType)) continue;
+                    if (KitePsiUtil.isWhitespace(childType)) continue;
 
                     if (childType == KiteTokenTypes.FUN) {
                         foundFun = true;
@@ -797,7 +789,7 @@ public class KiteInlayHintsProvider implements InlayHintsProvider<KiteInlayHints
                             returnType = child.getText();
                             // Check for array suffix
                             ASTNode nextSib = child.getTreeNext();
-                            while (nextSib != null && isWhitespaceToken(nextSib.getElementType())) {
+                            while (nextSib != null && KitePsiUtil.isWhitespace(nextSib.getElementType())) {
                                 nextSib = nextSib.getTreeNext();
                             }
                             if (nextSib != null && nextSib.getElementType() == KiteTokenTypes.LBRACK) {
@@ -862,7 +854,7 @@ public class KiteInlayHintsProvider implements InlayHintsProvider<KiteInlayHints
                 for (ASTNode child : node.getChildren(null)) {
                     IElementType childType = child.getElementType();
 
-                    if (isWhitespaceToken(childType)) continue;
+                    if (KitePsiUtil.isWhitespace(childType)) continue;
 
                     if (childType == KiteTokenTypes.COMPONENT || childType == KiteTokenTypes.RESOURCE) {
                         foundKeyword = true;
@@ -977,7 +969,7 @@ public class KiteInlayHintsProvider implements InlayHintsProvider<KiteInlayHints
                 IElementType childType = child.getElementType();
 
                 // Skip whitespace
-                if (isWhitespaceToken(childType)) continue;
+                if (KitePsiUtil.isWhitespace(childType)) continue;
 
                 if (childType == KiteTokenTypes.OUTPUT) {
                     foundOutput = true;
@@ -996,7 +988,7 @@ public class KiteInlayHintsProvider implements InlayHintsProvider<KiteInlayHints
                 if (childType == KiteTokenTypes.LBRACK && currentType != null) {
                     // Check for RBRACK
                     ASTNode nextSib = child.getTreeNext();
-                    while (nextSib != null && isWhitespaceToken(nextSib.getElementType())) {
+                    while (nextSib != null && KitePsiUtil.isWhitespace(nextSib.getElementType())) {
                         nextSib = nextSib.getTreeNext();
                     }
                     if (nextSib != null && nextSib.getElementType() == KiteTokenTypes.RBRACK) {
@@ -1036,7 +1028,7 @@ public class KiteInlayHintsProvider implements InlayHintsProvider<KiteInlayHints
                 IElementType childType = child.getElementType();
 
                 // Skip whitespace
-                if (isWhitespaceToken(childType)) continue;
+                if (KitePsiUtil.isWhitespace(childType)) continue;
 
                 // Look for the keyword
                 if (childType == KiteTokenTypes.VAR ||
@@ -1077,7 +1069,7 @@ public class KiteInlayHintsProvider implements InlayHintsProvider<KiteInlayHints
                 IElementType childType = child.getElementType();
 
                 // Skip whitespace
-                if (isWhitespaceToken(childType)) continue;
+                if (KitePsiUtil.isWhitespace(childType)) continue;
 
                 // Look for the keyword
                 if (childType == KiteTokenTypes.VAR ||

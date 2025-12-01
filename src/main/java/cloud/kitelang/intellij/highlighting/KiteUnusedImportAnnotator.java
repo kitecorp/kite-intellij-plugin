@@ -7,6 +7,7 @@ import cloud.kitelang.intellij.quickfix.RemoveUnusedImportQuickFix;
 import cloud.kitelang.intellij.quickfix.WildcardToNamedImportQuickFix;
 import cloud.kitelang.intellij.reference.KiteImportHelper;
 import cloud.kitelang.intellij.util.KiteDeclarationHelper;
+import cloud.kitelang.intellij.util.KiteIdentifierContextHelper;
 import cloud.kitelang.intellij.util.KitePsiUtil;
 import com.intellij.codeInspection.ProblemHighlightType;
 import com.intellij.lang.annotation.AnnotationHolder;
@@ -95,7 +96,7 @@ public class KiteUnusedImportAnnotator implements Annotator {
         // Collect identifier usages
         if (type == KiteTokenTypes.IDENTIFIER) {
             // Skip if this is inside an import statement
-            if (!isInsideImport(element)) {
+            if (!KiteIdentifierContextHelper.isInsideImportStatement(element)) {
                 usedSymbols.add(element.getText());
             }
         }
@@ -122,39 +123,6 @@ public class KiteUnusedImportAnnotator implements Annotator {
         for (PsiElement child = element.getFirstChild(); child != null; child = child.getNextSibling()) {
             collectUsedSymbolsRecursive(child, usedSymbols, inImport);
         }
-    }
-
-    /**
-     * Check if an element is inside an import statement.
-     */
-    private boolean isInsideImport(PsiElement element) {
-        PsiElement parent = element.getParent();
-        while (parent != null && !(parent instanceof PsiFile)) {
-            if (parent.getNode() != null) {
-                IElementType type = parent.getNode().getElementType();
-                if (type == KiteElementTypes.IMPORT_STATEMENT) {
-                    return true;
-                }
-            }
-            parent = parent.getParent();
-        }
-
-        // Also check siblings to handle flat PSI structure
-        PsiElement sibling = element.getPrevSibling();
-        while (sibling != null) {
-            if (sibling.getNode() != null) {
-                IElementType sibType = sibling.getNode().getElementType();
-                if (sibType == KiteTokenTypes.IMPORT) {
-                    return true;
-                }
-                if (sibType == KiteTokenTypes.NL || sibType == KiteTokenTypes.NEWLINE) {
-                    break; // Different line, not in import
-                }
-            }
-            sibling = sibling.getPrevSibling();
-        }
-
-        return false;
     }
 
     /**

@@ -3,6 +3,7 @@ package cloud.kitelang.intellij.completion;
 import cloud.kitelang.intellij.psi.KiteElementTypes;
 import cloud.kitelang.intellij.psi.KiteTokenTypes;
 import cloud.kitelang.intellij.structure.KiteStructureViewIcons;
+import cloud.kitelang.intellij.util.KitePsiUtil;
 import com.intellij.codeInsight.completion.CompletionParameters;
 import com.intellij.codeInsight.completion.CompletionProvider;
 import com.intellij.codeInsight.completion.CompletionResultSet;
@@ -254,7 +255,7 @@ public class KiteComponentDefinitionCompletionProvider extends CompletionProvide
             if (current.getNode() != null &&
                 current.getNode().getElementType() == KiteElementTypes.COMPONENT_DECLARATION) {
                 // Found component declaration - check if we're inside the braces
-                if (isInsideBraces(position, current)) {
+                if (KitePsiUtil.isInsideBraces(position, current)) {
                     // Check if this is a definition (one identifier) vs instance (two identifiers)
                     if (isComponentDefinition(current)) {
                         String typeName = extractComponentTypeName(current);
@@ -313,32 +314,6 @@ public class KiteComponentDefinitionCompletionProvider extends CompletionProvide
             }
         }
         return null;
-    }
-
-    /**
-     * Check if position is inside the braces of a declaration.
-     */
-    private static boolean isInsideBraces(PsiElement position, PsiElement declaration) {
-        int posOffset = position.getTextOffset();
-        boolean foundLBrace = false;
-        int lbraceOffset = -1;
-        int rbraceOffset = -1;
-
-        for (PsiElement child = declaration.getFirstChild(); child != null; child = child.getNextSibling()) {
-            if (child.getNode() != null) {
-                IElementType type = child.getNode().getElementType();
-                if (type == KiteTokenTypes.LBRACE) {
-                    foundLBrace = true;
-                    lbraceOffset = child.getTextOffset();
-                } else if (type == KiteTokenTypes.RBRACE && foundLBrace) {
-                    rbraceOffset = child.getTextOffset();
-                    break;
-                }
-            }
-        }
-
-        return foundLBrace && lbraceOffset >= 0 && posOffset > lbraceOffset &&
-               (rbraceOffset < 0 || posOffset < rbraceOffset);
     }
 
     /**

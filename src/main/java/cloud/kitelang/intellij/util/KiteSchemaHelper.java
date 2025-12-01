@@ -140,10 +140,7 @@ public final class KiteSchemaHelper {
                     break;
                 } else if (insideBraces) {
                     // Skip whitespace and newlines
-                    if (type == KiteTokenTypes.WHITESPACE ||
-                        type == KiteTokenTypes.NL ||
-                        type == KiteTokenTypes.NEWLINE ||
-                        type == com.intellij.psi.TokenType.WHITE_SPACE) {
+                    if (KitePsiUtil.isWhitespace(type)) {
                         child = child.getNextSibling();
                         continue;
                     }
@@ -151,7 +148,7 @@ public final class KiteSchemaHelper {
                     // Check for @cloud annotation
                     if (type == KiteTokenTypes.AT) {
                         // Look at next sibling to see if it's "cloud"
-                        PsiElement next = skipWhitespaceForward(child.getNextSibling());
+                        PsiElement next = KitePsiUtil.skipWhitespace(child.getNextSibling());
                         if (next != null && next.getNode() != null &&
                             next.getNode().getElementType() == KiteTokenTypes.IDENTIFIER &&
                             "cloud".equals(next.getText())) {
@@ -282,12 +279,4 @@ public final class KiteSchemaHelper {
         return extractComponentTypeName(componentDecl) != null;
     }
 
-    // Whitespace helpers - delegate to KitePsiUtil
-    private static PsiElement skipWhitespaceForward(PsiElement element) {
-        return KitePsiUtil.skipWhitespace(element);
-    }
-
-    private static boolean isWhitespace(PsiElement element) {
-        return KitePsiUtil.isWhitespaceElement(element);
-    }
 }

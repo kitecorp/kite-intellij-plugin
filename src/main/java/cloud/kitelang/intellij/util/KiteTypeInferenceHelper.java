@@ -3,7 +3,6 @@ package cloud.kitelang.intellij.util;
 import cloud.kitelang.intellij.psi.KiteElementTypes;
 import cloud.kitelang.intellij.psi.KiteTokenTypes;
 import com.intellij.psi.PsiElement;
-import com.intellij.psi.TokenType;
 import com.intellij.psi.tree.IElementType;
 import org.jetbrains.annotations.Nullable;
 
@@ -131,7 +130,7 @@ public final class KiteTypeInferenceHelper {
         // For composite elements, check first significant child
         for (PsiElement child = value.getFirstChild(); child != null; child = child.getNextSibling()) {
             if (child.getNode() == null) continue;
-            if (isWhitespace(child.getNode().getElementType())) continue;
+            if (KitePsiUtil.isWhitespace(child.getNode().getElementType())) continue;
 
             String childType = inferType(child);
             if (childType != null) {
@@ -214,15 +213,5 @@ public final class KiteTypeInferenceHelper {
                "void".equals(typeName) ||
                "null".equals(typeName) ||
                "array".equals(typeName);
-    }
-
-    /**
-     * Check if element type is whitespace.
-     */
-    private static boolean isWhitespace(IElementType type) {
-        return type == TokenType.WHITE_SPACE ||
-               type == KiteTokenTypes.WHITESPACE ||
-               type == KiteTokenTypes.NL ||
-               type == KiteTokenTypes.NEWLINE;
     }
 }

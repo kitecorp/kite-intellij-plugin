@@ -9,7 +9,6 @@ import com.intellij.lang.parameterInfo.ParameterInfoUIContext;
 import com.intellij.lang.parameterInfo.UpdateParameterInfoContext;
 import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiFile;
-import com.intellij.psi.TokenType;
 import com.intellij.psi.tree.IElementType;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -199,7 +198,7 @@ public class KiteDecoratorParameterInfoHandler implements ParameterInfoHandler<P
 
         // The element is the decorator name identifier. Find LPAREN after it.
         ASTNode sibling = node.getTreeNext();
-        while (sibling != null && isWhitespace(sibling.getElementType())) {
+        while (sibling != null && KitePsiUtil.isWhitespace(sibling.getElementType())) {
             sibling = sibling.getTreeNext();
         }
 
@@ -320,7 +319,7 @@ public class KiteDecoratorParameterInfoHandler implements ParameterInfoHandler<P
                 if (parenDepth == 0) {
                     // Found the opening paren, look for identifier before it
                     PsiElement prev = current.getPrevSibling();
-                    while (prev != null && isWhitespaceElement(prev)) {
+                    while (prev != null && KitePsiUtil.isWhitespaceElement(prev)) {
                         prev = prev.getPrevSibling();
                     }
                     if (prev != null && prev.getNode() != null &&
@@ -359,7 +358,7 @@ public class KiteDecoratorParameterInfoHandler implements ParameterInfoHandler<P
         }
         // Check if preceded by @
         PsiElement prev = identifier.getPrevSibling();
-        while (prev != null && isWhitespaceElement(prev)) {
+        while (prev != null && KitePsiUtil.isWhitespaceElement(prev)) {
             prev = prev.getPrevSibling();
         }
         return prev != null && prev.getNode() != null &&
@@ -395,7 +394,7 @@ public class KiteDecoratorParameterInfoHandler implements ParameterInfoHandler<P
 
         // Find LPAREN
         ASTNode lparen = node.getTreeNext();
-        while (lparen != null && isWhitespace(lparen.getElementType())) {
+        while (lparen != null && KitePsiUtil.isWhitespace(lparen.getElementType())) {
             lparen = lparen.getTreeNext();
         }
 
@@ -489,19 +488,5 @@ public class KiteDecoratorParameterInfoHandler implements ParameterInfoHandler<P
         }
 
         return null;
-    }
-
-    /**
-     * Check if the element type is whitespace.
-     */
-    private boolean isWhitespace(IElementType type) {
-        return KitePsiUtil.isWhitespace(type);
-    }
-
-    /**
-     * Check if an element is whitespace.
-     */
-    private boolean isWhitespaceElement(PsiElement element) {
-        return KitePsiUtil.isWhitespaceElement(element);
     }
 }

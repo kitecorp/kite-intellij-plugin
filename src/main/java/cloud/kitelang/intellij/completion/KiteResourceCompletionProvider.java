@@ -5,6 +5,7 @@ import cloud.kitelang.intellij.psi.KiteTokenTypes;
 import cloud.kitelang.intellij.reference.KiteImportHelper;
 import cloud.kitelang.intellij.structure.KiteStructureViewIcons;
 import cloud.kitelang.intellij.util.KiteDeclarationHelper;
+import cloud.kitelang.intellij.util.KitePsiUtil;
 import cloud.kitelang.intellij.util.KitePropertyHelper;
 import cloud.kitelang.intellij.util.KiteSchemaHelper;
 import com.intellij.codeInsight.completion.CompletionParameters;
@@ -86,7 +87,7 @@ public class KiteResourceCompletionProvider extends CompletionProvider<Completio
         while (current != null) {
             if (current.getNode() != null &&
                 current.getNode().getElementType() == KiteElementTypes.RESOURCE_DECLARATION) {
-                if (isInsideBraces(position, current)) {
+                if (KitePsiUtil.isInsideBraces(position, current)) {
                     String schemaName = KiteSchemaHelper.extractResourceTypeName(current);
                     if (schemaName != null) {
                         return new ResourceContext(schemaName, current);
@@ -96,32 +97,6 @@ public class KiteResourceCompletionProvider extends CompletionProvider<Completio
             current = current.getParent();
         }
         return null;
-    }
-
-    /**
-     * Check if position is inside the braces of a declaration.
-     */
-    static boolean isInsideBraces(PsiElement position, PsiElement declaration) {
-        int posOffset = position.getTextOffset();
-
-        int lbraceOffset = -1;
-        int rbraceOffset = -1;
-
-        PsiElement child = declaration.getFirstChild();
-        while (child != null) {
-            if (child.getNode() != null) {
-                IElementType type = child.getNode().getElementType();
-                if (type == KiteTokenTypes.LBRACE && lbraceOffset == -1) {
-                    lbraceOffset = child.getTextOffset();
-                } else if (type == KiteTokenTypes.RBRACE) {
-                    rbraceOffset = child.getTextOffset();
-                }
-            }
-            child = child.getNextSibling();
-        }
-
-        return lbraceOffset != -1 && rbraceOffset != -1 &&
-               posOffset > lbraceOffset && posOffset < rbraceOffset;
     }
 
     /**
