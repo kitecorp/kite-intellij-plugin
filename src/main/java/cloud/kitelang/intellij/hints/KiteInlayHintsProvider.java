@@ -4,6 +4,7 @@ import cloud.kitelang.intellij.KiteLanguage;
 import cloud.kitelang.intellij.psi.KiteElementTypes;
 import cloud.kitelang.intellij.psi.KiteTokenTypes;
 import cloud.kitelang.intellij.reference.KiteImportHelper;
+import cloud.kitelang.intellij.util.KiteSchemaHelper;
 import com.intellij.codeInsight.hints.*;
 import com.intellij.codeInsight.hints.presentation.InlayPresentation;
 import com.intellij.codeInsight.hints.presentation.PresentationFactory;
@@ -368,141 +369,19 @@ public class KiteInlayHintsProvider implements InlayHintsProvider<KiteInlayHints
         /**
          * Find schema properties by name. Returns a map of property name to type.
          * Searches in current file and imported files.
+         *
+         * @see KiteSchemaHelper#findSchemaProperties(PsiFile, String)
          */
         private java.util.Map<String, String> findSchemaProperties(PsiFile file, String schemaName) {
+            // Delegate to KiteSchemaHelper and extract just the type names
+            java.util.Map<String, KiteSchemaHelper.SchemaPropertyInfo> fullProperties =
+                KiteSchemaHelper.findSchemaProperties(file, schemaName);
+
             java.util.Map<String, String> properties = new java.util.HashMap<>();
-
-            // Search in current file
-            findSchemaPropertiesRecursive(file.getNode(), schemaName, properties);
-
-            // If not found, search in imported files
-            if (properties.isEmpty()) {
-                findSchemaPropertiesInImports(file, schemaName, properties, new HashSet<>());
+            for (java.util.Map.Entry<String, KiteSchemaHelper.SchemaPropertyInfo> entry : fullProperties.entrySet()) {
+                properties.put(entry.getKey(), entry.getValue().type);
             }
-
             return properties;
-        }
-
-        /**
-         * Recursively search for a schema and extract its properties.
-         */
-        private void findSchemaPropertiesRecursive(ASTNode node, String schemaName, java.util.Map<String, String> properties) {
-            if (node == null) return;
-
-            if (node.getElementType() == KiteElementTypes.SCHEMA_DECLARATION) {
-                // Check if this is the schema we're looking for
-                String name = getSchemaName(node);
-                if (schemaName.equals(name)) {
-                    extractSchemaProperties(node, properties);
-                    return;
-                }
-            }
-
-            // Recurse into children
-            for (ASTNode child : node.getChildren(null)) {
-                findSchemaPropertiesRecursive(child, schemaName, properties);
-                if (!properties.isEmpty()) return; // Found it
-            }
-        }
-
-        /**
-         * Search for schema properties in imported files.
-         */
-        private void findSchemaPropertiesInImports(PsiFile file, String schemaName,
-                                                   java.util.Map<String, String> properties, Set<String> visited) {
-            List<PsiFile> importedFiles = KiteImportHelper.getImportedFiles(file);
-
-            for (PsiFile importedFile : importedFiles) {
-                if (importedFile == null || importedFile.getVirtualFile() == null) continue;
-
-                String path = importedFile.getVirtualFile().getPath();
-                if (visited.contains(path)) continue;
-                visited.add(path);
-
-                findSchemaPropertiesRecursive(importedFile.getNode(), schemaName, properties);
-                if (!properties.isEmpty()) return;
-
-                // Recursively check imports
-                findSchemaPropertiesInImports(importedFile, schemaName, properties, visited);
-                if (!properties.isEmpty()) return;
-            }
-        }
-
-        /**
-         * Get the schema name from a schema declaration.
-         */
-        @Nullable
-        private String getSchemaName(ASTNode schemaNode) {
-            boolean foundSchema = false;
-            for (ASTNode child : schemaNode.getChildren(null)) {
-                IElementType childType = child.getElementType();
-
-                if (childType == KiteTokenTypes.SCHEMA) {
-                    foundSchema = true;
-                    continue;
-                }
-
-                if (foundSchema && childType == KiteTokenTypes.IDENTIFIER) {
-                    return child.getText();
-                }
-
-                if (childType == KiteTokenTypes.LBRACE) {
-                    break;
-                }
-            }
-            return null;
-        }
-
-        /**
-         * Extract property definitions from a schema.
-         * Pattern inside schema: type propertyName [= defaultValue]
-         */
-        private void extractSchemaProperties(ASTNode schemaNode, java.util.Map<String, String> properties) {
-            boolean insideBraces = false;
-            String currentType = null;
-
-            for (ASTNode child : schemaNode.getChildren(null)) {
-                IElementType childType = child.getElementType();
-
-                if (childType == KiteTokenTypes.LBRACE) {
-                    insideBraces = true;
-                    continue;
-                }
-                if (childType == KiteTokenTypes.RBRACE) {
-                    break;
-                }
-
-                if (!insideBraces) continue;
-
-                // Skip whitespace and newlines
-                if (isWhitespaceToken(childType)) {
-                    continue;
-                }
-
-                // Handle 'any' keyword as a type
-                if (childType == KiteTokenTypes.ANY) {
-                    currentType = "any";
-                    continue;
-                }
-
-                // Track type -> name pattern
-                if (childType == KiteTokenTypes.IDENTIFIER) {
-                    String text = child.getText();
-                    if (currentType == null) {
-                        // First identifier is the type
-                        currentType = text;
-                    } else {
-                        // Second identifier is the property name
-                        properties.put(text, currentType);
-                        currentType = null;
-                    }
-                }
-
-                // Reset on newline or assignment (end of property definition)
-                if (childType == KiteTokenTypes.NL || childType == KiteTokenTypes.ASSIGN) {
-                    currentType = null;
-                }
-            }
         }
 
         /**

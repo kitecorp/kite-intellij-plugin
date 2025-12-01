@@ -124,6 +124,24 @@ public final class KiteSchemaHelper {
     }
 
     /**
+     * Extract property definitions from a schema, returning just the type names.
+     * Convenience method for callers that don't need the isCloud flag.
+     *
+     * @param schemaDecl The schema declaration element
+     * @return Map of property name to type name
+     */
+    public static Map<String, String> extractSchemaPropertyTypes(PsiElement schemaDecl) {
+        Map<String, SchemaPropertyInfo> fullProperties = new HashMap<>();
+        extractSchemaProperties(schemaDecl, fullProperties);
+
+        Map<String, String> typeMap = new HashMap<>();
+        for (Map.Entry<String, SchemaPropertyInfo> entry : fullProperties.entrySet()) {
+            typeMap.put(entry.getKey(), entry.getValue().type);
+        }
+        return typeMap;
+    }
+
+    /**
      * Extract property definitions from a schema.
      * Pattern inside schema: [@cloud] type propertyName [= defaultValue]
      * Properties with @cloud annotation are marked as cloud properties.
