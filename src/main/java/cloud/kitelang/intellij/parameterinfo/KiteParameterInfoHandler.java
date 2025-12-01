@@ -3,6 +3,7 @@ package cloud.kitelang.intellij.parameterinfo;
 import cloud.kitelang.intellij.psi.KiteElementTypes;
 import cloud.kitelang.intellij.psi.KiteTokenTypes;
 import cloud.kitelang.intellij.reference.KiteImportHelper;
+import cloud.kitelang.intellij.util.KitePsiUtil;
 import com.intellij.lang.ASTNode;
 import com.intellij.lang.parameterInfo.CreateParameterInfoContext;
 import com.intellij.lang.parameterInfo.ParameterInfoHandler;
@@ -516,20 +517,14 @@ public class KiteParameterInfoHandler implements ParameterInfoHandler<PsiElement
      * Check if the element type is whitespace.
      */
     private boolean isWhitespace(IElementType type) {
-        return type == KiteTokenTypes.WHITESPACE ||
-               type == KiteTokenTypes.NL ||
-               type == KiteTokenTypes.NEWLINE ||
-               type == TokenType.WHITE_SPACE;
+        return KitePsiUtil.isWhitespace(type);
     }
 
     /**
      * Check if an element is whitespace.
      */
     private boolean isWhitespaceElement(PsiElement element) {
-        if (element.getNode() != null) {
-            return isWhitespace(element.getNode().getElementType());
-        }
-        return false;
+        return KitePsiUtil.isWhitespaceElement(element);
     }
 
 }

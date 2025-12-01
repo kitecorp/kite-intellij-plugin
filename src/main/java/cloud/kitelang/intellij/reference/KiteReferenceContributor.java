@@ -3,6 +3,7 @@ package cloud.kitelang.intellij.reference;
 import cloud.kitelang.intellij.KiteLanguage;
 import cloud.kitelang.intellij.psi.KiteElementTypes;
 import cloud.kitelang.intellij.psi.KiteTokenTypes;
+import cloud.kitelang.intellij.util.KitePsiUtil;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.util.TextRange;
 import com.intellij.patterns.PlatformPatterns;
@@ -556,10 +557,7 @@ public class KiteReferenceContributor extends PsiReferenceContributor {
     }
 
     private static boolean isWhitespace(IElementType type) {
-        return type == TokenType.WHITE_SPACE ||
-               type == KiteTokenTypes.WHITESPACE ||
-               type == KiteTokenTypes.NL ||
-               type == KiteTokenTypes.NEWLINE;
+        return KitePsiUtil.isWhitespace(type);
     }
 
     // Pattern to extract import path from import statement line

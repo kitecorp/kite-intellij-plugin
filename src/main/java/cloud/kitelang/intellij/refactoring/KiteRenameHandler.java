@@ -4,6 +4,7 @@ import cloud.kitelang.intellij.KiteFileType;
 import cloud.kitelang.intellij.KiteLanguage;
 import cloud.kitelang.intellij.psi.KiteElementTypes;
 import cloud.kitelang.intellij.psi.KiteTokenTypes;
+import cloud.kitelang.intellij.util.KitePsiUtil;
 import com.intellij.openapi.actionSystem.CommonDataKeys;
 import com.intellij.openapi.actionSystem.DataContext;
 import com.intellij.openapi.command.WriteCommandAction;
@@ -427,10 +428,7 @@ public class KiteRenameHandler implements RenameHandler {
     }
 
     private boolean isWhitespace(IElementType type) {
-        return type == TokenType.WHITE_SPACE ||
-               type == KiteTokenTypes.WHITESPACE ||
-               type == KiteTokenTypes.NL ||
-               type == KiteTokenTypes.NEWLINE;
+        return KitePsiUtil.isWhitespace(type);
     }
 
     /**

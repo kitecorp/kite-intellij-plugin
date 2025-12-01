@@ -2,6 +2,7 @@ package cloud.kitelang.intellij.reference;
 
 import cloud.kitelang.intellij.psi.KiteElementTypes;
 import cloud.kitelang.intellij.psi.KiteTokenTypes;
+import cloud.kitelang.intellij.util.KitePsiUtil;
 import com.intellij.openapi.util.TextRange;
 import com.intellij.psi.*;
 import com.intellij.psi.tree.IElementType;
@@ -619,10 +620,7 @@ public class KiteReference extends PsiReferenceBase<PsiElement> implements PsiPo
     }
 
     private boolean isWhitespace(IElementType type) {
-        return type == TokenType.WHITE_SPACE ||  // IntelliJ's built-in whitespace (from our lexer)
-               type == KiteTokenTypes.WHITESPACE ||
-               type == KiteTokenTypes.NL ||
-               type == KiteTokenTypes.NEWLINE;
+        return KitePsiUtil.isWhitespace(type);
     }
 
     /**

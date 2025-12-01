@@ -2,6 +2,7 @@ package cloud.kitelang.intellij.documentation;
 
 import cloud.kitelang.intellij.psi.KiteElementTypes;
 import cloud.kitelang.intellij.psi.KiteTokenTypes;
+import cloud.kitelang.intellij.util.KitePsiUtil;
 import com.intellij.psi.*;
 import com.intellij.psi.tree.IElementType;
 import org.jetbrains.annotations.NotNull;
@@ -732,17 +733,7 @@ public final class KiteDocumentationExtractor {
      * Check if an element is whitespace.
      */
     public static boolean isWhitespaceElement(PsiElement element) {
-        if (element instanceof PsiWhiteSpace) {
-            return true;
-        }
-        if (element.getNode() != null) {
-            IElementType type = element.getNode().getElementType();
-            return type == KiteTokenTypes.WHITESPACE ||
-                   type == KiteTokenTypes.NL ||
-                   type == KiteTokenTypes.NEWLINE ||
-                   type == com.intellij.psi.TokenType.WHITE_SPACE;
-        }
-        return false;
+        return KitePsiUtil.isWhitespaceElement(element);
     }
 
     /**

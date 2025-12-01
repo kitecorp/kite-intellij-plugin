@@ -78,6 +78,19 @@ public final class KitePsiUtil {
     }
 
     /**
+     * Check if a PSI element is whitespace (including newlines).
+     *
+     * @param element The element to check
+     * @return true if the element represents whitespace
+     */
+    public static boolean isWhitespaceElement(@Nullable PsiElement element) {
+        if (element == null || element.getNode() == null) {
+            return false;
+        }
+        return isWhitespace(element.getNode().getElementType());
+    }
+
+    /**
      * Check if element is a descendant of ancestor.
      *
      * @param element  The potential descendant

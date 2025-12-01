@@ -5,6 +5,7 @@ import cloud.kitelang.intellij.KiteLanguage;
 import cloud.kitelang.intellij.psi.KiteElementTypes;
 import cloud.kitelang.intellij.psi.KiteTokenTypes;
 import cloud.kitelang.intellij.reference.KiteImportHelper;
+import cloud.kitelang.intellij.util.KitePsiUtil;
 import com.intellij.codeInsight.navigation.actions.GotoDeclarationHandler;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.editor.Editor;
@@ -1169,10 +1170,7 @@ public class KiteGotoDeclarationHandler implements GotoDeclarationHandler {
     }
 
     private boolean isWhitespace(IElementType type) {
-        return type == TokenType.WHITE_SPACE ||
-               type == KiteTokenTypes.NL ||
-               type == KiteTokenTypes.WHITESPACE ||
-               type == KiteTokenTypes.NEWLINE;
+        return KitePsiUtil.isWhitespace(type);
     }
 
     /**

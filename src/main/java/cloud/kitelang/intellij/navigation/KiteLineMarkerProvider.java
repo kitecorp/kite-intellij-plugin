@@ -5,6 +5,7 @@ import cloud.kitelang.intellij.psi.KiteElementTypes;
 import cloud.kitelang.intellij.psi.KiteTokenTypes;
 import cloud.kitelang.intellij.reference.KiteImportHelper;
 import cloud.kitelang.intellij.structure.KiteStructureViewIcons;
+import cloud.kitelang.intellij.util.KitePsiUtil;
 import com.intellij.codeInsight.daemon.GutterIconNavigationHandler;
 import com.intellij.codeInsight.daemon.LineMarkerInfo;
 import com.intellij.codeInsight.daemon.LineMarkerProvider;
@@ -455,10 +456,7 @@ public class KiteLineMarkerProvider implements LineMarkerProvider {
      * Check if element type is whitespace.
      */
     private boolean isWhitespace(IElementType type) {
-        return type == TokenType.WHITE_SPACE ||
-               type == KiteTokenTypes.WHITESPACE ||
-               type == KiteTokenTypes.NL ||
-               type == KiteTokenTypes.NEWLINE;
+        return KitePsiUtil.isWhitespace(type);
     }
 
     /**

@@ -507,12 +507,11 @@ public class KiteInlayHintsProvider implements InlayHintsProvider<KiteInlayHints
 
         /**
          * Check if token type is whitespace.
+         *
+         * @see cloud.kitelang.intellij.util.KitePsiUtil#isWhitespace(IElementType)
          */
         private boolean isWhitespaceToken(IElementType type) {
-            return type == KiteTokenTypes.WHITESPACE ||
-                   type == KiteTokenTypes.NL ||
-                   type == KiteTokenTypes.NEWLINE ||
-                   type == TokenType.WHITE_SPACE;
+            return cloud.kitelang.intellij.util.KitePsiUtil.isWhitespace(type);
         }
 
         /**
