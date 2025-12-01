@@ -563,6 +563,54 @@
                          enabledByDefault="true"
                          level="WARNING"/>
 
+        <localInspection language="Kite"
+                         implementationClass="cloud.kitelang.intellij.inspection.KiteUnknownDecoratorInspection"
+                         groupName="Kite"
+                         shortName="KiteUnknownDecorator"
+                         displayName="Unknown decorator"
+                         enabledByDefault="true"
+                         level="WARNING"/>
+
+        <localInspection language="Kite"
+                         implementationClass="cloud.kitelang.intellij.inspection.KiteMissingPropertyInspection"
+                         groupName="Kite"
+                         shortName="KiteMissingProperty"
+                         displayName="Missing required property"
+                         enabledByDefault="true"
+                         level="WARNING"/>
+
+        <localInspection language="Kite"
+                         implementationClass="cloud.kitelang.intellij.inspection.KiteEmptyBlockInspection"
+                         groupName="Kite"
+                         shortName="KiteEmptyBlock"
+                         displayName="Empty block body"
+                         enabledByDefault="true"
+                         level="WEAK WARNING"/>
+
+        <localInspection language="Kite"
+                         implementationClass="cloud.kitelang.intellij.inspection.KiteCircularImportInspection"
+                         groupName="Kite"
+                         shortName="KiteCircularImport"
+                         displayName="Circular import dependency"
+                         enabledByDefault="true"
+                         level="WARNING"/>
+
+        <localInspection language="Kite"
+                         implementationClass="cloud.kitelang.intellij.inspection.KiteShadowedVariableInspection"
+                         groupName="Kite"
+                         shortName="KiteShadowedVariable"
+                         displayName="Shadowed variable"
+                         enabledByDefault="true"
+                         level="WEAK WARNING"/>
+
+        <localInspection language="Kite"
+                         implementationClass="cloud.kitelang.intellij.inspection.KiteUnusedParameterInspection"
+                         groupName="Kite"
+                         shortName="KiteUnusedParameter"
+                         displayName="Unused function parameter"
+                         enabledByDefault="true"
+                         level="WEAK WARNING"/>
+
     </extensions>
 
     <!-- Actions -->
