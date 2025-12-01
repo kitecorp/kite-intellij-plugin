@@ -1,3 +1,8 @@
+import CommonConfig, a from "common.kite"
+
+resource CommonConfig config {
+
+}
 // asd
 var myVar = "from B"
 @count

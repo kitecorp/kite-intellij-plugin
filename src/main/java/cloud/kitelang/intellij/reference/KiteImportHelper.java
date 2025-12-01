@@ -12,10 +12,7 @@ import com.intellij.psi.tree.IElementType;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.regex.Matcher;
@@ -765,5 +762,184 @@ public class KiteImportHelper {
             // Recursively process imported files
             forEachImportRecursive(importedFile, fileConsumer, visited);
         }
+    }
+
+    /**
+     * Get all symbols currently imported into this file.
+     * For wildcard imports, returns all exported symbols from the imported file.
+     * For named imports, returns only the specifically named symbols.
+     *
+     * @param file The file to analyze
+     * @return Set of all imported symbol names
+     */
+    @NotNull
+    public static Set<String> getImportedSymbols(@NotNull PsiFile file) {
+        Set<String> symbols = new HashSet<>();
+        String fileText = file.getText();
+
+        Pattern importPattern = Pattern.compile(
+                "^\\s*import\\s+([\\w,\\s*]+)\\s+from\\s+[\"']([^\"']+)[\"']",
+                Pattern.MULTILINE
+        );
+
+        Matcher matcher = importPattern.matcher(fileText);
+        while (matcher.find()) {
+            String symbolsPart = matcher.group(1).trim();
+            String importPath = matcher.group(2);
+
+            if (symbolsPart.equals("*")) {
+                // Wildcard import - get all exports from the file
+                PsiFile importedFile = resolveFilePath(importPath, file);
+                if (importedFile != null) {
+                    symbols.addAll(getExportedSymbols(importedFile));
+                }
+            } else {
+                // Named imports
+                String[] importedSymbols = symbolsPart.split("\\s*,\\s*");
+                for (String symbol : importedSymbols) {
+                    String trimmed = symbol.trim();
+                    if (!trimmed.isEmpty()) {
+                        symbols.add(trimmed);
+                    }
+                }
+            }
+        }
+
+        return symbols;
+    }
+
+    /**
+     * Get all symbols exported from this file (top-level declarations).
+     *
+     * @param file The file to analyze
+     * @return Set of all exported symbol names
+     */
+    @NotNull
+    public static Set<String> getExportedSymbols(@NotNull PsiFile file) {
+        Set<String> exports = new HashSet<>();
+
+        for (PsiElement child = file.getFirstChild(); child != null; child = child.getNextSibling()) {
+            if (child.getNode() == null) continue;
+
+            IElementType type = child.getNode().getElementType();
+            if (isExportableDeclaration(type)) {
+                String name = findDeclarationName(child, type);
+                if (name != null && !name.isEmpty()) {
+                    exports.add(name);
+                }
+            }
+        }
+
+        return exports;
+    }
+
+    /**
+     * Check if this element type represents an exportable declaration.
+     */
+    private static boolean isExportableDeclaration(IElementType type) {
+        return type == KiteElementTypes.VARIABLE_DECLARATION ||
+               type == KiteElementTypes.FUNCTION_DECLARATION ||
+               type == KiteElementTypes.SCHEMA_DECLARATION ||
+               type == KiteElementTypes.COMPONENT_DECLARATION ||
+               type == KiteElementTypes.RESOURCE_DECLARATION ||
+               type == KiteElementTypes.TYPE_DECLARATION;
+    }
+
+    /**
+     * Find the name of a declaration element.
+     */
+    @Nullable
+    private static String findDeclarationName(@NotNull PsiElement declaration, IElementType declType) {
+        for (PsiElement child = declaration.getFirstChild(); child != null; child = child.getNextSibling()) {
+            if (child.getNode() != null && child.getNode().getElementType() == KiteTokenTypes.IDENTIFIER) {
+                PsiElement next = skipWhitespaceForward(child.getNextSibling());
+                if (next != null && next.getNode() != null) {
+                    IElementType nextType = next.getNode().getElementType();
+                    if (nextType == KiteTokenTypes.ASSIGN ||
+                        nextType == KiteTokenTypes.LBRACE ||
+                        nextType == KiteTokenTypes.COLON ||
+                        nextType == KiteTokenTypes.PLUS_ASSIGN ||
+                        nextType == KiteTokenTypes.LPAREN) {  // For function declarations
+                        return child.getText();
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Skip whitespace tokens moving forward.
+     */
+    @Nullable
+    private static PsiElement skipWhitespaceForward(@Nullable PsiElement element) {
+        while (element != null && isWhitespaceElement(element)) {
+            element = element.getNextSibling();
+        }
+        return element;
+    }
+
+    /**
+     * Check if element is whitespace.
+     */
+    private static boolean isWhitespaceElement(@NotNull PsiElement element) {
+        if (element.getNode() == null) return false;
+        IElementType type = element.getNode().getElementType();
+        return type == com.intellij.psi.TokenType.WHITE_SPACE ||
+               type == KiteTokenTypes.NL ||
+               type == KiteTokenTypes.WHITESPACE ||
+               type == KiteTokenTypes.NEWLINE;
+    }
+
+    /**
+     * Get imports grouped by file path.
+     * Returns a map of file path -> set of imported symbols.
+     *
+     * @param file The file to analyze
+     * @return Map of file paths to their imported symbols
+     */
+    @NotNull
+    public static Map<String, Set<String>> getImportsByFile(@NotNull PsiFile file) {
+        Map<String, Set<String>> imports = new LinkedHashMap<>();
+        String fileText = file.getText();
+
+        Pattern importPattern = Pattern.compile(
+                "^\\s*import\\s+([\\w,\\s*]+)\\s+from\\s+[\"']([^\"']+)[\"']",
+                Pattern.MULTILINE
+        );
+
+        Matcher matcher = importPattern.matcher(fileText);
+        while (matcher.find()) {
+            String symbolsPart = matcher.group(1).trim();
+            String importPath = matcher.group(2);
+
+            Set<String> symbols = imports.computeIfAbsent(importPath, k -> new LinkedHashSet<>());
+
+            if (!symbolsPart.equals("*")) {
+                String[] importedSymbols = symbolsPart.split("\\s*,\\s*");
+                for (String symbol : importedSymbols) {
+                    String trimmed = symbol.trim();
+                    if (!trimmed.isEmpty()) {
+                        symbols.add(trimmed);
+                    }
+                }
+            }
+            // For wildcard imports, we keep empty set to indicate the file is imported
+        }
+
+        return imports;
+    }
+
+    /**
+     * Get the relative path from one file to another.
+     * Alias for getRelativeImportPath for cleaner API.
+     *
+     * @param fromFile The source file
+     * @param toFile   The target file
+     * @return The relative path string
+     */
+    @Nullable
+    public static String getRelativePath(@NotNull PsiFile fromFile, @NotNull PsiFile toFile) {
+        return getRelativeImportPath(fromFile, toFile);
     }
 }

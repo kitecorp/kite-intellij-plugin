@@ -10,6 +10,9 @@
     <!-- A displayed Vendor name or Organization ID displayed on the Plugins Page. -->
     <vendor email="support@echostream.ro" url="https://github.com/kitecorp">EchoStream SRL</vendor>
 
+    <!-- Plugin version -->
+    <version>0.23.0</version>
+
     <!-- Description of the plugin displayed on the Plugin Page and IDE Plugin Manager.
          Simple HTML elements (text formatting, paragraphs, and lists) can be added inside of <![CDATA[ ]]> tag.
          Guidelines: https://plugins.jetbrains.com/docs/marketplace/plugin-overview-page.html#plugin-description -->
@@ -46,11 +49,34 @@
           <li>Validates new names against Kite identifier rules and keywords</li>
         </ul>
       </li>
+      <li><b>Extract Variable Refactoring</b> - Use Cmd+Alt+V (Mac) or Ctrl+Alt+V (Windows/Linux) to extract expressions:
+        <ul>
+          <li>Extract literals (string, number, boolean)</li>
+          <li>Extract binary expressions, function calls, property access</li>
+          <li>Option to replace all occurrences</li>
+          <li>Preserves indentation and places declaration before usage</li>
+        </ul>
+      </li>
+      <li><b>Go to Class</b> - Use Cmd+O (Mac) or Ctrl+N (Windows/Linux) to navigate to schemas and components by name</li>
+      <li><b>Go to Symbol</b> - Use Cmd+Alt+O (Mac) or Ctrl+Alt+Shift+N (Windows/Linux) to navigate to any declaration:
+        <ul>
+          <li>Finds schemas, components, functions, variables, resources, type aliases</li>
+          <li>Fuzzy matching supported</li>
+          <li>Shows file location and type icon</li>
+        </ul>
+      </li>
       <li><b>Structure View</b> - Hierarchical outline with color-coded icons for resources, components, schemas, functions, types, variables, inputs, outputs, and imports</li>
       <li><b>Code Folding</b> - Collapse and expand declarations (components, resources, schemas, functions), control flow statements (for, while), object literals, and comments</li>
       <li><b>Code Formatting</b> - Automatic code formatting with 'Reformat Code' action (Cmd+Alt+L / Ctrl+Alt+L) including vertical alignment of object properties and declarations</li>
       <li><b>Comment/Uncomment</b> - Toggle line and block comments with keyboard shortcuts (Cmd+/ or Ctrl+/)</li>
       <li><b>Brace Matching</b> - Automatic highlighting of matching braces, brackets, and parentheses</li>
+      <li><b>Smart Enter</b> - Enhanced Enter key behavior:
+        <ul>
+          <li>Auto-inserts closing brace when pressing Enter after <code>{</code></li>
+          <li>Adds proper indentation for new content</li>
+          <li>Continues <code>*</code> prefix in block comments</li>
+        </ul>
+      </li>
       <li><b>Breadcrumbs</b> - Navigation path showing current location (e.g., component > resource > property) at top/bottom of editor</li>
       <li><b>Custom Color Scheme</b> - Configurable syntax colors for keywords, types, literals, comments, and more via Settings > Editor > Color Scheme > Kite</li>
       <li><b>Quick Documentation</b> - Press Ctrl+Q (Windows/Linux) or F1 (Mac) on any declaration to view documentation:
@@ -128,6 +154,14 @@
           <li>Already-imported symbols show with higher priority</li>
         </ul>
       </li>
+      <li><b>Auto-import on Paste</b> - Automatically imports missing symbols when pasting code:
+        <ul>
+          <li>Scans pasted code for undefined symbols that exist in other project files</li>
+          <li>Adds all missing import statements automatically</li>
+          <li>Merges with existing imports from the same file</li>
+          <li>Also available via Alt+Enter to manually trigger for existing code</li>
+        </ul>
+      </li>
       <li><b>Cross-file Navigation</b> - Go to Declaration across files:
         <ul>
           <li>Follow imports to navigate to declarations in other files</li>
@@ -138,11 +172,77 @@
           <li>Recursive import resolution for transitive dependencies</li>
         </ul>
       </li>
+      <li><b>Inspections</b> - 12 code inspections for batch analysis (Analyze > Inspect Code):
+        <ul>
+          <li>Unused variables, parameters, inputs/outputs</li>
+          <li>Unreachable code detection</li>
+          <li>Unknown decorator validation</li>
+          <li>Missing required properties</li>
+          <li>Empty block warnings</li>
+          <li>Circular import detection</li>
+          <li>Shadowed variable warnings</li>
+          <li>Naming convention checks</li>
+          <li>Function complexity warnings (large functions, deep nesting)</li>
+        </ul>
+      </li>
     </ul>
   ]]></description>
 
     <!-- Short summary of new features and bugfixes in the latest version -->
     <change-notes><![CDATA[
+    <b>0.23.0</b>
+    <ul>
+      <li><b>Auto-import on Paste</b> - Automatically imports missing symbols when pasting code
+        <ul>
+          <li>Scans pasted code for undefined symbols that exist in other project files</li>
+          <li>Adds all missing import statements automatically</li>
+          <li>Merges with existing imports from the same file</li>
+          <li>Also available via Alt+Enter to manually trigger</li>
+        </ul>
+      </li>
+      <li><b>Go to Class Navigation</b> - Press Cmd+O (Mac) or Ctrl+N (Windows/Linux) to navigate to schemas and components by name
+        <ul>
+          <li>Fuzzy matching supported</li>
+          <li>Shows file location</li>
+          <li>Works across all project files</li>
+        </ul>
+      </li>
+      <li><b>Go to Symbol Navigation</b> - Press Cmd+Alt+O (Mac) or Ctrl+Alt+Shift+N (Windows/Linux) to navigate to any declaration
+        <ul>
+          <li>Finds schemas, components, functions, variables, resources, type aliases</li>
+          <li>Shows file location and type icon</li>
+          <li>Fuzzy matching supported</li>
+        </ul>
+      </li>
+      <li><b>Extract Variable Refactoring</b> - Press Cmd+Alt+V (Mac) or Ctrl+Alt+V (Windows/Linux) to extract expressions
+        <ul>
+          <li>Extract literals (string, number, boolean)</li>
+          <li>Extract binary expressions, function calls, property access</li>
+          <li>Option to replace all occurrences</li>
+          <li>Preserves indentation and places declaration before usage</li>
+        </ul>
+      </li>
+      <li><b>Smart Enter</b> - Enhanced Enter key behavior
+        <ul>
+          <li>Auto-inserts closing brace when pressing Enter after <code>{</code></li>
+          <li>Adds proper indentation for new content</li>
+          <li>Continues <code>*</code> prefix in block comments</li>
+        </ul>
+      </li>
+      <li><b>Code Inspections</b> - 12 configurable inspections for batch analysis (Analyze > Inspect Code)
+        <ul>
+          <li>Unused variable, parameter, input/output detection</li>
+          <li>Unreachable code after return statements</li>
+          <li>Unknown decorator validation</li>
+          <li>Missing required property warnings</li>
+          <li>Empty block warnings</li>
+          <li>Circular import detection</li>
+          <li>Shadowed variable warnings</li>
+          <li>Naming convention checks (camelCase, PascalCase)</li>
+          <li>Large function and deep nesting warnings</li>
+        </ul>
+      </li>
+    </ul>
     <b>0.22.0</b>
     <ul>
       <li><b>Auto-import on Code Completion</b> - Selecting a symbol from another file in autocomplete automatically adds the import statement:
@@ -539,6 +639,16 @@
 
         <!-- Quote auto-pairing (typing " or ' automatically inserts closing quote) -->
         <typedHandler implementation="cloud.kitelang.intellij.KiteQuoteHandler"/>
+
+        <!-- Auto-import on paste -->
+        <copyPastePostProcessor implementation="cloud.kitelang.intellij.editor.KiteCopyPasteProcessor"/>
+
+        <!-- Auto-import intention (Alt+Enter to import missing symbols) -->
+        <intentionAction>
+            <language>Kite</language>
+            <className>cloud.kitelang.intellij.intentions.AutoImportIntention</className>
+            <category>Kite</category>
+        </intentionAction>
 
         <!-- Line markers for declarations (gutter icons showing usages) -->
         <codeInsight.lineMarkerProvider language="Kite"
