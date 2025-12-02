@@ -194,6 +194,8 @@ public class KiteGeneralCompletionProviderTest extends KiteTestBase {
     public void testComponentOutputAccessAfterDot() {
         configureByText("""
                 component WebServer {
+                    input string port = "8080"
+                    input string host = "localhost"
                     output string endpoint = "http://localhost"
                     output string status = "running"
                 }
@@ -205,9 +207,14 @@ public class KiteGeneralCompletionProviderTest extends KiteTestBase {
         myFixture.completeBasic();
         List<String> lookupStrings = myFixture.getLookupElementStrings();
 
-        // Component output completion may or may not be implemented
-        // This test verifies the completion doesn't crash
-        // If lookupStrings is null, completion might have auto-inserted
+        // Debug: print what completions we get
+        assertNotNull("Should have completions for component access, got: " + lookupStrings, lookupStrings);
+
+        // Should show ONLY outputs, not inputs
+        assertTrue("Should suggest 'endpoint' output, got: " + lookupStrings, lookupStrings.contains("endpoint"));
+        assertTrue("Should suggest 'status' output", lookupStrings.contains("status"));
+        assertFalse("Should NOT suggest 'port' input", lookupStrings.contains("port"));
+        assertFalse("Should NOT suggest 'host' input", lookupStrings.contains("host"));
     }
 
     // ========== Schema and Resource Type Completion Tests ==========

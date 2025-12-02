@@ -23,6 +23,20 @@
 - Built-in types
 - **Auto-import**: Suggests symbols from project files with automatic import insertion
 
+**Component instance property access (`instance.`):**
+
+- Shows only output declarations from the component definition
+- Inputs are NOT suggested (they are parameters passed IN, not accessible from outside)
+
+```kite
+component WebServer {
+    input string port = "8080"    // Not suggested
+    output string endpoint        // Suggested
+}
+component WebServer server {}
+var x = server.endpoint           // Ctrl+Space shows: endpoint
+```
+
 ### Auto-Import Completion
 
 When typing a symbol name, completions include symbols from files not yet imported. Selecting such a completion automatically adds the import statement:
@@ -184,7 +198,9 @@ When pressing Enter inside `/* */` comments:
 
 ## Test Files
 
-| Feature        | Test File                          |
-|----------------|------------------------------------|
-| Code Folding   | `KiteFoldingBuilderTest.java`      |
-| Smart Enter    | `KiteEnterHandlerDelegateTest.java`|
+| Feature              | Test File                               |
+|----------------------|-----------------------------------------|
+| General Completion   | `KiteGeneralCompletionProviderTest.java`|
+| Resource Completion  | `KiteResourceCompletionProviderTest.java`|
+| Code Folding         | `KiteFoldingBuilderTest.java`           |
+| Smart Enter          | `KiteEnterHandlerDelegateTest.java`     |

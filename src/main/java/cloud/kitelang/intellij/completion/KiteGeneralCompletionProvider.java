@@ -483,18 +483,18 @@ public class KiteGeneralCompletionProvider extends CompletionProvider<Completion
     }
 
     /**
-     * Find a component declaration by type name
+     * Find a component declaration (definition, not instantiation) by type name.
+     * Component definitions have pattern: component TypeName { ... }
+     * The declName from collectDeclarations IS the type name for definitions.
      */
     @Nullable
     private PsiElement findComponentDeclaration(PsiFile file, String typeName) {
         final PsiElement[] result = {null};
         KiteDeclarationHelper.collectDeclarations(file, (declName, declarationType, element) -> {
             if (declarationType == KiteElementTypes.COMPONENT_DECLARATION) {
-                if (!isComponentInstantiation(element)) {
-                    String componentTypeName = getComponentTypeName(element);
-                    if (typeName.equals(componentTypeName)) {
-                        result[0] = element;
-                    }
+                // For component definitions (not instantiations), declName IS the type name
+                if (!isComponentInstantiation(element) && typeName.equals(declName)) {
+                    result[0] = element;
                 }
             }
         });
