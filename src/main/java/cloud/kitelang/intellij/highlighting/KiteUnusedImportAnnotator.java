@@ -100,6 +100,16 @@ public class KiteUnusedImportAnnotator implements Annotator {
             }
         }
 
+
+        collectStringInterpolationUsages(element, usedSymbols, type);
+
+        // Recurse into children
+        for (PsiElement child = element.getFirstChild(); child != null; child = child.getNextSibling()) {
+            collectUsedSymbolsRecursive(child, usedSymbols, inImport);
+        }
+    }
+
+    public static void collectStringInterpolationUsages(PsiElement element, Set<String> usedSymbols, IElementType type) {
         // Collect string interpolation usages: $varName
         if (type == KiteTokenTypes.INTERP_SIMPLE) {
             String text = element.getText();
@@ -117,17 +127,12 @@ public class KiteUnusedImportAnnotator implements Annotator {
         if (type == KiteTokenTypes.STRING || type == KiteTokenTypes.STRING_TEXT) {
             extractInterpolationsFromString(element.getText(), usedSymbols);
         }
-
-        // Recurse into children
-        for (PsiElement child = element.getFirstChild(); child != null; child = child.getNextSibling()) {
-            collectUsedSymbolsRecursive(child, usedSymbols, inImport);
-        }
     }
 
     /**
      * Extract variable names from string interpolation patterns.
      */
-    private void extractInterpolationsFromString(String text, Set<String> usedSymbols) {
+    private static void extractInterpolationsFromString(String text, Set<String> usedSymbols) {
         // Match $varName pattern
         Pattern simpleInterp = Pattern.compile("\\$([a-zA-Z_][a-zA-Z0-9_]*)");
         Matcher matcher = simpleInterp.matcher(text);

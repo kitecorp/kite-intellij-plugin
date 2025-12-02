@@ -19,6 +19,8 @@ import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import static cloud.kitelang.intellij.highlighting.KiteUnusedImportAnnotator.collectStringInterpolationUsages;
+
 /**
  * Import optimizer for Kite language files.
  * Removes unused imports when the user runs "Optimize Imports" (Ctrl+Alt+O / Cmd+Alt+O).
@@ -120,23 +122,7 @@ public class KiteImportOptimizer implements ImportOptimizer {
             usedSymbols.add(element.getText());
         }
 
-        // Collect string interpolation usages: $varName
-        if (type == KiteTokenTypes.INTERP_SIMPLE) {
-            String text = element.getText();
-            if (text.startsWith("$") && text.length() > 1) {
-                usedSymbols.add(text.substring(1));
-            }
-        }
-
-        // Collect string interpolation usages: ${varName}
-        if (type == KiteTokenTypes.INTERP_IDENTIFIER) {
-            usedSymbols.add(element.getText());
-        }
-
-        // Check STRING tokens for legacy interpolation patterns
-        if (type == KiteTokenTypes.STRING || type == KiteTokenTypes.STRING_TEXT) {
-            extractInterpolationsFromString(element.getText(), usedSymbols);
-        }
+        collectStringInterpolationUsages(element, usedSymbols, type);
 
         // Recurse into children
         for (PsiElement child = element.getFirstChild(); child != null; child = child.getNextSibling()) {
@@ -144,21 +130,6 @@ public class KiteImportOptimizer implements ImportOptimizer {
         }
     }
 
-    private void extractInterpolationsFromString(String text, Set<String> usedSymbols) {
-        // Match $varName pattern
-        Pattern simpleInterp = Pattern.compile("\\$([a-zA-Z_][a-zA-Z0-9_]*)");
-        Matcher matcher = simpleInterp.matcher(text);
-        while (matcher.find()) {
-            usedSymbols.add(matcher.group(1));
-        }
-
-        // Match ${varName} pattern
-        Pattern bracedInterp = Pattern.compile("\\$\\{([a-zA-Z_][a-zA-Z0-9_]*)\\}");
-        matcher = bracedInterp.matcher(text);
-        while (matcher.find()) {
-            usedSymbols.add(matcher.group(1));
-        }
-    }
 
     /**
      * Analyze all imports in the file and determine which should be removed.

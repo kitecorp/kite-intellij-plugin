@@ -261,19 +261,7 @@ public final class KitePsiUtil {
 
         // For component declarations, handle both definitions and instantiations
         if (type == KiteElementTypes.COMPONENT_DECLARATION) {
-            List<String> identifiers = new ArrayList<>();
-            for (PsiElement child = declaration.getFirstChild(); child != null; child = child.getNextSibling()) {
-                if (child.getNode() == null) continue;
-                IElementType childType = child.getNode().getElementType();
-
-                if (childType == KiteTokenTypes.IDENTIFIER) {
-                    identifiers.add(child.getText());
-                } else if (childType == KiteTokenTypes.LBRACE) {
-                    break;
-                }
-            }
-            // Return the last identifier (instance name for instantiations, type name for definitions)
-            return identifiers.isEmpty() ? null : identifiers.get(identifiers.size() - 1);
+            return findComponentName(declaration);
         }
 
         // Default: find identifier before = or {
@@ -293,6 +281,23 @@ public final class KitePsiUtil {
             }
         }
         return lastIdentifier != null ? lastIdentifier.getText() : null;
+    }
+
+    @Nullable
+    public static String findComponentName(PsiElement componentDecl) {
+        List<String> identifiers = new ArrayList<>();
+        for (PsiElement child = componentDecl.getFirstChild(); child != null; child = child.getNextSibling()) {
+            if (child.getNode() == null) continue;
+            IElementType childType = child.getNode().getElementType();
+
+            if (childType == KiteTokenTypes.IDENTIFIER) {
+                identifiers.add(child.getText());
+            } else if (childType == KiteTokenTypes.LBRACE) {
+                break;
+            }
+        }
+        // Return the last identifier (instance name for instantiations, type name for definitions)
+        return identifiers.isEmpty() ? null : identifiers.get(identifiers.size() - 1);
     }
 
     public static @Nullable String findForLoopVariable(@NotNull PsiElement declaration) {

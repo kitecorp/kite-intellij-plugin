@@ -600,23 +600,7 @@ public class KiteTypeCheckingAnnotator implements Annotator {
 
         if (type == KiteElementTypes.IMPORT_STATEMENT) {
             PsiElement stringToken = findImportPathString(element);
-            if (stringToken != null) {
-                String importPath = extractImportPathFromElement(stringToken);
-                if (importPath != null && importPath.isEmpty()) {
-                    holder.newAnnotation(HighlightSeverity.ERROR, "Empty import path")
-                            .range(stringToken)
-                            .highlightType(ProblemHighlightType.ERROR)
-                            .create();
-                } else if (importPath != null) {
-                    PsiFile resolvedFile = KiteImportHelper.resolveFilePath(importPath, containingFile);
-                    if (resolvedFile == null) {
-                        holder.newAnnotation(HighlightSeverity.ERROR, "Cannot resolve import path '" + importPath + "'")
-                                .range(stringToken)
-                                .highlightType(ProblemHighlightType.LIKE_UNKNOWN_SYMBOL)
-                                .create();
-                    }
-                }
-            }
+            checkBrokenImport(containingFile, holder, stringToken);
         }
 
         if (type == KiteTokenTypes.IMPORT) {
@@ -624,28 +608,32 @@ public class KiteTypeCheckingAnnotator implements Annotator {
             if (parent != null && parent.getNode() != null &&
                 parent.getNode().getElementType() != KiteElementTypes.IMPORT_STATEMENT) {
                 PsiElement stringToken = findImportPathStringFromToken(element);
-                if (stringToken != null) {
-                    String importPath = extractImportPathFromElement(stringToken);
-                    if (importPath != null && importPath.isEmpty()) {
-                        holder.newAnnotation(HighlightSeverity.ERROR, "Empty import path")
-                                .range(stringToken)
-                                .highlightType(ProblemHighlightType.ERROR)
-                                .create();
-                    } else if (importPath != null) {
-                        PsiFile resolvedFile = KiteImportHelper.resolveFilePath(importPath, containingFile);
-                        if (resolvedFile == null) {
-                            holder.newAnnotation(HighlightSeverity.ERROR, "Cannot resolve import path '" + importPath + "'")
-                                    .range(stringToken)
-                                    .highlightType(ProblemHighlightType.LIKE_UNKNOWN_SYMBOL)
-                                    .create();
-                        }
-                    }
-                }
+                checkBrokenImport(containingFile, holder, stringToken);
             }
         }
 
         for (PsiElement child = element.getFirstChild(); child != null; child = child.getNextSibling()) {
             checkBrokenImportPaths(child, containingFile, holder);
+        }
+    }
+
+    private void checkBrokenImport(PsiFile containingFile, @NotNull AnnotationHolder holder, PsiElement stringToken) {
+        if (stringToken != null) {
+            String importPath = extractImportPathFromElement(stringToken);
+            if (importPath != null && importPath.isEmpty()) {
+                holder.newAnnotation(HighlightSeverity.ERROR, "Empty import path")
+                        .range(stringToken)
+                        .highlightType(ProblemHighlightType.ERROR)
+                        .create();
+            } else if (importPath != null) {
+                PsiFile resolvedFile = KiteImportHelper.resolveFilePath(importPath, containingFile);
+                if (resolvedFile == null) {
+                    holder.newAnnotation(HighlightSeverity.ERROR, "Cannot resolve import path '" + importPath + "'")
+                            .range(stringToken)
+                            .highlightType(ProblemHighlightType.LIKE_UNKNOWN_SYMBOL)
+                            .create();
+                }
+            }
         }
     }
 
@@ -695,21 +683,5 @@ public class KiteTypeCheckingAnnotator implements Annotator {
         }
     }
 
-    @Nullable
-    private String findComponentName(PsiElement componentDecl) {
-        List<String> identifiers = new ArrayList<>();
 
-        for (PsiElement child = componentDecl.getFirstChild(); child != null; child = child.getNextSibling()) {
-            if (child.getNode() == null) continue;
-            IElementType type = child.getNode().getElementType();
-
-            if (type == KiteTokenTypes.IDENTIFIER) {
-                identifiers.add(child.getText());
-            } else if (type == KiteTokenTypes.LBRACE) {
-                break;
-            }
-        }
-
-        return identifiers.isEmpty() ? null : identifiers.get(identifiers.size() - 1);
-    }
 }
