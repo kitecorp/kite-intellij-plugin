@@ -371,17 +371,8 @@ public class KiteParameterInfoHandler implements ParameterInfoHandler<PsiElement
      */
     private int getCurrentParameterIndex(PsiElement functionCall, int offset) {
         ASTNode node = functionCall.getNode();
-        if (node == null) return 0;
-
-        // Find LPAREN
-        ASTNode lparen = node.getTreeNext();
-        while (lparen != null && KitePsiUtil.isWhitespace(lparen.getElementType())) {
-            lparen = lparen.getTreeNext();
-        }
-
-        if (lparen == null || lparen.getElementType() != KiteTokenTypes.LPAREN) {
-            return 0;
-        }
+        ASTNode lparen = getLParen(node);
+        if (lparen == null) return 0;
 
         // Count commas before the cursor position
         int commaCount = 0;
@@ -408,6 +399,21 @@ public class KiteParameterInfoHandler implements ParameterInfoHandler<PsiElement
         }
 
         return commaCount;
+    }
+
+    private static @Nullable ASTNode getLParen(ASTNode node) {
+        if (node == null) return null;
+
+        // Find LPAREN
+        ASTNode lparen = node.getTreeNext();
+        while (lparen != null && KitePsiUtil.isWhitespace(lparen.getElementType())) {
+            lparen = lparen.getTreeNext();
+        }
+
+        if (lparen == null || lparen.getElementType() != KiteTokenTypes.LPAREN) {
+            return null;
+        }
+        return lparen;
     }
 
     /**

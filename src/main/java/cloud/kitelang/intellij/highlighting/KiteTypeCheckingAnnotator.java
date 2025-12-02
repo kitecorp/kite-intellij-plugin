@@ -60,20 +60,7 @@ public class KiteTypeCheckingAnnotator implements Annotator {
 
     @Nullable
     public static String findForLoopVariable(PsiElement forStatement) {
-        boolean foundFor = false;
-        for (PsiElement child = forStatement.getFirstChild(); child != null; child = child.getNextSibling()) {
-            if (child.getNode() == null) continue;
-            IElementType type = child.getNode().getElementType();
-
-            if (type == KiteTokenTypes.FOR) {
-                foundFor = true;
-            } else if (foundFor && type == KiteTokenTypes.IDENTIFIER) {
-                return child.getText();
-            } else if (type == KiteTokenTypes.IN) {
-                break;
-            }
-        }
-        return null;
+        return KitePsiUtil.findForLoopVariable(forStatement);
     }
 
     // ========== Declaration Collection ==========
@@ -208,16 +195,20 @@ public class KiteTypeCheckingAnnotator implements Annotator {
         // For wildcard imports, resolve the file and collect all its declared names
         if (foundWildcard) {
             String importPath = KiteImportHelper.extractImportPath(importStatement);
-            if (importPath != null && !importPath.isEmpty()) {
-                PsiFile containingFile = importStatement.getContainingFile();
-                PsiFile importedFile = KiteImportHelper.resolveFilePath(importPath, containingFile);
-                if (importedFile != null && importedFile.getVirtualFile() != null) {
-                    String importedFilePath = importedFile.getVirtualFile().getPath();
-                    // Skip already visited files to prevent infinite recursion on circular imports
-                    if (!visitedPaths.contains(importedFilePath)) {
-                        visitedPaths.add(importedFilePath);
-                        collectAllDeclaredNames(importedFile, names, visitedPaths);
-                    }
+            searchWildcard(importStatement, names, visitedPaths, importPath);
+        }
+    }
+
+    private void searchWildcard(PsiElement importStatement, Set<String> names, Set<String> visitedPaths, String importPath) {
+        if (importPath != null && !importPath.isEmpty()) {
+            PsiFile containingFile = importStatement.getContainingFile();
+            PsiFile importedFile = KiteImportHelper.resolveFilePath(importPath, containingFile);
+            if (importedFile != null && importedFile.getVirtualFile() != null) {
+                String importedFilePath = importedFile.getVirtualFile().getPath();
+                // Skip already visited files to prevent infinite recursion on circular imports
+                if (!visitedPaths.contains(importedFilePath)) {
+                    visitedPaths.add(importedFilePath);
+                    collectAllDeclaredNames(importedFile, names, visitedPaths);
                 }
             }
         }
@@ -261,18 +252,7 @@ public class KiteTypeCheckingAnnotator implements Annotator {
 
         if (foundWildcard) {
             String importPath = extractImportPathFromToken(importToken);
-            if (importPath != null && !importPath.isEmpty()) {
-                PsiFile containingFile = importToken.getContainingFile();
-                PsiFile importedFile = KiteImportHelper.resolveFilePath(importPath, containingFile);
-                if (importedFile != null && importedFile.getVirtualFile() != null) {
-                    String importedFilePath = importedFile.getVirtualFile().getPath();
-                    // Skip already visited files to prevent infinite recursion on circular imports
-                    if (!visitedPaths.contains(importedFilePath)) {
-                        visitedPaths.add(importedFilePath);
-                        collectAllDeclaredNames(importedFile, names, visitedPaths);
-                    }
-                }
-            }
+            searchWildcard(importToken, names, visitedPaths, importPath);
         }
     }
 

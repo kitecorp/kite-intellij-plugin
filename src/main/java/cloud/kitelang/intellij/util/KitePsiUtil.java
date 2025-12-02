@@ -238,20 +238,7 @@ public final class KitePsiUtil {
     public static String findDeclarationName(@NotNull PsiElement declaration, @NotNull IElementType type) {
         // For for-loop statements, the name is after FOR and before IN
         if (type == KiteElementTypes.FOR_STATEMENT) {
-            boolean foundFor = false;
-            for (PsiElement child = declaration.getFirstChild(); child != null; child = child.getNextSibling()) {
-                if (child.getNode() == null) continue;
-                IElementType childType = child.getNode().getElementType();
-
-                if (childType == KiteTokenTypes.FOR) {
-                    foundFor = true;
-                } else if (foundFor && childType == KiteTokenTypes.IDENTIFIER) {
-                    return child.getText();
-                } else if (childType == KiteTokenTypes.IN) {
-                    break;
-                }
-            }
-            return null;
+            return findForLoopVariable(declaration);
         }
 
         // For function declarations, the name is after FUN and before LPAREN
@@ -306,6 +293,23 @@ public final class KitePsiUtil {
             }
         }
         return lastIdentifier != null ? lastIdentifier.getText() : null;
+    }
+
+    public static @Nullable String findForLoopVariable(@NotNull PsiElement declaration) {
+        boolean foundFor = false;
+        for (var child = declaration.getFirstChild(); child != null; child = child.getNextSibling()) {
+            if (child.getNode() == null) continue;
+            var childType = child.getNode().getElementType();
+
+            if (childType == KiteTokenTypes.FOR) {
+                foundFor = true;
+            } else if (foundFor && childType == KiteTokenTypes.IDENTIFIER) {
+                return child.getText();
+            } else if (childType == KiteTokenTypes.IN) {
+                break;
+            }
+        }
+        return null;
     }
 
     /**
