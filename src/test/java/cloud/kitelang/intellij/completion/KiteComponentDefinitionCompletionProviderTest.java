@@ -136,7 +136,7 @@ public class KiteComponentDefinitionCompletionProviderTest extends KiteTestBase 
                 """);
 
         myFixture.completeBasic();
-        List<String> lookupStrings = myFixture.getLookupElementStrings();
+        myFixture.getLookupElementStrings();
 
         // In component instance context (not definition), different completions apply
         // This test verifies no crash occurs

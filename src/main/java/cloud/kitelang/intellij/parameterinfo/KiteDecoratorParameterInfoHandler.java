@@ -425,11 +425,7 @@ public class KiteDecoratorParameterInfoHandler implements ParameterInfoHandler<P
                     sb.append(hasNamedArgs ? " or " : ", ");
                 }
                 DecoratorParam param = parameters.get(i);
-                if (param.isNamed) {
-                    sb.append(param.name).append(": ").append(param.type);
-                } else {
-                    sb.append(param.name).append(": ").append(param.type);
-                }
+                sb.append(param.name).append(": ").append(param.type);
             }
             return sb.toString();
         }
@@ -444,9 +440,6 @@ public class KiteDecoratorParameterInfoHandler implements ParameterInfoHandler<P
         }
 
         public String getDisplayText() {
-            if (isNamed) {
-                return name + ": " + type;
-            }
             return name + ": " + type;
         }
     }

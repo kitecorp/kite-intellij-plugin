@@ -68,8 +68,8 @@ public class KiteAnnotator implements Annotator {
 
         // Get the line of text containing this element
         String line = getLineText(element);
-        String beforeElement = getTextBeforeInLine(element, line);
-        String afterElement = getTextAfterInLine(element, line);
+        String beforeElement = getTextBeforeInLine(element);
+        String afterElement = getTextAfterInLine(element);
 
         // Check if this identifier is a decorator name (comes after @)
         if (beforeElement.matches(".*@\\s*$")) {
@@ -186,7 +186,7 @@ public class KiteAnnotator implements Annotator {
         return fileText.substring(lineStart, lineEnd);
     }
 
-    private String getTextBeforeInLine(PsiElement element, String line) {
+    private String getTextBeforeInLine(PsiElement element) {
         int offset = element.getTextRange().getStartOffset();
         String fileText = element.getContainingFile().getText();
 
@@ -199,7 +199,7 @@ public class KiteAnnotator implements Annotator {
         return fileText.substring(lineStart, offset);
     }
 
-    private String getTextAfterInLine(PsiElement element, String line) {
+    private String getTextAfterInLine(PsiElement element) {
         int offset = element.getTextRange().getEndOffset();
         String fileText = element.getContainingFile().getText();
 

@@ -34,7 +34,7 @@ public class KiteBreadcrumbsProviderTest extends KiteTestBase {
         assertNotNull("File should be created", file);
 
         // Find the component declaration element
-        PsiElement componentElement = findElementByText(file, "component WebServer");
+        PsiElement componentElement = findElementByText(file);
         if (componentElement != null) {
             // Walk up to find the actual declaration element
             PsiElement declaration = findDeclarationParent(componentElement);
@@ -309,8 +309,8 @@ public class KiteBreadcrumbsProviderTest extends KiteTestBase {
 
     // ========== Helper Methods ==========
 
-    private PsiElement findElementByText(PsiFile file, String text) {
-        int offset = file.getText().indexOf(text);
+    private PsiElement findElementByText(PsiFile file) {
+        int offset = file.getText().indexOf("component WebServer");
         if (offset < 0) return null;
         return file.findElementAt(offset);
     }

@@ -128,7 +128,7 @@ public class KiteAutoImportService {
      * Check if this identifier is a declaration name (not a reference).
      */
     private static boolean isDeclarationName(PsiElement element) {
-        PsiElement next = skipWhitespace(element.getNextSibling(), true);
+        PsiElement next = skipWhitespace(element.getNextSibling());
         if (next == null || next.getNode() == null) return false;
 
         IElementType nextType = next.getNode().getElementType();
@@ -178,7 +178,7 @@ public class KiteAutoImportService {
     private static String findDeclarationName(PsiElement declaration) {
         for (PsiElement child = declaration.getFirstChild(); child != null; child = child.getNextSibling()) {
             if (child.getNode() != null && child.getNode().getElementType() == KiteTokenTypes.IDENTIFIER) {
-                PsiElement next = skipWhitespace(child.getNextSibling(), true);
+                PsiElement next = skipWhitespace(child.getNextSibling());
                 if (next != null && next.getNode() != null) {
                     IElementType nextType = next.getNode().getElementType();
                     if (nextType == KiteTokenTypes.ASSIGN ||
@@ -421,9 +421,9 @@ public class KiteAutoImportService {
         return lastImportEnd;
     }
 
-    private static PsiElement skipWhitespace(PsiElement element, boolean forward) {
+    private static PsiElement skipWhitespace(PsiElement element) {
         while (isWhitespace(element)) {
-            element = forward ? element.getNextSibling() : element.getPrevSibling();
+            element = true ? element.getNextSibling() : element.getPrevSibling();
         }
         return element;
     }

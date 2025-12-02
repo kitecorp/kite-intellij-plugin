@@ -218,10 +218,9 @@ public final class KiteDocumentationExtractor {
             if (type == KiteTokenTypes.RPAREN) {
                 element = skipToAtSymbol(element);
                 if (element == null) return null;
-                element = element.getPrevSibling();
-                while (isWhitespaceElement(element)) {
+                do {
                     element = element.getPrevSibling();
-                }
+                } while (isWhitespaceElement(element));
             } else if (type == KiteTokenTypes.IDENTIFIER) {
                 PsiElement beforeIdent = element.getPrevSibling();
                 while (isWhitespaceElement(beforeIdent)) {
@@ -237,10 +236,9 @@ public final class KiteDocumentationExtractor {
                     break;
                 }
             } else if (type == KiteTokenTypes.AT) {
-                element = element.getPrevSibling();
-                while (isWhitespaceElement(element)) {
+                do {
                     element = element.getPrevSibling();
-                }
+                } while (isWhitespaceElement(element));
             } else {
                 break;
             }
@@ -271,19 +269,17 @@ public final class KiteDocumentationExtractor {
 
         if (current == null) return null;
 
-        current = current.getPrevSibling();
-        while (isWhitespaceElement(current)) {
+        do {
             current = current.getPrevSibling();
-        }
+        } while (isWhitespaceElement(current));
 
         if (current == null) return null;
         IElementType type = current.getNode() != null ? current.getNode().getElementType() : null;
         if (type != KiteTokenTypes.IDENTIFIER) return null;
 
-        current = current.getPrevSibling();
-        while (isWhitespaceElement(current)) {
+        do {
             current = current.getPrevSibling();
-        }
+        } while (isWhitespaceElement(current));
 
         if (current != null && current.getNode() != null &&
             current.getNode().getElementType() == KiteTokenTypes.AT) {
@@ -315,10 +311,9 @@ public final class KiteDocumentationExtractor {
                     decorators.add(0, decorator);
                     prev = skipToAtSymbol(prev);
                     if (prev != null) {
-                        prev = prev.getPrevSibling();
-                        while (isWhitespaceElement(prev)) {
+                        do {
                             prev = prev.getPrevSibling();
-                        }
+                        } while (isWhitespaceElement(prev));
                     }
                 } else {
                     break;
@@ -381,10 +376,9 @@ public final class KiteDocumentationExtractor {
         if (type != KiteTokenTypes.IDENTIFIER) return null;
         tokens.add(0, current.getText());
 
-        current = current.getPrevSibling();
-        while (isWhitespaceElement(current)) {
+        do {
             current = current.getPrevSibling();
-        }
+        } while (isWhitespaceElement(current));
         if (current == null || current.getNode() == null ||
             current.getNode().getElementType() != KiteTokenTypes.AT) {
             return null;

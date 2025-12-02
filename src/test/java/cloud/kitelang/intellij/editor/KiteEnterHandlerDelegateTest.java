@@ -38,7 +38,7 @@ public class KiteEnterHandlerDelegateTest extends KiteTestBase {
 
         String result = myFixture.getFile().getText();
         // Should only have one closing brace
-        int braceCount = countOccurrences(result, "}");
+        int braceCount = countOccurrences(result);
         assertEquals("Should have exactly one closing brace", 1, braceCount);
     }
 
@@ -71,7 +71,7 @@ public class KiteEnterHandlerDelegateTest extends KiteTestBase {
 
         String result = myFixture.getFile().getText();
         // Should have two closing braces (schema and resource)
-        int braceCount = countOccurrences(result, "}");
+        int braceCount = countOccurrences(result);
         assertEquals("Should have two closing braces", 2, braceCount);
     }
 
@@ -185,7 +185,7 @@ public class KiteEnterHandlerDelegateTest extends KiteTestBase {
 
         String result = myFixture.getFile().getText();
         // Should not add another closing brace
-        int braceCount = countOccurrences(result, "}");
+        int braceCount = countOccurrences(result);
         assertEquals("Should have exactly one closing brace", 1, braceCount);
     }
 
@@ -250,12 +250,12 @@ public class KiteEnterHandlerDelegateTest extends KiteTestBase {
         myFixture.performEditorAction(IdeActions.ACTION_EDITOR_ENTER);
     }
 
-    private int countOccurrences(String text, String substring) {
+    private int countOccurrences(String text) {
         int count = 0;
         int index = 0;
-        while ((index = text.indexOf(substring, index)) != -1) {
+        while ((index = text.indexOf("}", index)) != -1) {
             count++;
-            index += substring.length();
+            index += "}".length();
         }
         return count;
     }

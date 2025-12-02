@@ -1173,8 +1173,7 @@ public class KiteGotoDeclarationHandler implements GotoDeclarationHandler {
         }
 
         // Also recursively check imports in the imported file (for re-exports)
-        PsiElement nestedDeclaration = findDeclarationInImportedFiles(importSourceFile, targetName, sourceElement, visited);
-        return nestedDeclaration;
+        return findDeclarationInImportedFiles(importSourceFile, targetName, sourceElement, visited);
     }
 
     /**
@@ -1470,10 +1469,9 @@ public class KiteGotoDeclarationHandler implements GotoDeclarationHandler {
      */
     @Nullable
     private PsiFile resolveImportPathToFile(PsiElement stringElement, PsiFile containingFile) {
-        String text = stringElement.getText();
 
         // Extract path from string (remove quotes if present)
-        String path = text;
+        String path = stringElement.getText();
         if ((path.startsWith("\"") && path.endsWith("\"")) ||
             (path.startsWith("'") && path.endsWith("'"))) {
             if (path.length() >= 2) {

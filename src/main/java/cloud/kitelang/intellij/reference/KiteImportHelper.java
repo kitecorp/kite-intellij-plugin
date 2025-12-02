@@ -249,8 +249,7 @@ public class KiteImportHelper {
                 if (type == KiteTokenTypes.STRING ||
                     type == KiteTokenTypes.SINGLE_STRING ||
                     type == KiteTokenTypes.DQUOTE) {
-                    String result = extractStringContent(child);
-                    return result;
+                    return extractStringContent(child);
                 }
 
                 // For composite elements, recurse to find string content

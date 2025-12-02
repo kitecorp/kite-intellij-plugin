@@ -21,7 +21,7 @@ public class KiteAutoImportOnPasteTest extends KiteTestBase {
         configureByText("var myRegion = defaultRegion");
 
         // Trigger auto-import
-        triggerAutoImport(0, myFixture.getFile().getTextLength());
+        triggerAutoImport(myFixture.getFile().getTextLength());
 
         // Should auto-import the variable
         String result = myFixture.getFile().getText();
@@ -34,7 +34,7 @@ public class KiteAutoImportOnPasteTest extends KiteTestBase {
 
         configureByText("var result = formatName(\"test\")");
 
-        triggerAutoImport(0, myFixture.getFile().getTextLength());
+        triggerAutoImport(myFixture.getFile().getTextLength());
 
         String result = myFixture.getFile().getText();
         assertTrue("Should contain import statement", result.contains("import formatName from \"utils.kite\""));
@@ -46,7 +46,7 @@ public class KiteAutoImportOnPasteTest extends KiteTestBase {
 
         configureByText("resource DatabaseConfig myDb { host = \"localhost\" }");
 
-        triggerAutoImport(0, myFixture.getFile().getTextLength());
+        triggerAutoImport(myFixture.getFile().getTextLength());
 
         String result = myFixture.getFile().getText();
         assertTrue("Should contain import statement", result.contains("import DatabaseConfig from \"schemas.kite\""));
@@ -58,7 +58,7 @@ public class KiteAutoImportOnPasteTest extends KiteTestBase {
 
         configureByText("component WebServer myServer { port = \"3000\" }");
 
-        triggerAutoImport(0, myFixture.getFile().getTextLength());
+        triggerAutoImport(myFixture.getFile().getTextLength());
 
         String result = myFixture.getFile().getText();
         assertTrue("Should contain import statement", result.contains("import WebServer from \"components.kite\""));
@@ -77,7 +77,7 @@ public class KiteAutoImportOnPasteTest extends KiteTestBase {
                 var myEnv = env
                 """);
 
-        triggerAutoImport(0, myFixture.getFile().getTextLength());
+        triggerAutoImport(myFixture.getFile().getTextLength());
 
         String result = myFixture.getFile().getText();
         // Should import both symbols (possibly in single import or separate)
@@ -95,7 +95,7 @@ public class KiteAutoImportOnPasteTest extends KiteTestBase {
                 var port = defaultPort
                 """);
 
-        triggerAutoImport(0, myFixture.getFile().getTextLength());
+        triggerAutoImport(myFixture.getFile().getTextLength());
 
         String result = myFixture.getFile().getText();
         assertTrue("Should import from regions.kite", result.contains("import defaultRegion from \"regions.kite\""));
@@ -110,7 +110,7 @@ public class KiteAutoImportOnPasteTest extends KiteTestBase {
                 var result = existingVar
                 """);
 
-        triggerAutoImport(0, myFixture.getFile().getTextLength());
+        triggerAutoImport(myFixture.getFile().getTextLength());
 
         String result = myFixture.getFile().getText();
         assertFalse("Should NOT add import for locally defined symbol", result.contains("import"));
@@ -124,18 +124,18 @@ public class KiteAutoImportOnPasteTest extends KiteTestBase {
                 var result = sharedVar
                 """);
 
-        triggerAutoImport(0, myFixture.getFile().getTextLength());
+        triggerAutoImport(myFixture.getFile().getTextLength());
 
         String result = myFixture.getFile().getText();
         // Should have exactly one import line
-        int importCount = countOccurrences(result, "import sharedVar");
+        int importCount = countOccurrences(result);
         assertEquals("Should have exactly one import", 1, importCount);
     }
 
     public void testNoImportForLiteralAssignment() {
         configureByText("var x = 42");
 
-        triggerAutoImport(0, myFixture.getFile().getTextLength());
+        triggerAutoImport(myFixture.getFile().getTextLength());
 
         String result = myFixture.getFile().getText();
         assertFalse("Should NOT add import for literal assignment", result.contains("import"));
@@ -145,7 +145,7 @@ public class KiteAutoImportOnPasteTest extends KiteTestBase {
     public void testNoImportForKeywords() {
         configureByText("var x = true\nvar y = false\nvar z = null");
 
-        triggerAutoImport(0, myFixture.getFile().getTextLength());
+        triggerAutoImport(myFixture.getFile().getTextLength());
 
         String result = myFixture.getFile().getText();
         assertFalse("Should NOT import keywords", result.contains("import"));
@@ -154,7 +154,7 @@ public class KiteAutoImportOnPasteTest extends KiteTestBase {
     public void testNoImportForBuiltinTypes() {
         configureByText("var string name = \"test\"");
 
-        triggerAutoImport(0, myFixture.getFile().getTextLength());
+        triggerAutoImport(myFixture.getFile().getTextLength());
 
         String result = myFixture.getFile().getText();
         assertFalse("Should NOT import builtin types", result.contains("import"));
@@ -173,7 +173,7 @@ public class KiteAutoImportOnPasteTest extends KiteTestBase {
                 var result = beta
                 """);
 
-        triggerAutoImport(0, myFixture.getFile().getTextLength());
+        triggerAutoImport(myFixture.getFile().getTextLength());
 
         String result = myFixture.getFile().getText();
         // Should merge into single import
@@ -192,7 +192,7 @@ public class KiteAutoImportOnPasteTest extends KiteTestBase {
                 var x = importedVar
                 """);
 
-        triggerAutoImport(0, myFixture.getFile().getTextLength());
+        triggerAutoImport(myFixture.getFile().getTextLength());
 
         String result = myFixture.getFile().getText();
         assertTrue("Should add import at top", result.startsWith("import importedVar"));
@@ -203,7 +203,7 @@ public class KiteAutoImportOnPasteTest extends KiteTestBase {
     public void testNoImportForSymbolNotInProject() {
         configureByText("var x = nonExistentSymbol");
 
-        triggerAutoImport(0, myFixture.getFile().getTextLength());
+        triggerAutoImport(myFixture.getFile().getTextLength());
 
         String result = myFixture.getFile().getText();
         assertFalse("Should NOT add import for symbol not in project", result.contains("import"));
@@ -212,25 +212,25 @@ public class KiteAutoImportOnPasteTest extends KiteTestBase {
 
     // ==================== Helper Methods ====================
 
-    private void triggerAutoImport(int startOffset, int endOffset) {
+    private void triggerAutoImport(int endOffset) {
         // Commit any pending changes
         PsiDocumentManager.getInstance(getProject()).commitAllDocuments();
 
         // Call the auto-import service
         WriteCommandAction.runWriteCommandAction(getProject(), () -> {
-            KiteAutoImportService.processAutoImports(myFixture.getFile(), startOffset, endOffset);
+            KiteAutoImportService.processAutoImports(myFixture.getFile(), 0, endOffset);
         });
 
         // Refresh the fixture
         PsiDocumentManager.getInstance(getProject()).commitAllDocuments();
     }
 
-    private int countOccurrences(String text, String substring) {
+    private int countOccurrences(String text) {
         int count = 0;
         int index = 0;
-        while ((index = text.indexOf(substring, index)) != -1) {
+        while ((index = text.indexOf("import sharedVar", index)) != -1) {
             count++;
-            index += substring.length();
+            index += "import sharedVar".length();
         }
         return count;
     }

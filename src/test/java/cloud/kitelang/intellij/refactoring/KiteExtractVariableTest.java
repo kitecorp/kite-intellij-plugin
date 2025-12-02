@@ -164,11 +164,11 @@ public class KiteExtractVariableTest extends KiteTestBase {
                 var z = a + b
                 """);
 
-        performExtractVariableReplaceAll("sum");
+        performExtractVariableReplaceAll();
 
         assertResultContains("var sum = a + b");
         // All occurrences should be replaced
-        assertOccurrenceCount("sum", 4); // declaration + 3 usages
+        assertOccurrenceCount(); // declaration + 3 usages
     }
 
     public void testExtractSingleOccurrence() {
@@ -179,7 +179,7 @@ public class KiteExtractVariableTest extends KiteTestBase {
                 var y = a + b
                 """);
 
-        performExtractVariableSingleOccurrence("sum");
+        performExtractVariableSingleOccurrence();
 
         assertResultContains("var sum = a + b");
         assertResultContains("var x = sum");
@@ -320,7 +320,7 @@ public class KiteExtractVariableTest extends KiteTestBase {
     /**
      * Performs extract variable and replaces all occurrences.
      */
-    private void performExtractVariableReplaceAll(String variableName) {
+    private void performExtractVariableReplaceAll() {
         var provider = new KiteRefactoringSupportProvider();
         var handler = provider.getIntroduceVariableHandler();
 
@@ -329,7 +329,7 @@ public class KiteExtractVariableTest extends KiteTestBase {
             Editor editor = myFixture.getEditor();
             PsiFile file = myFixture.getFile();
 
-            kiteHandler.invoke(project, editor, file, variableName, true);
+            kiteHandler.invoke(project, editor, file, "sum", true);
         } else {
             fail("Handler should be KiteIntroduceVariableHandler");
         }
@@ -338,8 +338,8 @@ public class KiteExtractVariableTest extends KiteTestBase {
     /**
      * Performs extract variable replacing only the selected occurrence.
      */
-    private void performExtractVariableSingleOccurrence(String variableName) {
-        performExtractVariable(variableName);
+    private void performExtractVariableSingleOccurrence() {
+        performExtractVariable("sum");
     }
 
     private void assertResultContains(String expected) {
@@ -348,14 +348,14 @@ public class KiteExtractVariableTest extends KiteTestBase {
                 result.contains(expected));
     }
 
-    private void assertOccurrenceCount(String text, int expectedCount) {
+    private void assertOccurrenceCount() {
         String result = myFixture.getFile().getText();
         int count = 0;
         int index = 0;
-        while ((index = result.indexOf(text, index)) != -1) {
+        while ((index = result.indexOf("sum", index)) != -1) {
             count++;
             index++;
         }
-        assertEquals("Occurrence count of '" + text + "'", expectedCount, count);
+        assertEquals("Occurrence count of '" + "sum" + "'", 4, count);
     }
 }

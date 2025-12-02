@@ -73,35 +73,7 @@ public interface HighlightingTestSupport {
 
     // ========== WEAK_WARNING Severity ==========
 
-    /**
-     * Get all WEAK_WARNING severity highlights.
-     */
-    default List<HighlightInfo> getWeakWarnings() {
-        return getHighlights(HighlightSeverity.WEAK_WARNING);
-    }
-
-    /**
-     * Get the first WEAK_WARNING severity highlight, or null if none.
-     */
-    default HighlightInfo getFirstWeakWarning() {
-        return getFirstHighlight(HighlightSeverity.WEAK_WARNING);
-    }
-
     // ========== INFORMATION Severity ==========
-
-    /**
-     * Get all INFORMATION severity highlights.
-     */
-    default List<HighlightInfo> getInfoHighlights() {
-        return getHighlights(HighlightSeverity.INFORMATION);
-    }
-
-    /**
-     * Get the first INFORMATION severity highlight, or null if none.
-     */
-    default HighlightInfo getFirstInfoHighlight() {
-        return getFirstHighlight(HighlightSeverity.INFORMATION);
-    }
 
     // ========== Formatting Helpers ==========
 

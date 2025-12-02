@@ -60,7 +60,7 @@ public class KiteLexerAdapter extends LexerBase {
         // The safe solution is to ALWAYS lex from offset 0. We then skip tokens that end
         // before the requested startOffset.
         this.startOffset = 0;  // Always start from beginning
-        int requestedStartOffset = startOffset;  // Remember where IntelliJ wanted us to start
+        // Remember where IntelliJ wanted us to start
 
         // Get the FULL text to lex (from 0 to endOffset)
         String text = buffer.subSequence(0, endOffset).toString();
@@ -138,7 +138,7 @@ public class KiteLexerAdapter extends LexerBase {
         // This is an optimization - IntelliJ asked to start from requestedStartOffset,
         // so it doesn't need tokens before that position
         while (currentTokenIndex < tokens.size() &&
-               tokens.get(currentTokenIndex).end <= requestedStartOffset) {
+               tokens.get(currentTokenIndex).end <= startOffset) {
             currentTokenIndex++;
         }
     }

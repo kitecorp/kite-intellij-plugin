@@ -197,10 +197,9 @@ public class KiteDecoratorCompletionProvider extends CompletionProvider<Completi
 
         String text = originalFile.getText();
         // Use the offset in the original file, not the position's offset (which includes dummy)
-        int startOffset = parameters.getOffset();
 
         // Scan forward from cursor position to find the declaration keyword
-        int i = startOffset;
+        int i = parameters.getOffset();
         while (i < text.length()) {
             char c = text.charAt(i);
 
