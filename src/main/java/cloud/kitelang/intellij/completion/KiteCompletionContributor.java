@@ -40,6 +40,11 @@ public class KiteCompletionContributor extends CompletionContributor {
                 PlatformPatterns.psiElement().withLanguage(KiteLanguage.INSTANCE),
                 new KiteComponentDefinitionCompletionProvider());
 
+        // Component instance completion provider - handles input properties in component instances
+        extend(CompletionType.BASIC,
+                PlatformPatterns.psiElement().withLanguage(KiteLanguage.INSTANCE),
+                new KiteComponentInstanceCompletionProvider());
+
         // General completion provider - keywords, identifiers, property access, types
         extend(CompletionType.BASIC,
                 PlatformPatterns.psiElement().withLanguage(KiteLanguage.INSTANCE),

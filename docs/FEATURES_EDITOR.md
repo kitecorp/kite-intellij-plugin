@@ -37,6 +37,29 @@ component WebServer server {}
 var x = server.endpoint           // Ctrl+Space shows: endpoint
 ```
 
+**In component instance blocks (before `=`):**
+
+- Shows only input properties from the component definition
+- Filters out already-defined inputs
+- Outputs are NOT suggested (they are values exposed OUT, not configurable)
+
+```kite
+component WebServer {
+    input string port = "8080"
+    input string host = "localhost"
+    output string endpoint
+}
+component WebServer server {
+    port = "3000"
+    <caret>                       // Ctrl+Space shows: host (not port, already defined)
+}
+```
+
+**In component instance blocks (after `=`):**
+
+- Shows variables, inputs, outputs, resources, components, functions
+- **Auto-import**: Suggests symbols from unimported files with automatic import insertion
+
 ### Auto-Import Completion
 
 When typing a symbol name, completions include symbols from files not yet imported. Selecting such a completion automatically adds the import statement:
@@ -198,9 +221,10 @@ When pressing Enter inside `/* */` comments:
 
 ## Test Files
 
-| Feature              | Test File                               |
-|----------------------|-----------------------------------------|
-| General Completion   | `KiteGeneralCompletionProviderTest.java`|
-| Resource Completion  | `KiteResourceCompletionProviderTest.java`|
-| Code Folding         | `KiteFoldingBuilderTest.java`           |
-| Smart Enter          | `KiteEnterHandlerDelegateTest.java`     |
+| Feature                    | Test File                                       |
+|----------------------------|-------------------------------------------------|
+| General Completion         | `KiteGeneralCompletionProviderTest.java`        |
+| Resource Completion        | `KiteResourceCompletionProviderTest.java`       |
+| Component Instance Compl.  | `KiteComponentInstanceCompletionProviderTest.java`|
+| Code Folding               | `KiteFoldingBuilderTest.java`                   |
+| Smart Enter                | `KiteEnterHandlerDelegateTest.java`             |
