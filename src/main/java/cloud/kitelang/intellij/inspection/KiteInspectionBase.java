@@ -12,10 +12,30 @@ import org.jetbrains.annotations.NotNull;
  * Uses the standard buildVisitor() pattern recommended by IntelliJ Platform SDK.
  * See: https://plugins.jetbrains.com/docs/intellij/code-inspections.html
  *
+ * Supports two modes:
+ * 1. Element-level: Override checkElement() to check individual elements
+ * 2. File-level: Override isFileLevelInspection() to return true and checkFile()
+ *
  * Note: IntelliJ's inspection engine handles PSI traversal automatically.
  * The visitor returned from buildVisitor() must NOT be recursive.
  */
 public abstract class KiteInspectionBase extends LocalInspectionTool {
+
+    /**
+     * Override to return true for file-level inspections.
+     * File-level inspections analyze the entire file once rather than per-element.
+     */
+    protected boolean isFileLevelInspection() {
+        return false;
+    }
+
+    /**
+     * Override for file-level inspections. Called once per file.
+     * Only called if isFileLevelInspection() returns true.
+     */
+    protected void checkFile(@NotNull KiteFile file, @NotNull ProblemsHolder holder) {
+        // Default: do nothing. Override in subclasses for file-level analysis.
+    }
 
     /**
      * Build a visitor for the inspection.
@@ -24,11 +44,26 @@ public abstract class KiteInspectionBase extends LocalInspectionTool {
     @Override
     public @NotNull PsiElementVisitor buildVisitor(@NotNull ProblemsHolder holder, boolean isOnTheFly) {
         PsiFile file = holder.getFile();
-        if (!(file instanceof KiteFile)) {
+        if (!(file instanceof KiteFile kiteFile)) {
             return PsiElementVisitor.EMPTY_VISITOR;
         }
 
-        // Return non-recursive visitor - IntelliJ calls visitElement for each PSI element
+        // For file-level inspections, run analysis on first element visit
+        if (isFileLevelInspection()) {
+            return new PsiElementVisitor() {
+                private boolean checkedFile = false;
+
+                @Override
+                public void visitElement(@NotNull PsiElement element) {
+                    if (!checkedFile) {
+                        checkedFile = true;
+                        checkFile(kiteFile, holder);
+                    }
+                }
+            };
+        }
+
+        // For element-level inspections, return visitor that checks each element
         return new PsiElementVisitor() {
             @Override
             public void visitElement(@NotNull PsiElement element) {

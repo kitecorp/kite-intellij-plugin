@@ -10,7 +10,6 @@ schema TestSchema {
 // "Missing required property 'requiredField'"
 resource TestSchema testResource {
     optionalField = "something"
-  
 }
 
 // This resource is complete - no warning expected

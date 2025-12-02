@@ -35,14 +35,12 @@ public class KiteUnusedVariableInspection extends KiteInspectionBase {
     }
 
     @Override
-    protected void checkElement(@NotNull PsiElement element, @NotNull ProblemsHolder holder) {
-        // Only run analysis once at the file level
-        if (!(element instanceof PsiFile)) {
-            return;
-        }
+    protected boolean isFileLevelInspection() {
+        return true;
+    }
 
-        var file = (KiteFile) element;
-
+    @Override
+    protected void checkFile(@NotNull KiteFile file, @NotNull ProblemsHolder holder) {
         // Collect all variable declarations with their name elements
         Map<String, PsiElement> variableDeclarations = new HashMap<>();
         collectVariableDeclarations(file, variableDeclarations);
@@ -64,6 +62,11 @@ public class KiteUnusedVariableInspection extends KiteInspectionBase {
                 registerWarning(holder, nameElement, "Variable '" + name + "' is never used");
             }
         }
+    }
+
+    @Override
+    protected void checkElement(@NotNull PsiElement element, @NotNull ProblemsHolder holder) {
+        // Not used - this is a file-level inspection
     }
 
     /**
