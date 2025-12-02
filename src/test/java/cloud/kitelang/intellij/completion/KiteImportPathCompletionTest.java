@@ -218,4 +218,84 @@ public class KiteImportPathCompletionTest extends KiteTestBase {
         List<String> sorted = kiteFiles.stream().sorted().toList();
         assertEquals("Completions should be sorted", sorted, kiteFiles);
     }
+
+    /**
+     * Test that selecting a completion replaces the entire string content.
+     * When user types "ga" and completes with "gamma.kite", the result should be
+     * import ... from "gamma.kite" not import ... from "gamma.kitea"
+     */
+    public void testCompletionReplacesEntireStringContent() {
+        // Add multiple files so autocomplete shows a popup instead of auto-completing
+        addFile("gamma.kite", "var gammaVar = 1");
+        addFile("alpha.kite", "var alphaVar = 1");
+
+        configureByText("""
+                import gammaVar from "ga<caret>"
+                """);
+
+        LookupElement[] completions = myFixture.completeBasic();
+
+        // If completions is null, the completion was auto-inserted (single match starting with "ga")
+        // In our case with "ga" prefix, only gamma.kite matches, so it auto-completes
+        if (completions == null) {
+            // Auto-completed - check the result directly
+            String result = myFixture.getEditor().getDocument().getText();
+            assertTrue("Should contain gamma.kite as complete path after auto-complete, got: " + result,
+                    result.contains("\"gamma.kite\""));
+            assertFalse("Should not have leftover 'ga' text creating 'gamma.kitega', got: " + result,
+                    result.contains("gamma.kitega"));
+            return;
+        }
+
+        // Find and select gamma.kite completion
+        for (LookupElement element : completions) {
+            if (element.getLookupString().equals("gamma.kite")) {
+                myFixture.getLookup().setCurrentItem(element);
+                myFixture.finishLookup('\n');
+                break;
+            }
+        }
+
+        String result = myFixture.getEditor().getDocument().getText();
+        assertTrue("Should contain gamma.kite as complete path, got: " + result,
+                result.contains("\"gamma.kite\""));
+        assertFalse("Should not have leftover 'ga' text creating 'gamma.kitega', got: " + result,
+                result.contains("gamma.kitega"));
+    }
+
+    /**
+     * Test that completion replaces existing partial path when tab is pressed.
+     */
+    public void testTabCompletionReplacesPartialPath() {
+        // Add multiple files so autocomplete shows a popup instead of auto-completing
+        addFile("gamma.kite", "var gammaVar = 1");
+        addFile("galactic.kite", "var galacticVar = 1");
+
+        configureByText("""
+                import gammaVar from "gam<caret>"
+                """);
+
+        LookupElement[] completions = myFixture.completeBasic();
+
+        // If completions is null, the completion was auto-inserted
+        if (completions == null) {
+            String result = myFixture.getEditor().getDocument().getText();
+            assertTrue("Should contain complete path gamma.kite after auto-complete, got: " + result,
+                    result.contains("\"gamma.kite\""));
+            return;
+        }
+
+        // Find and select gamma.kite completion with tab
+        for (LookupElement element : completions) {
+            if (element.getLookupString().equals("gamma.kite")) {
+                myFixture.getLookup().setCurrentItem(element);
+                myFixture.finishLookup('\t');
+                break;
+            }
+        }
+
+        String result = myFixture.getEditor().getDocument().getText();
+        assertTrue("Should contain complete path gamma.kite, got: " + result,
+                result.contains("\"gamma.kite\""));
+    }
 }

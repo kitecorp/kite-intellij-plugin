@@ -1,6 +1,4 @@
 import gammaVar from "gamma.kite"
-import alphaVar from "alpha.kite"
-import betaVar from "beta.kite"
 // Common shared declarations for Kite projects
 // This file is imported by simple.kite using: import * from "common.kite"
 // Shared type definition

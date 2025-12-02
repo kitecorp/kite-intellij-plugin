@@ -7,8 +7,12 @@ import cloud.kitelang.intellij.reference.KiteImportHelper;
 import com.intellij.codeInsight.completion.CompletionParameters;
 import com.intellij.codeInsight.completion.CompletionProvider;
 import com.intellij.codeInsight.completion.CompletionResultSet;
+import com.intellij.codeInsight.completion.InsertHandler;
+import com.intellij.codeInsight.lookup.LookupElement;
 import com.intellij.codeInsight.lookup.LookupElementBuilder;
 import com.intellij.icons.AllIcons;
+import com.intellij.openapi.editor.Document;
+import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.psi.PsiElement;
@@ -64,13 +68,87 @@ public class KiteImportPathCompletionProvider extends CompletionProvider<Complet
             String importPath = KiteImportHelper.getRelativeImportPath(containingFile, kiteFile);
             if (importPath == null || importPath.isEmpty()) continue;
 
-            // Create lookup element with file icon
+            // Create lookup element with file icon and custom insert handler
+            // to replace entire string content instead of just inserting at cursor
             LookupElementBuilder element = LookupElementBuilder.create(importPath)
                     .withIcon(AllIcons.FileTypes.Any_type)
-                    .withTypeText("Kite file");
+                    .withTypeText("Kite file")
+                    .withInsertHandler(createImportPathInsertHandler());
 
             result.addElement(element);
         }
+    }
+
+    /**
+     * Creates an insert handler that replaces the entire string content (between quotes)
+     * with the selected import path. This ensures that partial text like "ga" gets fully
+     * replaced with "gamma.kite" instead of appending to create "gamma.kitea".
+     */
+    private InsertHandler<LookupElement> createImportPathInsertHandler() {
+        return (context, item) -> {
+            Editor editor = context.getEditor();
+            Document document = editor.getDocument();
+            int tailOffset = context.getTailOffset();
+            String text = document.getText();
+
+            // Find the opening and closing quote of the string
+            int openQuoteOffset = findOpeningQuote(text, tailOffset);
+            int closeQuoteOffset = findClosingQuote(text, tailOffset);
+
+            if (openQuoteOffset < 0 || closeQuoteOffset < 0) {
+                return; // Can't find quotes, do nothing
+            }
+
+            // The completion has already been inserted at the cursor position.
+            // We need to remove any leftover text between the end of the completion
+            // and the closing quote.
+            // Also remove any prefix text that was before the cursor.
+
+            // Calculate what's between the quotes now
+            String lookupString = item.getLookupString();
+            int contentStart = openQuoteOffset + 1;
+
+            // Replace everything between quotes with just the lookup string
+            if (closeQuoteOffset > contentStart) {
+                document.replaceString(contentStart, closeQuoteOffset, lookupString);
+                // Move caret to end of the inserted path (before closing quote)
+                editor.getCaretModel().moveToOffset(contentStart + lookupString.length());
+            }
+        };
+    }
+
+    /**
+     * Find the opening quote before the given offset.
+     */
+    private int findOpeningQuote(String text, int offset) {
+        for (int i = offset - 1; i >= 0; i--) {
+            char c = text.charAt(i);
+            if (c == '"' || c == '\'') {
+                return i;
+            }
+            // Stop if we hit a newline
+            if (c == '\n') {
+                return -1;
+            }
+        }
+        return -1;
+    }
+
+    /**
+     * Find the closing quote after the given offset.
+     */
+    private int findClosingQuote(String text, int offset) {
+        for (int i = offset; i < text.length(); i++) {
+            char c = text.charAt(i);
+            if (c == '"' || c == '\'') {
+                return i;
+            }
+            // Stop if we hit a newline
+            if (c == '\n') {
+                return -1;
+            }
+        }
+        return -1;
     }
 
     /**

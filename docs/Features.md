@@ -205,6 +205,24 @@ Shows hierarchical path in editor header:
 - Imported symbols
 - Built-in types
 
+### Import Path Completion
+
+When typing inside import strings, autocomplete suggests `.kite` files:
+
+```kite
+import alpha from "ga|"  // Press Tab
+// Result: import alpha from "gamma.kite"
+```
+
+**Features:**
+
+- Suggests all `.kite` files in project
+- Relative paths from current file
+- **Full string replacement**: Selecting a completion replaces the entire string content, not just the prefix
+- Works with both double and single quotes
+
+**Implementation:** `completion/KiteImportPathCompletionProvider.java`
+
 ---
 
 ## Type Checking
