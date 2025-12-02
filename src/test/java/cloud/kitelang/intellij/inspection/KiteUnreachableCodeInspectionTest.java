@@ -13,6 +13,19 @@ public class KiteUnreachableCodeInspectionTest extends KiteInspectionTestBase {
         return new KiteUnreachableCodeInspection();
     }
 
+    /**
+     * Assert that no unreachable code warnings are produced.
+     * This is more specific than assertNoProblems() since other annotators may flag
+     * different issues (like missing return statements).
+     */
+    private void assertNoUnreachableCodeWarnings(String text) {
+        var highlights = doHighlighting(text);
+        var unreachableCount = highlights.stream()
+                .filter(h -> h.getDescription() != null && h.getDescription().contains("Unreachable"))
+                .count();
+        assertEquals("Should not detect unreachable code", 0, unreachableCount);
+    }
+
     // ========== Basic Unreachable Code Tests ==========
 
     public void testCodeAfterReturnDetected() {
@@ -25,7 +38,7 @@ public class KiteUnreachableCodeInspectionTest extends KiteInspectionTestBase {
     }
 
     public void testNoCodeAfterReturn() {
-        assertNoProblems("""
+        assertNoUnreachableCodeWarnings("""
                 fun getValue() string {
                     return "value"
                 }
@@ -33,7 +46,7 @@ public class KiteUnreachableCodeInspectionTest extends KiteInspectionTestBase {
     }
 
     public void testReturnAtEndOfFunction() {
-        assertNoProblems("""
+        assertNoUnreachableCodeWarnings("""
                 fun compute() number {
                     var x = 1
                     var y = 2
@@ -67,7 +80,7 @@ public class KiteUnreachableCodeInspectionTest extends KiteInspectionTestBase {
 
     public void testNestedFunctionNoFalsePositive() {
         // Return in outer function shouldn't affect inner function
-        assertNoProblems("""
+        assertNoUnreachableCodeWarnings("""
                 fun outer() string {
                     fun inner() number {
                         return 42
@@ -81,7 +94,7 @@ public class KiteUnreachableCodeInspectionTest extends KiteInspectionTestBase {
 
     public void testReturnInIfNoUnreachable() {
         // Code after if-block with return is still reachable
-        assertNoProblems("""
+        assertNoUnreachableCodeWarnings("""
                 fun getValue(boolean flag) string {
                     if flag {
                         return "yes"
@@ -133,14 +146,15 @@ public class KiteUnreachableCodeInspectionTest extends KiteInspectionTestBase {
     // ========== Edge Cases ==========
 
     public void testEmptyFunction() {
-        assertNoProblems("""
+        // Empty function - no unreachable code (other annotators may flag missing return)
+        assertNoUnreachableCodeWarnings("""
                 fun empty() string {
                 }
                 """);
     }
 
     public void testFunctionWithOnlyReturn() {
-        assertNoProblems("""
+        assertNoUnreachableCodeWarnings("""
                 fun simple() string {
                     return "value"
                 }
@@ -149,7 +163,7 @@ public class KiteUnreachableCodeInspectionTest extends KiteInspectionTestBase {
 
     public void testFunctionWithOnlyStatements() {
         // Function without return (void-like)
-        assertNoProblems("""
+        assertNoUnreachableCodeWarnings("""
                 fun log(string msg) {
                     var x = msg
                 }
@@ -158,7 +172,7 @@ public class KiteUnreachableCodeInspectionTest extends KiteInspectionTestBase {
 
     public void testCommentAfterReturn() {
         // Comments after return are allowed (not code)
-        assertNoProblems("""
+        assertNoUnreachableCodeWarnings("""
                 fun getValue() string {
                     return "value"
                     // This comment is fine

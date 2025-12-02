@@ -539,6 +539,102 @@
         <annotator language="Kite"
                    implementationClass="cloud.kitelang.intellij.highlighting.KiteDuplicateImportAnnotator"/>
 
+        <!-- Annotator for duplicate parameter detection -->
+        <annotator language="Kite"
+                   implementationClass="cloud.kitelang.intellij.highlighting.KiteDuplicateParameterAnnotator"/>
+
+        <!-- Annotator for duplicate decorator detection -->
+        <annotator language="Kite"
+                   implementationClass="cloud.kitelang.intellij.highlighting.KiteDuplicateDecoratorAnnotator"/>
+
+        <!-- Annotator for missing return statement detection -->
+        <annotator language="Kite"
+                   implementationClass="cloud.kitelang.intellij.highlighting.KiteMissingReturnAnnotator"/>
+
+        <!-- Annotator for return outside function detection -->
+        <annotator language="Kite"
+                   implementationClass="cloud.kitelang.intellij.highlighting.KiteReturnOutsideFunctionAnnotator"/>
+
+        <!-- Annotator for duplicate property detection -->
+        <annotator language="Kite"
+                   implementationClass="cloud.kitelang.intellij.highlighting.KiteDuplicatePropertyAnnotator"/>
+
+        <!-- Annotator for self-assignment detection -->
+        <annotator language="Kite"
+                   implementationClass="cloud.kitelang.intellij.highlighting.KiteSelfAssignmentAnnotator"/>
+
+        <!-- Annotator for self-comparison detection -->
+        <annotator language="Kite"
+                   implementationClass="cloud.kitelang.intellij.highlighting.KiteSelfComparisonAnnotator"/>
+
+        <!-- Annotator for division by zero detection -->
+        <annotator language="Kite"
+                   implementationClass="cloud.kitelang.intellij.highlighting.KiteDivisionByZeroAnnotator"/>
+
+        <!-- Annotator for constant condition detection -->
+        <annotator language="Kite"
+                   implementationClass="cloud.kitelang.intellij.highlighting.KiteConstantConditionAnnotator"/>
+
+        <!-- Annotator for too many parameters detection -->
+        <annotator language="Kite"
+                   implementationClass="cloud.kitelang.intellij.highlighting.KiteTooManyParametersAnnotator"/>
+
+        <!-- Annotator for redundant boolean comparison detection -->
+        <annotator language="Kite"
+                   implementationClass="cloud.kitelang.intellij.highlighting.KiteRedundantBooleanAnnotator"/>
+
+        <!-- Annotator for assignment in condition detection -->
+        <annotator language="Kite"
+                   implementationClass="cloud.kitelang.intellij.highlighting.KiteAssignmentInConditionAnnotator"/>
+
+        <!-- Annotator for redundant condition detection -->
+        <annotator language="Kite"
+                   implementationClass="cloud.kitelang.intellij.highlighting.KiteRedundantConditionAnnotator"/>
+
+        <!-- Annotator for type coercion detection -->
+        <annotator language="Kite"
+                   implementationClass="cloud.kitelang.intellij.highlighting.KiteTypeCoercionAnnotator"/>
+
+        <!-- Annotator for useless expression detection -->
+        <annotator language="Kite"
+                   implementationClass="cloud.kitelang.intellij.highlighting.KiteUselessExpressionAnnotator"/>
+
+        <!-- Annotator for empty string check hint -->
+        <annotator language="Kite"
+                   implementationClass="cloud.kitelang.intellij.highlighting.KiteEmptyStringCheckAnnotator"/>
+
+        <!-- Annotator for negated comparison hint -->
+        <annotator language="Kite"
+                   implementationClass="cloud.kitelang.intellij.highlighting.KiteNegatedComparisonAnnotator"/>
+
+        <!-- Annotator for implicit any hint -->
+        <annotator language="Kite"
+                   implementationClass="cloud.kitelang.intellij.highlighting.KiteImplicitAnyAnnotator"/>
+
+        <!-- Annotator for infinite loop detection -->
+        <annotator language="Kite"
+                   implementationClass="cloud.kitelang.intellij.highlighting.KiteInfiniteLoopAnnotator"/>
+
+        <!-- Annotator for unused function detection -->
+        <annotator language="Kite"
+                   implementationClass="cloud.kitelang.intellij.highlighting.KiteUnusedFunctionAnnotator"/>
+
+        <!-- Annotator for reserved names detection -->
+        <annotator language="Kite"
+                   implementationClass="cloud.kitelang.intellij.highlighting.KiteReservedNamesAnnotator"/>
+
+        <!-- Annotator for decorator arguments validation -->
+        <annotator language="Kite"
+                   implementationClass="cloud.kitelang.intellij.highlighting.KiteDecoratorArgumentsAnnotator"/>
+
+        <!-- Annotator for decorator targets validation -->
+        <annotator language="Kite"
+                   implementationClass="cloud.kitelang.intellij.highlighting.KiteDecoratorTargetsAnnotator"/>
+
+        <!-- Annotator for invalid string interpolation detection -->
+        <annotator language="Kite"
+                   implementationClass="cloud.kitelang.intellij.highlighting.KiteInvalidInterpolationAnnotator"/>
+
         <!-- Structure view -->
         <lang.psiStructureViewFactory language="Kite"
                                       implementationClass="cloud.kitelang.intellij.structure.KiteStructureViewBuilderFactory"/>
