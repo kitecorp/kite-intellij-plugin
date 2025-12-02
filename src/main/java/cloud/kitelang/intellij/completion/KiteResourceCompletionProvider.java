@@ -8,11 +8,14 @@ import cloud.kitelang.intellij.util.KiteDeclarationHelper;
 import cloud.kitelang.intellij.util.KitePropertyHelper;
 import cloud.kitelang.intellij.util.KitePsiUtil;
 import cloud.kitelang.intellij.util.KiteSchemaHelper;
-import com.intellij.codeInsight.completion.CompletionParameters;
-import com.intellij.codeInsight.completion.CompletionProvider;
-import com.intellij.codeInsight.completion.CompletionResultSet;
-import com.intellij.codeInsight.completion.PrioritizedLookupElement;
+import com.intellij.codeInsight.completion.*;
+import com.intellij.codeInsight.lookup.LookupElement;
 import com.intellij.codeInsight.lookup.LookupElementBuilder;
+import com.intellij.openapi.command.WriteCommandAction;
+import com.intellij.openapi.editor.Document;
+import com.intellij.openapi.project.Project;
+import com.intellij.openapi.vfs.VirtualFile;
+import com.intellij.psi.PsiDocumentManager;
 import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiFile;
 import com.intellij.psi.tree.IElementType;
@@ -236,6 +239,9 @@ public class KiteResourceCompletionProvider extends CompletionProvider<Completio
 
         // Add from imported files
         addValueCompletionsFromImports(file, result, addedNames);
+
+        // Add auto-import completions from project files
+        addAutoImportCompletions(file, result, addedNames);
     }
 
     // ========== Value Completion (Right Side of =) ==========
@@ -321,6 +327,95 @@ public class KiteResourceCompletionProvider extends CompletionProvider<Completio
                 }
             });
         }
+    }
+
+    // ========== Auto-Import Completion ==========
+
+    /**
+     * Add auto-import completions from project files that are not yet imported.
+     * These completions will automatically add the import statement when selected.
+     */
+    private void addAutoImportCompletions(PsiFile file, @NotNull CompletionResultSet result, Set<String> addedNames) {
+        VirtualFile currentVFile = file.getVirtualFile();
+        String currentPath = currentVFile != null ? currentVFile.getPath() : null;
+        Project project = file.getProject();
+        List<PsiFile> allKiteFiles = KiteImportHelper.getAllKiteFilesInProject(project);
+
+        for (PsiFile projectFile : allKiteFiles) {
+            if (projectFile == null) continue;
+            VirtualFile vf = projectFile.getVirtualFile();
+            if (vf == null || vf.getPath().equals(currentPath)) continue;
+
+            final PsiFile targetFile = projectFile;
+            KiteDeclarationHelper.collectDeclarations(projectFile, (name, declarationType, element) -> {
+                // Skip type declarations in value position
+                if (KiteDeclarationHelper.isTypeDeclaration(declarationType)) {
+                    return;
+                }
+                // Only add if not already imported and not already in list
+                if (!KiteImportHelper.isSymbolImported(name, file) && !addedNames.contains(name)) {
+                    addedNames.add(name);
+                    var lookup = LookupElementBuilder.create(name)
+                            .withTypeText(KiteDeclarationHelper.getTypeTextForDeclaration(declarationType))
+                            .withTailText(" (import from " + targetFile.getName() + ")", true)
+                            .withIcon(KiteDeclarationHelper.getIconForDeclaration(declarationType))
+                            .withInsertHandler(createAutoImportHandler(file, targetFile, name));
+                    result.addElement(PrioritizedLookupElement.withPriority(lookup, 10.0));
+                }
+            });
+        }
+    }
+
+    /**
+     * Creates an insert handler that adds an import statement for the symbol.
+     */
+    private InsertHandler<LookupElement> createAutoImportHandler(PsiFile currentFile, PsiFile importFromFile, String symbolName) {
+        return (context, item) -> {
+            String importPath = KiteImportHelper.getRelativeImportPath(currentFile, importFromFile);
+            if (importPath == null) return;
+
+            Project project = context.getProject();
+            Document document = context.getDocument();
+
+            WriteCommandAction.runWriteCommandAction(project, () -> {
+                String fileText = document.getText();
+                int insertOffset = findImportInsertOffset(fileText);
+                String importStatement = "import " + symbolName + " from \"" + importPath + "\"\n";
+
+                if (!fileText.contains("import " + symbolName + " from \"" + importPath + "\"") &&
+                    !fileText.contains("import " + symbolName + " from '" + importPath + "'")) {
+                    document.insertString(insertOffset, importStatement);
+                    PsiDocumentManager.getInstance(project).commitDocument(document);
+                }
+            });
+        };
+    }
+
+    /**
+     * Find the offset where new import statements should be inserted.
+     */
+    private int findImportInsertOffset(String text) {
+        int lastImportEnd = 0;
+        int idx = 0;
+        while (idx < text.length()) {
+            int lineStart = idx;
+            while (idx < text.length() && Character.isWhitespace(text.charAt(idx)) && text.charAt(idx) != '\n') {
+                idx++;
+            }
+            if (idx + 1 < text.length() && text.charAt(idx) == '/' && text.charAt(idx + 1) == '/') {
+                while (idx < text.length() && text.charAt(idx) != '\n') idx++;
+                if (idx < text.length()) idx++;
+                continue;
+            }
+            if (text.startsWith("import", idx)) {
+                while (idx < text.length() && text.charAt(idx) != '\n') idx++;
+                if (idx < text.length()) idx++;
+                lastImportEnd = idx;
+                continue;
+            }
+            break;
+        }
+        return lastImportEnd;
     }
 
     /**

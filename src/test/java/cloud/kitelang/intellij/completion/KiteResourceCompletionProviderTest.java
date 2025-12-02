@@ -252,4 +252,97 @@ public class KiteResourceCompletionProviderTest extends KiteTestBase {
         assertNotNull("Should have completions", lookupStrings);
         assertTrue("Should suggest 'any' type property", lookupStrings.contains("data"));
     }
+
+    // ========== Auto-Import Completion Tests ==========
+
+    public void testAutoImportSuggestedForUnimportedSymbol() {
+        addFile("decorators.kite", """
+                input string bucketName = "my-bucket"
+                var myVar = "hello"
+                """);
+
+        configureByText("""
+                schema Storage {
+                    string name
+                }
+                resource Storage backup {
+                    name = <caret>
+                }
+                """);
+
+        myFixture.completeBasic();
+        List<String> lookupStrings = myFixture.getLookupElementStrings();
+
+        assertNotNull("Should have completions", lookupStrings);
+        assertTrue("Should suggest 'bucketName' from unimported file", lookupStrings.contains("bucketName"));
+        assertTrue("Should suggest 'myVar' from unimported file", lookupStrings.contains("myVar"));
+    }
+
+    public void testAutoImportNotSuggestedForAlreadyImportedSymbol() {
+        addFile("decorators.kite", """
+                input string bucketName = "my-bucket"
+                """);
+
+        configureByText("""
+                import bucketName from "decorators.kite"
+                schema Storage {
+                    string name
+                }
+                resource Storage backup {
+                    name = <caret>
+                }
+                """);
+
+        myFixture.completeBasic();
+        var lookupElements = myFixture.getLookupElements();
+
+        // Should suggest bucketName but NOT as auto-import (should be from imported file)
+        assertNotNull("Should have completions", lookupElements);
+        boolean hasAutoImportSuggestion = false;
+        for (var element : lookupElements) {
+            if ("bucketName".equals(element.getLookupString())) {
+                var presentation = new com.intellij.codeInsight.lookup.LookupElementPresentation();
+                element.renderElement(presentation);
+                String tailText = presentation.getTailText();
+                if (tailText != null && tailText.contains("import from")) {
+                    hasAutoImportSuggestion = true;
+                }
+            }
+        }
+        assertFalse("Should NOT suggest 'bucketName' as auto-import when already imported", hasAutoImportSuggestion);
+    }
+
+    public void testAutoImportNotSuggestedForLocalSymbol() {
+        addFile("other.kite", """
+                var externalVar = "external"
+                """);
+
+        configureByText("""
+                var localVar = "local"
+                schema Storage {
+                    string name
+                }
+                resource Storage backup {
+                    name = <caret>
+                }
+                """);
+
+        myFixture.completeBasic();
+        var lookupElements = myFixture.getLookupElements();
+
+        // localVar should be suggested but NOT as auto-import
+        assertNotNull("Should have completions", lookupElements);
+        boolean localVarHasAutoImport = false;
+        for (var element : lookupElements) {
+            if ("localVar".equals(element.getLookupString())) {
+                var presentation = new com.intellij.codeInsight.lookup.LookupElementPresentation();
+                element.renderElement(presentation);
+                String tailText = presentation.getTailText();
+                if (tailText != null && tailText.contains("import from")) {
+                    localVarHasAutoImport = true;
+                }
+            }
+        }
+        assertFalse("Local symbol should NOT be suggested as auto-import", localVarHasAutoImport);
+    }
 }

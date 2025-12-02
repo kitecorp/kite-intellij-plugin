@@ -14,12 +14,35 @@
 **In resource blocks (after `=`):**
 
 - Shows variables, inputs, outputs, resources, components, functions
+- **Auto-import**: Suggests symbols from unimported files with automatic import insertion
 
 **General completion:**
 
 - Local declarations
 - Imported symbols
 - Built-in types
+- **Auto-import**: Suggests symbols from project files with automatic import insertion
+
+### Auto-Import Completion
+
+When typing a symbol name, completions include symbols from files not yet imported. Selecting such a completion automatically adds the import statement:
+
+```kite
+// Before: typing "bucket" shows completion "bucketName (import from decorators.kite)"
+resource Storage backup {
+    name = bucketName<caret>
+}
+
+// After selecting the completion:
+import bucketName from "decorators.kite"
+resource Storage backup {
+    name = bucketName
+}
+```
+
+**Implementation files:**
+- `completion/KiteResourceCompletionProvider.java` - Auto-import in resource blocks
+- `completion/KiteGeneralCompletionProvider.java` - Auto-import in general contexts
 
 ## Inlay Hints
 

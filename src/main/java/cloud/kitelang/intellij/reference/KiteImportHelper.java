@@ -1,5 +1,6 @@
 package cloud.kitelang.intellij.reference;
 
+import cloud.kitelang.intellij.KiteFileType;
 import cloud.kitelang.intellij.psi.KiteElementTypes;
 import cloud.kitelang.intellij.psi.KiteTokenTypes;
 import com.intellij.openapi.project.Project;
@@ -567,36 +568,18 @@ public class KiteImportHelper {
         GlobalSearchScope scope = GlobalSearchScope.projectScope(project);
         PsiManager psiManager = PsiManager.getInstance(project);
 
-        // Use VFS to recursively find all .kite files
-        String basePath = project.getBasePath();
-        if (basePath != null) {
-            VirtualFile projectRoot = com.intellij.openapi.vfs.LocalFileSystem.getInstance().findFileByPath(basePath);
-            if (projectRoot != null) {
-                findKiteFilesRecursively(projectRoot, psiManager, result);
+        // Use FileTypeIndex to find all .kite files (works with test fixtures too)
+        Collection<VirtualFile> kiteFiles = com.intellij.psi.search.FileTypeIndex.getFiles(
+                KiteFileType.INSTANCE, scope);
+
+        for (VirtualFile vFile : kiteFiles) {
+            PsiFile psiFile = psiManager.findFile(vFile);
+            if (psiFile != null) {
+                result.add(psiFile);
             }
         }
 
         return result;
-    }
-
-    /**
-     * Recursively find all .kite files in a directory.
-     */
-    private static void findKiteFilesRecursively(@NotNull VirtualFile dir, @NotNull PsiManager psiManager, @NotNull List<PsiFile> result) {
-        for (VirtualFile child : dir.getChildren()) {
-            if (child.isDirectory()) {
-                // Skip common non-source directories
-                String name = child.getName();
-                if (!name.startsWith(".") && !name.equals("build") && !name.equals("node_modules") && !name.equals("out")) {
-                    findKiteFilesRecursively(child, psiManager, result);
-                }
-            } else if (child.getName().endsWith(".kite")) {
-                PsiFile psiFile = psiManager.findFile(child);
-                if (psiFile != null) {
-                    result.add(psiFile);
-                }
-            }
-        }
     }
 
     /**
