@@ -1,0 +1,9 @@
+// Example: Part of three-file cycle (C → A, completing the cycle)
+
+import * from "chain_a.kite"
+
+schema ChainC {
+    string c
+}
+
+var fromA = ChainA

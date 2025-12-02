@@ -120,7 +120,7 @@ When an unused import is detected, a quick fix is available:
 | [x] Wildcard to Named         | Convert `import *` to explicit named imports quick fix    | Medium     |
 | [x] Import Path Completion    | Autocomplete file paths in import strings                 | Medium     |
 | [x] Auto-import on Paste      | Alt+Enter to add imports for undefined symbols            | Medium     |
-| [ ] Circular Import Detection | Warn when files import each other in a cycle              | Medium     |
+| [x] Circular Import Detection | Warn when files import each other in a cycle              | Medium     |
 | [ ] Import Grouping           | Group imports by category (local vs external)             | Medium     |
 | [ ] Relative Path Suggestions | Suggest shorter relative paths for imports                | Medium     |
 

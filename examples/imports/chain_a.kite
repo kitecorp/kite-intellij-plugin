@@ -1,0 +1,10 @@
+// Example: Three-file cycle (A → B → C → A)
+// This should show a warning: "Circular import detected: chain_a.kite → chain_b.kite → chain_c.kite → chain_a.kite"
+
+import * from "chain_b.kite"
+
+schema ChainA {
+    string a
+}
+
+var fromB = ChainB

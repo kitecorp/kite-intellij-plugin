@@ -1,0 +1,11 @@
+// Example: No cycle - imports a file that doesn't import back
+// This should NOT show any circular import warning
+
+import * from "shared.kite"
+
+schema MyConfig {
+    string name
+    number port
+}
+
+var baseConfig = SharedConfig

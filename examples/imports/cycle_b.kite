@@ -1,0 +1,10 @@
+// Example: Two-file cycle (B → A → B)
+// This should show a warning: "Circular import detected: cycle_b.kite → cycle_a.kite → cycle_b.kite"
+
+import * from "cycle_a.kite"
+
+schema ConfigB {
+    string value
+}
+
+var configB = ConfigA

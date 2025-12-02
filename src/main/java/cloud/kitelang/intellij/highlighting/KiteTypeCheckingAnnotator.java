@@ -68,11 +68,18 @@ public class KiteTypeCheckingAnnotator implements Annotator {
         }
 
         // Collect all declared names in the file first
+        // Track visited files to prevent infinite recursion on circular imports
+        Set<String> visitedPaths = new HashSet<>();
+        String currentFilePath = file.getVirtualFile() != null ? file.getVirtualFile().getPath() : null;
+        if (currentFilePath != null) {
+            visitedPaths.add(currentFilePath);
+        }
+
         Set<String> declaredNames = new HashSet<>();
-        collectAllDeclaredNames(file, declaredNames);
+        collectAllDeclaredNames(file, declaredNames, visitedPaths);
 
         // Also collect declared names from imported files
-        collectDeclaredNamesFromImports(file, declaredNames, new HashSet<>());
+        collectDeclaredNamesFromImports(file, declaredNames, visitedPaths);
 
         // Check all identifiers for undefined references
         checkUndefinedReferences(file, declaredNames, holder);
@@ -92,7 +99,14 @@ public class KiteTypeCheckingAnnotator implements Annotator {
 
     // ========== Declaration Collection ==========
 
-    private void collectAllDeclaredNames(PsiElement element, Set<String> names) {
+    /**
+     * Collects all declared names from an element and its children.
+     *
+     * @param element      The PSI element to collect declarations from
+     * @param names        Set to collect declared names into
+     * @param visitedPaths Set of visited file paths to prevent infinite recursion on circular imports
+     */
+    private void collectAllDeclaredNames(PsiElement element, Set<String> names, Set<String> visitedPaths) {
         if (element.getNode() == null) return;
 
         IElementType type = element.getNode().getElementType();
@@ -128,21 +142,21 @@ public class KiteTypeCheckingAnnotator implements Annotator {
 
         // Collect symbol names from named import statements
         if (type == KiteElementTypes.IMPORT_STATEMENT) {
-            collectNamedImportSymbols(element, names);
+            collectNamedImportSymbols(element, names, visitedPaths);
         }
 
         // Also check for raw IMPORT tokens at file level (fallback)
         if (type == KiteTokenTypes.IMPORT) {
-            collectNamedImportSymbolsFromToken(element, names);
+            collectNamedImportSymbolsFromToken(element, names, visitedPaths);
         }
 
         // Recurse into children
         for (PsiElement child = element.getFirstChild(); child != null; child = child.getNextSibling()) {
-            collectAllDeclaredNames(child, names);
+            collectAllDeclaredNames(child, names, visitedPaths);
         }
     }
 
-    private void collectNamedImportSymbols(PsiElement importStatement, Set<String> names) {
+    private void collectNamedImportSymbols(PsiElement importStatement, Set<String> names, Set<String> visitedPaths) {
         boolean foundImport = false;
         boolean foundWildcard = false;
 
@@ -175,14 +189,19 @@ public class KiteTypeCheckingAnnotator implements Annotator {
             if (importPath != null && !importPath.isEmpty()) {
                 PsiFile containingFile = importStatement.getContainingFile();
                 PsiFile importedFile = KiteImportHelper.resolveFilePath(importPath, containingFile);
-                if (importedFile != null) {
-                    collectAllDeclaredNames(importedFile, names);
+                if (importedFile != null && importedFile.getVirtualFile() != null) {
+                    String importedFilePath = importedFile.getVirtualFile().getPath();
+                    // Skip already visited files to prevent infinite recursion on circular imports
+                    if (!visitedPaths.contains(importedFilePath)) {
+                        visitedPaths.add(importedFilePath);
+                        collectAllDeclaredNames(importedFile, names, visitedPaths);
+                    }
                 }
             }
         }
     }
 
-    private void collectNamedImportSymbolsFromToken(PsiElement importToken, Set<String> names) {
+    private void collectNamedImportSymbolsFromToken(PsiElement importToken, Set<String> names, Set<String> visitedPaths) {
         boolean foundWildcard = false;
         PsiElement sibling = importToken.getNextSibling();
 
@@ -223,8 +242,13 @@ public class KiteTypeCheckingAnnotator implements Annotator {
             if (importPath != null && !importPath.isEmpty()) {
                 PsiFile containingFile = importToken.getContainingFile();
                 PsiFile importedFile = KiteImportHelper.resolveFilePath(importPath, containingFile);
-                if (importedFile != null) {
-                    collectAllDeclaredNames(importedFile, names);
+                if (importedFile != null && importedFile.getVirtualFile() != null) {
+                    String importedFilePath = importedFile.getVirtualFile().getPath();
+                    // Skip already visited files to prevent infinite recursion on circular imports
+                    if (!visitedPaths.contains(importedFilePath)) {
+                        visitedPaths.add(importedFilePath);
+                        collectAllDeclaredNames(importedFile, names, visitedPaths);
+                    }
                 }
             }
         }
@@ -309,7 +333,7 @@ public class KiteTypeCheckingAnnotator implements Annotator {
             }
             visitedPaths.add(filePath);
 
-            collectAllDeclaredNames(importedFile, names);
+            collectAllDeclaredNames(importedFile, names, visitedPaths);
             collectDeclaredNamesFromImports(importedFile, names, visitedPaths);
         }
     }

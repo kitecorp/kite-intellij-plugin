@@ -8,18 +8,27 @@ import com.intellij.psi.PsiElement;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.*;
+import java.util.regex.Pattern;
 
 /**
  * Inspection that detects circular import dependencies.
- * Currently only detects direct self-imports (file importing itself).
+ * Detects both direct self-imports and transitive cycles (A→B→C→A).
  *
- * Note: Transitive circular import detection is complex and may cause
- * performance issues, so it's not implemented in this version.
+ * Uses java.nio.file for file access to avoid triggering IntelliJ's
+ * VFS recursive resolution which can cause stack overflow on circular imports.
  */
 public class KiteCircularImportInspection extends KiteInspectionBase {
+
+    // Pattern to extract import paths from file text
+    private static final Pattern IMPORT_PATTERN = Pattern.compile(
+            "^\\s*import\\s+(?:\\*|[\\w,\\s]+)\\s+from\\s+[\"']([^\"']+)[\"']",
+            Pattern.MULTILINE
+    );
 
     @Override
     public @NotNull String getShortName() {
@@ -31,34 +40,35 @@ public class KiteCircularImportInspection extends KiteInspectionBase {
                                   @NotNull InspectionManager manager,
                                   boolean isOnTheFly,
                                   @NotNull List<ProblemDescriptor> problems) {
-        // Get the current file name
-        var currentFileName = getFileName(file);
-        if (currentFileName == null) return;
+        var currentVFile = file.getVirtualFile();
+        if (currentVFile == null) return;
+
+        var currentFilePath = currentVFile.getPath();
 
         // Track which imports we've already warned about
         var warnedImports = new HashSet<String>();
 
-        // Find all import statements in this file
-        checkImportsRecursive(file, manager, isOnTheFly, problems, currentFileName, warnedImports);
+        // Find all import statements and check each one
+        checkImportsRecursive(file, manager, isOnTheFly, problems, currentFilePath, warnedImports);
     }
 
     private void checkImportsRecursive(PsiElement element,
                                         InspectionManager manager,
                                         boolean isOnTheFly,
                                         List<ProblemDescriptor> problems,
-                                        String currentFileName,
+                                        String currentFilePath,
                                         Set<String> warnedImports) {
         if (element == null || element.getNode() == null) return;
 
         var type = element.getNode().getElementType();
 
         if (type == KiteTokenTypes.IMPORT) {
-            checkSingleImport(element, manager, isOnTheFly, problems, currentFileName, warnedImports);
+            checkSingleImport(element, manager, isOnTheFly, problems, currentFilePath, warnedImports);
         }
 
         var child = element.getFirstChild();
         while (child != null) {
-            checkImportsRecursive(child, manager, isOnTheFly, problems, currentFileName, warnedImports);
+            checkImportsRecursive(child, manager, isOnTheFly, problems, currentFilePath, warnedImports);
             child = child.getNextSibling();
         }
     }
@@ -67,25 +77,47 @@ public class KiteCircularImportInspection extends KiteInspectionBase {
                                     InspectionManager manager,
                                     boolean isOnTheFly,
                                     List<ProblemDescriptor> problems,
-                                    String currentFileName,
+                                    String currentFilePath,
                                     Set<String> warnedImports) {
-        var stringLiteral = findImportPath(importKeyword);
-        if (stringLiteral == null) return;
+        var importInfo = findImportPathInfo(importKeyword);
+        if (importInfo == null) {
+            return;
+        }
 
-        var importPathText = stringLiteral.getText();
-        // Remove quotes
-        var importPath = importPathText.substring(1, importPathText.length() - 1);
+        var importPath = importInfo.path;
+        var elementToHighlight = importInfo.elementToHighlight;
 
         // Skip if already warned
         if (warnedImports.contains(importPath)) return;
 
+        // Resolve the imported file path using java.nio (avoids VFS)
+        var importedFilePath = resolveImportPath(importPath, currentFilePath);
+        if (importedFilePath == null) {
+            return;
+        }
+
         // Check for direct self-import
-        if (isSelfImport(importPath, currentFileName)) {
+        if (currentFilePath.equals(importedFilePath)) {
             warnedImports.add(importPath);
             var problem = createWarning(
                     manager,
-                    stringLiteral,
+                    elementToHighlight,
                     "Circular import: file imports itself",
+                    isOnTheFly
+            );
+            problems.add(problem);
+            return;
+        }
+
+        // Check for transitive circular import using pure path-based DFS
+        var cyclePath = detectCycleByPath(importedFilePath, currentFilePath, new LinkedHashSet<>());
+        if (cyclePath != null) {
+            warnedImports.add(importPath);
+            var cycleDescription = buildCycleDescription(getFileNameFromPath(currentFilePath), cyclePath);
+            var problem = createWarning(
+                    manager,
+                    elementToHighlight,
+                    "Circular import detected: " + cycleDescription,
                     isOnTheFly
             );
             problems.add(problem);
@@ -93,28 +125,175 @@ public class KiteCircularImportInspection extends KiteInspectionBase {
     }
 
     /**
-     * Check if the import path refers to the same file.
+     * Resolve an import path to an absolute file path using java.nio.
+     * This avoids triggering IntelliJ's VFS which can cause recursion issues.
      */
-    private boolean isSelfImport(String importPath, String currentFileName) {
-        // Extract filename from import path
-        var importFileName = getFileNameFromPath(importPath);
-        return currentFileName.equals(importFileName);
-    }
-
-    private String getFileNameFromPath(String path) {
-        if (path == null) return "";
-        int lastSlash = path.lastIndexOf('/');
-        return lastSlash >= 0 ? path.substring(lastSlash + 1) : path;
-    }
-
     @Nullable
-    private PsiElement findImportPath(PsiElement importKeyword) {
+    private String resolveImportPath(String importPath, String containingFilePath) {
+        if (importPath == null || containingFilePath == null) return null;
+
+        try {
+            var containingDir = Paths.get(containingFilePath).getParent();
+            if (containingDir == null) return null;
+
+            var resolved = containingDir.resolve(importPath).normalize();
+            if (Files.exists(resolved)) {
+                return resolved.toString();
+            }
+        } catch (Exception e) {
+            // Ignore resolution errors
+        }
+        return null;
+    }
+
+    /**
+     * Detect a cycle starting from the given file back to the target file.
+     * Uses java.nio.file for file access to avoid VFS recursion.
+     *
+     * @param currentFilePath The file path to start traversing from
+     * @param targetPath      The path we're looking for (to detect a cycle back to origin)
+     * @param visited         Set of visited file paths (preserves insertion order for cycle path)
+     * @return The cycle path if found, null otherwise
+     */
+    @Nullable
+    private List<String> detectCycleByPath(String currentFilePath, String targetPath, LinkedHashSet<String> visited) {
+        if (currentFilePath == null) return null;
+
+        // Found a cycle back to the target
+        if (currentFilePath.equals(targetPath)) {
+            return new ArrayList<>(visited);
+        }
+
+        // Already visited this file in current path - no cycle to target here
+        if (visited.contains(currentFilePath)) {
+            return null;
+        }
+
+        // Add current file to visited path
+        visited.add(currentFilePath);
+
+        // Get import paths from file using java.nio
+        var importPaths = extractImportPathsFromFile(currentFilePath);
+
+        for (var importPath : importPaths) {
+            // Resolve import path
+            var importedFilePath = resolveImportPath(importPath, currentFilePath);
+            if (importedFilePath != null) {
+                var cyclePath = detectCycleByPath(importedFilePath, targetPath, visited);
+                if (cyclePath != null) {
+                    return cyclePath;
+                }
+            }
+        }
+
+        // Remove from path when backtracking
+        visited.remove(currentFilePath);
+        return null;
+    }
+
+    /**
+     * Extract import paths from file using java.nio (bypasses IntelliJ VFS).
+     */
+    private List<String> extractImportPathsFromFile(String filePath) {
+        var paths = new ArrayList<String>();
+        try {
+            var text = Files.readString(Path.of(filePath));
+            var matcher = IMPORT_PATTERN.matcher(text);
+            while (matcher.find()) {
+                paths.add(matcher.group(1));
+            }
+        } catch (IOException e) {
+            // Ignore read errors
+        }
+        return paths;
+    }
+
+    /**
+     * Build a human-readable description of the cycle.
+     */
+    private String buildCycleDescription(String originFileName, List<String> cyclePath) {
+        var sb = new StringBuilder();
+        sb.append(originFileName);
+
+        for (var path : cyclePath) {
+            sb.append(" → ");
+            sb.append(getFileNameFromPath(path));
+        }
+
+        sb.append(" → ");
+        sb.append(originFileName);
+
+        return sb.toString();
+    }
+
+    /**
+     * Helper class to hold import path info including the element to highlight.
+     */
+    private static class ImportPathInfo {
+        final String path;
+        final PsiElement elementToHighlight;
+
+        ImportPathInfo(String path, PsiElement elementToHighlight) {
+            this.path = path;
+            this.elementToHighlight = elementToHighlight;
+        }
+    }
+
+    /**
+     * Find the import path and proper element to highlight after the IMPORT keyword.
+     * Returns both the path string and the STRING_TEXT element to highlight (not just the opening quote).
+     */
+    @Nullable
+    private ImportPathInfo findImportPathInfo(PsiElement importKeyword) {
+        boolean foundFrom = false;
         var current = importKeyword.getNextSibling();
+
         while (current != null) {
             if (current.getNode() != null) {
                 var type = current.getNode().getElementType();
-                if (type == KiteTokenTypes.STRING) {
-                    return current;
+
+                // Skip whitespace
+                if (type == KiteTokenTypes.WHITESPACE || type == KiteTokenTypes.NL ||
+                    type == KiteTokenTypes.NEWLINE || type == com.intellij.psi.TokenType.WHITE_SPACE) {
+                    current = current.getNextSibling();
+                    continue;
+                }
+
+                // Look for FROM keyword
+                if (type == KiteTokenTypes.FROM) {
+                    foundFrom = true;
+                    current = current.getNextSibling();
+                    continue;
+                }
+
+                // After FROM, look for string tokens
+                if (foundFrom) {
+                    // Case 1: Full STRING or SINGLE_STRING token
+                    if (type == KiteTokenTypes.STRING || type == KiteTokenTypes.SINGLE_STRING) {
+                        var text = current.getText();
+                        if (text.length() >= 2) {
+                            var path = text.substring(1, text.length() - 1);
+                            return new ImportPathInfo(path, current);
+                        }
+                    }
+                    // Case 2: DQUOTE token - need to find STRING_TEXT sibling
+                    if (type == KiteTokenTypes.DQUOTE) {
+                        // Look for STRING_TEXT which contains the actual path
+                        var sibling = current.getNextSibling();
+                        while (sibling != null && sibling.getNode() != null) {
+                            var sibType = sibling.getNode().getElementType();
+                            if (sibType == KiteTokenTypes.STRING_TEXT) {
+                                var path = sibling.getText();
+                                // Return STRING_TEXT as the element to highlight (the file name)
+                                return new ImportPathInfo(path, sibling);
+                            } else if (sibType == KiteTokenTypes.STRING_DQUOTE ||
+                                       sibType == KiteTokenTypes.NL ||
+                                       sibType == KiteTokenTypes.NEWLINE) {
+                                break;
+                            }
+                            sibling = sibling.getNextSibling();
+                        }
+                    }
                 }
             }
             current = current.getNextSibling();
@@ -122,11 +301,9 @@ public class KiteCircularImportInspection extends KiteInspectionBase {
         return null;
     }
 
-    @Nullable
-    private String getFileName(KiteFile file) {
-        if (file == null) return null;
-        var virtualFile = file.getVirtualFile();
-        if (virtualFile == null) return null;
-        return virtualFile.getName();
+    private String getFileNameFromPath(String path) {
+        if (path == null) return "";
+        int lastSlash = Math.max(path.lastIndexOf('/'), path.lastIndexOf('\\'));
+        return lastSlash >= 0 ? path.substring(lastSlash + 1) : path;
     }
 }

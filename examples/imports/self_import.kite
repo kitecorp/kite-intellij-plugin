@@ -1,0 +1,6 @@
+// Example: Self-import (file importing itself)
+// This should show a warning: "Circular import: file imports itself"
+
+import * from "self_import.kite"
+
+var x = 1

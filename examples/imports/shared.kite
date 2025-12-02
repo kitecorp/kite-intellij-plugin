@@ -1,0 +1,9 @@
+// Example: Shared file with no imports (no cycle possible)
+
+schema SharedConfig {
+    string host
+    number port
+}
+
+var defaultHost = "localhost"
+var defaultPort = 8080
