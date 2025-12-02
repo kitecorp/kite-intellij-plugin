@@ -1,0 +1,32 @@
+// Example: Component Instance Input Completion
+// This file demonstrates Ctrl+Space completion inside component instances.
+
+// Component definition with inputs and outputs
+component WebServer {
+    input string port = "8080"
+    input string host = "localhost"
+    input boolean ssl = false
+    output string endpoint = "http://${host}:${port}"
+    output string status = "running"
+}
+
+// Component instance - Ctrl+Space before '=' shows only inputs not already defined
+component WebServer serverA {
+    port = "3000"
+    // Try Ctrl+Space here - shows: host, ssl (not port - already defined)
+    // Does NOT show: endpoint, status (outputs are not configurable)
+}
+
+// Another instance using the first one's output
+component WebServer serverB {
+    host = "api.example.com"
+    ssl = true
+    // After '=', Ctrl+Space shows variables, components, etc.
+    // serverA.endpoint works because endpoint is an output
+}
+
+// Access outputs from component instances
+var primaryEndpoint = serverA.endpoint
+var secondaryEndpoint = serverB.endpoint
+// Ctrl+Space after 'serverA.' shows only: endpoint, status (outputs)
+// Does NOT show: port, host, ssl (inputs are not accessible from outside)

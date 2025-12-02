@@ -1,11 +1,11 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">
+<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 16 16">
     <!-- Inclined diamond kite shape with two colors and rounded corners, tilted 8 degrees -->
     <g transform="rotate(8 8 8)">
         <!-- Top half (lighter blue) -->
         <path d="M 8 2 L 13.5 7 L 8 8 Z"
               fill="#2e9ef6"
               stroke="#ffffff"
-              stroke-width="0.3"
+              stroke-width="0.5"
               stroke-linejoin="round"
               stroke-linecap="round"/>
 
@@ -13,7 +13,7 @@
         <path d="M 8 8 L 13.5 7 L 8 14 Z"
               fill="#cd0063"
               stroke="#ffffff"
-              stroke-width="0.3"
+              stroke-width="0.5"
               stroke-linejoin="round"
               stroke-linecap="round"/>
 
@@ -21,7 +21,7 @@
         <path d="M 8 14 L 2.5 7 L 8 8 Z"
               fill="#2e9ef6"
               stroke="#ffffff"
-              stroke-width="0.3"
+              stroke-width="0.5"
               stroke-linejoin="round"
               stroke-linecap="round"/>
 
@@ -29,14 +29,14 @@
         <path d="M 8 2 L 2.5 7 L 8 8 Z"
               fill="#cd0063"
               stroke="#ffffff"
-              stroke-width="0.3"
+              stroke-width="0.5"
               stroke-linejoin="round"
               stroke-linecap="round"/>
 
         <!-- Vertical center line only -->
         <line x1="8" y1="2" x2="8" y2="14"
               stroke="#ffffff"
-              stroke-width="0.3"
+              stroke-width="0.5"
               stroke-linejoin="round"
               stroke-linecap="round"
               opacity="0.4"/>
