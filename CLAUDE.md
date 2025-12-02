@@ -332,3 +332,4 @@ component WebServer {
 
 - always follow TDD. Functionality without a test is not valid
 - we use CLEAN code principles, DRY, KISS and SOLID principlex from software architecture
+- Use static imports when possible

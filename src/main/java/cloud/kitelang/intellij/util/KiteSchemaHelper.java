@@ -21,17 +21,17 @@ public final class KiteSchemaHelper {
     }
 
     /**
-     * Information about a schema property.
-     */
-    public static class SchemaPropertyInfo {
-        public final String type;
-        public final boolean isCloud;
+         * Information about a schema property.
+         */
+        public record SchemaPropertyInfo(String type, boolean hasDefaultValue) {
 
-        public SchemaPropertyInfo(String type, boolean isCloud) {
-            this.type = type;
-            this.isCloud = isCloud;
+        /**
+             * A property is required if it has no default value.
+             */
+            public boolean isRequired() {
+                return !hasDefaultValue;
+            }
         }
-    }
 
     /**
      * Find schema properties by name. Returns a map of property name to SchemaPropertyInfo.
@@ -103,7 +103,7 @@ public final class KiteSchemaHelper {
 
     /**
      * Extract property definitions from a schema, returning just the type names.
-     * Convenience method for callers that don't need the isCloud flag.
+     * Convenience method for callers that only need property name to type mapping.
      *
      * @param schemaDecl The schema declaration element
      * @return Map of property name to type name
@@ -121,13 +121,13 @@ public final class KiteSchemaHelper {
 
     /**
      * Extract property definitions from a schema.
-     * Pattern inside schema: [@cloud] type propertyName [= defaultValue]
-     * Properties with @cloud annotation are marked as cloud properties.
+     * Pattern inside schema: type propertyName [= defaultValue]
+     * Properties with = defaultValue have hasDefaultValue = true.
      */
     public static void extractSchemaProperties(PsiElement schemaDecl, Map<String, SchemaPropertyInfo> properties) {
         boolean insideBraces = false;
         String currentType = null;
-        boolean isCloudProperty = false;
+        String currentPropertyName = null;
 
         PsiElement child = schemaDecl.getFirstChild();
         while (child != null) {
@@ -137,23 +137,20 @@ public final class KiteSchemaHelper {
                 if (type == KiteTokenTypes.LBRACE) {
                     insideBraces = true;
                 } else if (type == KiteTokenTypes.RBRACE) {
+                    // Save last property if pending (no default value)
+                    if (currentPropertyName != null && currentType != null) {
+                        properties.put(currentPropertyName, new SchemaPropertyInfo(currentType, false));
+                    }
                     break;
                 } else if (insideBraces) {
-                    // Skip whitespace and newlines
-                    if (KitePsiUtil.isWhitespace(type)) {
+                    // Skip whitespace (but not newlines - those end property definitions)
+                    if (type == KiteTokenTypes.WHITESPACE || type == com.intellij.psi.TokenType.WHITE_SPACE) {
                         child = child.getNextSibling();
                         continue;
                     }
 
-                    // Check for @cloud annotation
+                    // Skip decorators
                     if (type == KiteTokenTypes.AT) {
-                        // Look at next sibling to see if it's "cloud"
-                        PsiElement next = KitePsiUtil.skipWhitespace(child.getNextSibling());
-                        if (next != null && next.getNode() != null &&
-                            next.getNode().getElementType() == KiteTokenTypes.IDENTIFIER &&
-                            "cloud".equals(next.getText())) {
-                            isCloudProperty = true;
-                        }
                         child = child.getNextSibling();
                         continue;
                     }
@@ -168,25 +165,32 @@ public final class KiteSchemaHelper {
                     // Track type -> name pattern
                     if (type == KiteTokenTypes.IDENTIFIER) {
                         String text = child.getText();
-                        // Skip "cloud" if we just saw @
-                        if ("cloud".equals(text) && isCloudProperty) {
-                            child = child.getNextSibling();
-                            continue;
-                        }
                         if (currentType == null) {
                             // First identifier is the type
                             currentType = text;
                         } else {
                             // Second identifier is the property name
-                            properties.put(text, new SchemaPropertyInfo(currentType, isCloudProperty));
-                            currentType = null;
-                            isCloudProperty = false; // Reset for next property
+                            currentPropertyName = text;
                         }
                     }
 
-                    // Reset on newline or assignment (end of property definition)
-                    if (type == KiteTokenTypes.NL || type == KiteTokenTypes.ASSIGN) {
+                    // Assignment means property has a default value
+                    if (type == KiteTokenTypes.ASSIGN) {
+                        if (currentPropertyName != null && currentType != null) {
+                            properties.put(currentPropertyName, new SchemaPropertyInfo(currentType, true));
+                            currentType = null;
+                            currentPropertyName = null;
+                        }
+                    }
+
+                    // Reset on newline (end of property definition without default value)
+                    if (type == KiteTokenTypes.NL || type == KiteTokenTypes.NEWLINE) {
+                        if (currentPropertyName != null && currentType != null) {
+                            // Property without default value
+                            properties.put(currentPropertyName, new SchemaPropertyInfo(currentType, false));
+                        }
                         currentType = null;
+                        currentPropertyName = null;
                     }
                 }
             }

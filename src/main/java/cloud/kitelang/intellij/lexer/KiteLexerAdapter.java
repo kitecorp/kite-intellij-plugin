@@ -38,18 +38,10 @@ public class KiteLexerAdapter extends LexerBase {
     private List<TokenInfo> tokens;
     private int currentTokenIndex;
 
-    private static class TokenInfo {
-        final IElementType type;
-        final int start;
-        final int end;
-        final int state;  // Lexer state at the END of this token
-
-        TokenInfo(IElementType type, int start, int end, int state) {
-            this.type = type;
-            this.start = start;
-            this.end = end;
-            this.state = state;
-        }
+    /**
+     * @param state Lexer state at the END of this token
+     */
+    private record TokenInfo(IElementType type, int start, int end, int state) {
     }
 
     @Override

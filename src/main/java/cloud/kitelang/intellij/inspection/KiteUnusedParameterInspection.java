@@ -202,11 +202,9 @@ public class KiteUnusedParameterInspection extends KiteInspectionBase {
                 var prevPrev = KitePsiUtil.skipWhitespaceBackward(prev.getPrevSibling());
                 if (prevPrev != null && prevPrev.getNode() != null) {
                     var prevPrevType = prevPrev.getNode().getElementType();
-                    if (prevPrevType == KiteTokenTypes.VAR ||
-                        prevPrevType == KiteTokenTypes.INPUT ||
-                        prevPrevType == KiteTokenTypes.OUTPUT) {
-                        return false;
-                    }
+                    return prevPrevType != KiteTokenTypes.VAR &&
+                           prevPrevType != KiteTokenTypes.INPUT &&
+                           prevPrevType != KiteTokenTypes.OUTPUT;
                 }
             }
         }

@@ -58,11 +58,10 @@ public class KiteTypeCheckingAnnotator implements Annotator {
     @Override
     public void annotate(@NotNull PsiElement element, @NotNull AnnotationHolder holder) {
         // Only process at file level to avoid redundant checks
-        if (!(element instanceof PsiFile)) {
+        if (!(element instanceof PsiFile file)) {
             return;
         }
 
-        PsiFile file = (PsiFile) element;
         if (file.getLanguage() != KiteLanguage.INSTANCE) {
             return;
         }
@@ -86,6 +85,8 @@ public class KiteTypeCheckingAnnotator implements Annotator {
 
         // Check for type mismatches in variable declarations
         checkTypeMismatches(file, holder);
+
+        // Note: Missing required property checking is done by KiteMissingPropertyInspection
 
         // Check for unknown decorator names
         checkUnknownDecorators(file, holder);
@@ -410,7 +411,7 @@ public class KiteTypeCheckingAnnotator implements Annotator {
 
                     for (AddImportQuickFix.ImportCandidate candidate : candidates) {
                         builder = builder.withFix(
-                                new AddImportQuickFix(candidate.symbolName, candidate.importPath));
+                                new AddImportQuickFix(candidate.symbolName(), candidate.importPath()));
                     }
 
                     builder.create();
@@ -547,9 +548,9 @@ public class KiteTypeCheckingAnnotator implements Annotator {
                     String actualType = inferType(valueElement);
                     if (actualType == null) continue;
 
-                    if (!isTypeCompatible(propInfo.type, actualType)) {
+                    if (!isTypeCompatible(propInfo.type(), actualType)) {
                         holder.newAnnotation(HighlightSeverity.ERROR,
-                                        "Type mismatch: property '" + propertyName + "' expects '" + propInfo.type +
+                                        "Type mismatch: property '" + propertyName + "' expects '" + propInfo.type() +
                                         "' but got '" + actualType + "'")
                                 .range(valueElement)
                                 .create();

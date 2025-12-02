@@ -227,16 +227,9 @@ public class KiteCircularImportInspection extends KiteInspectionBase {
     }
 
     /**
-     * Helper class to hold import path info including the element to highlight.
-     */
-    private static class ImportPathInfo {
-        final String path;
-        final PsiElement elementToHighlight;
-
-        ImportPathInfo(String path, PsiElement elementToHighlight) {
-            this.path = path;
-            this.elementToHighlight = elementToHighlight;
-        }
+         * Helper class to hold import path info including the element to highlight.
+         */
+        private record ImportPathInfo(String path, PsiElement elementToHighlight) {
     }
 
     /**

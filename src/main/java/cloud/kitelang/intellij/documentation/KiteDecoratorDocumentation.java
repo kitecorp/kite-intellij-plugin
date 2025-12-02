@@ -309,22 +309,18 @@ public final class KiteDecoratorDocumentation {
      */
     @NotNull
     public static String generateUnknownDecoratorDoc(String name) {
-        StringBuilder sb = new StringBuilder();
 
-        sb.append("<div style=\"white-space: nowrap; overflow-x: auto; max-width: 800px;\">");
+        String sb = "<div style=\"white-space: nowrap; overflow-x: auto; max-width: 800px;\">" +
+                    "<div style=\"margin-bottom: 8px;\">" +
+                    "<b>Decorator</b> " +
+                    "<span style=\"color: " + COLOR_DECORATOR + ";\">@" + escapeHtml(name) + "</span>" +
+                    "</div>" +
+                    "<div style=\"margin-bottom: 8px; color: #999;\">" +
+                    "Unknown decorator. This is not a built-in decorator." +
+                    "</div>" +
+                    "</div>";
 
-        sb.append("<div style=\"margin-bottom: 8px;\">");
-        sb.append("<b>Decorator</b> ");
-        sb.append("<span style=\"color: ").append(COLOR_DECORATOR).append(";\">@").append(escapeHtml(name)).append("</span>");
-        sb.append("</div>");
-
-        sb.append("<div style=\"margin-bottom: 8px; color: #999;\">");
-        sb.append("Unknown decorator. This is not a built-in decorator.");
-        sb.append("</div>");
-
-        sb.append("</div>");
-
-        return sb.toString();
+        return sb;
     }
 
     /**
@@ -420,46 +416,26 @@ public final class KiteDecoratorDocumentation {
 
     /**
      * Holds documentation for a decorator.
+     *
+     * @param argumentType What type of argument it takes
+     * @param targets      What declarations it can apply to
+     * @param appliesTo    What value types it applies to (null if N/A)
      */
-    public static class DecoratorDoc {
-        public final String name;
-        public final String category;
-        public final String description;
-        public final String syntax;
-        public final String argumentType;  // What type of argument it takes
-        public final String targets;       // What declarations it can apply to
-        public final String appliesTo;     // What value types it applies to (null if N/A)
-        public final String example;
-
-        public DecoratorDoc(String name, String category, String description, String syntax,
-                     String argumentType, String targets, String appliesTo, String example) {
-            this.name = name;
-            this.category = category;
-            this.description = description;
-            this.syntax = syntax;
-            this.argumentType = argumentType;
-            this.targets = targets;
-            this.appliesTo = appliesTo;
-            this.example = example;
-        }
+        public record DecoratorDoc(String name, String category, String description, String syntax, String argumentType,
+                                   String targets, String appliesTo, String example) {
     }
 
     /**
-     * Wrapper class to identify decorator lookup items.
-     * Used to enable documentation popup for decorators in autocomplete.
-     */
-    public static class DecoratorLookupItem {
-        public final String name;
-
-        public DecoratorLookupItem(String name) {
-            this.name = name;
-        }
+         * Wrapper class to identify decorator lookup items.
+         * Used to enable documentation popup for decorators in autocomplete.
+         */
+        public record DecoratorLookupItem(String name) {
 
         @Override
-        public String toString() {
-            return name;
+            public String toString() {
+                return name;
+            }
         }
-    }
 
     /**
      * Fake PSI element that holds decorator name for documentation lookup.

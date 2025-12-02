@@ -163,7 +163,6 @@ public class KiteAnnotator implements Annotator {
                     .range(element)
                     .textAttributes(TYPE_NAME)
                     .create();
-            return;
         }
 
         // All other identifiers (property names, values, declaration names) use default text color

@@ -45,11 +45,10 @@ public class KiteUnusedImportAnnotator implements Annotator {
     @Override
     public void annotate(@NotNull PsiElement element, @NotNull AnnotationHolder holder) {
         // Only process at file level
-        if (!(element instanceof PsiFile)) {
+        if (!(element instanceof PsiFile file)) {
             return;
         }
 
-        PsiFile file = (PsiFile) element;
         if (file.getLanguage() != KiteLanguage.INSTANCE) {
             return;
         }

@@ -190,9 +190,7 @@ public final class KiteTypeInferenceHelper {
             }
             // Also accept numbers and booleans for custom types
             // (the user knows what they're doing with their type aliases)
-            if ("number".equals(normalizedValue) || "boolean".equals(normalizedValue)) {
-                return true;
-            }
+            return "number".equals(normalizedValue) || "boolean".equals(normalizedValue);
         }
 
         return false;

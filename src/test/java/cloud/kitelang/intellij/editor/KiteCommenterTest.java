@@ -58,10 +58,10 @@ public class KiteCommenterTest extends junit.framework.TestCase {
         String blockSuffix = commenter.getBlockCommentSuffix();
 
         // Line comments use C-style //
-        assertTrue("Line comment should use C-style", linePrefix.equals("//"));
+        assertEquals("Line comment should use C-style", "//", linePrefix);
 
         // Block comments use C-style /* */
-        assertTrue("Block comment should use C-style start", blockPrefix.equals("/*"));
-        assertTrue("Block comment should use C-style end", blockSuffix.equals("*/"));
+        assertEquals("Block comment should use C-style start", "/*", blockPrefix);
+        assertEquals("Block comment should use C-style end", "*/", blockSuffix);
     }
 }

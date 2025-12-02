@@ -53,26 +53,6 @@ public class KiteResourceCompletionProviderTest extends KiteTestBase {
         assertTrue("Should suggest undefined 'ssl'", lookupStrings.contains("ssl"));
     }
 
-    public void testCloudPropertyExcluded() {
-        configureByText("""
-                schema Instance {
-                    @cloud
-                    string id
-                    string name
-                }
-                resource Instance server {
-                    <caret>
-                }
-                """);
-
-        myFixture.completeBasic();
-        List<String> lookupStrings = myFixture.getLookupElementStrings();
-
-        assertNotNull("Should have completions", lookupStrings);
-        assertFalse("Should NOT suggest @cloud property 'id'", lookupStrings.contains("id"));
-        assertTrue("Should suggest regular property 'name'", lookupStrings.contains("name"));
-    }
-
     public void testSchemaFromImportedFile() {
         addFile("schemas.kite", """
                 schema ServerConfig {

@@ -37,11 +37,10 @@ public class KiteDuplicateDeclarationAnnotator implements Annotator {
     @Override
     public void annotate(@NotNull PsiElement element, @NotNull AnnotationHolder holder) {
         // Only process at file level to avoid redundant checks
-        if (!(element instanceof PsiFile)) {
+        if (!(element instanceof PsiFile file)) {
             return;
         }
 
-        PsiFile file = (PsiFile) element;
         if (file.getLanguage() != KiteLanguage.INSTANCE) {
             return;
         }
@@ -175,17 +174,8 @@ public class KiteDuplicateDeclarationAnnotator implements Annotator {
     }
 
     /**
-     * Information about a declaration
-     */
-    private static class DeclarationInfo {
-        final String name;
-        final PsiElement nameElement;
-        final IElementType declarationType;
-
-        DeclarationInfo(String name, PsiElement nameElement, IElementType declarationType) {
-            this.name = name;
-            this.nameElement = nameElement;
-            this.declarationType = declarationType;
-        }
+         * Information about a declaration
+         */
+        private record DeclarationInfo(String name, PsiElement nameElement, IElementType declarationType) {
     }
 }

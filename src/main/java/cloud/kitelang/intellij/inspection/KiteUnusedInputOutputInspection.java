@@ -221,9 +221,7 @@ public class KiteUnusedInputOutputInspection extends KiteInspectionBase {
                 var beforeType = KitePsiUtil.skipWhitespaceBackward(prev.getPrevSibling());
                 if (beforeType != null && beforeType.getNode() != null) {
                     var beforeTypeType = beforeType.getNode().getElementType();
-                    if (beforeTypeType == KiteTokenTypes.INPUT || beforeTypeType == KiteTokenTypes.OUTPUT) {
-                        return false;
-                    }
+                    return beforeTypeType != KiteTokenTypes.INPUT && beforeTypeType != KiteTokenTypes.OUTPUT;
                 }
             }
         }

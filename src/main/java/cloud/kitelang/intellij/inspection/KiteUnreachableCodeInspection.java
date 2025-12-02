@@ -185,9 +185,7 @@ public class KiteUnreachableCodeInspection extends KiteInspectionBase {
             if (prev != null && prev.getNode() != null) {
                 var prevType = prev.getNode().getElementType();
                 // After newline = likely a statement
-                if (prevType == KiteTokenTypes.NL || prevType == KiteTokenTypes.NEWLINE) {
-                    return true;
-                }
+                return prevType == KiteTokenTypes.NL || prevType == KiteTokenTypes.NEWLINE;
             }
         }
 

@@ -21,7 +21,6 @@ import java.util.List;
 import java.util.Map;
 
 import static cloud.kitelang.intellij.util.KitePsiUtil.isWhitespace;
-import static cloud.kitelang.intellij.util.KitePsiUtil.skipWhitespaceBackward;
 
 /**
  * Provides completions inside component definition bodies.
@@ -150,47 +149,28 @@ public class KiteComponentDefinitionCompletionProvider extends CompletionProvide
     }
 
     /**
-     * A default value suggestion with display and description.
-     */
-    private static class DefaultValueSuggestion {
-        final String value;
-        final String description;
-
-        DefaultValueSuggestion(String value, String description) {
-            this.value = value;
-            this.description = description;
-        }
+         * A default value suggestion with display and description.
+         */
+        private record DefaultValueSuggestion(String value, String description) {
     }
 
     // ========== Context Classes ==========
 
     /**
-     * Context information about an enclosing component definition block.
-     * Only for component DEFINITIONS (component TypeName { }), not instances.
-     */
-    private static class ComponentDefinitionContext {
-        final String componentTypeName;
-        final PsiElement componentDeclaration;
-
-        ComponentDefinitionContext(String componentTypeName, PsiElement componentDeclaration) {
-            this.componentTypeName = componentTypeName;
-            this.componentDeclaration = componentDeclaration;
-        }
+         * Context information about an enclosing component definition block.
+         * Only for component DEFINITIONS (component TypeName { }), not instances.
+         */
+        private record ComponentDefinitionContext(String componentTypeName, PsiElement componentDeclaration) {
     }
 
     /**
      * Information about an input/output declaration's type and property name.
+     *
+     * @param type    "string", "number", "boolean", etc.
+     * @param name    property name like "port", "host", "enabled"
+     * @param isInput true for input, false for output
      */
-    private static class InputOutputInfo {
-        final String type;       // "string", "number", "boolean", etc.
-        final String name;       // property name like "port", "host", "enabled"
-        final boolean isInput;   // true for input, false for output
-
-        InputOutputInfo(String type, String name, boolean isInput) {
-            this.type = type;
-            this.name = name;
-            this.isInput = isInput;
-        }
+        private record InputOutputInfo(String type, String name, boolean isInput) {
     }
 
     // ========== Main Completion Method ==========
@@ -322,7 +302,7 @@ public class KiteComponentDefinitionCompletionProvider extends CompletionProvide
     private boolean isBeforeAssignment(PsiElement position) {
         // Check if the next non-whitespace element is an assignment
         PsiElement next = position.getNextSibling();
-        while (next != null && isWhitespace(next)) {
+        while (isWhitespace(next)) {
             next = next.getNextSibling();
         }
         if (next != null && next.getNode() != null) {

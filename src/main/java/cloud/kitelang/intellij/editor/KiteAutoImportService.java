@@ -121,8 +121,7 @@ public class KiteAutoImportService {
     private static boolean isValidSymbolCandidate(String text) {
         if (text == null || text.isEmpty()) return false;
         if (KEYWORDS.contains(text)) return false;
-        if (BUILTIN_TYPES.contains(text)) return false;
-        return true;
+        return !BUILTIN_TYPES.contains(text);
     }
 
     /**
@@ -358,14 +357,7 @@ public class KiteAutoImportService {
         }
     }
 
-    private static class ImportUpdate {
-        final String filePath;
-        final Set<String> symbols;
-
-        ImportUpdate(String filePath, Set<String> symbols) {
-            this.filePath = filePath;
-            this.symbols = symbols;
-        }
+    private record ImportUpdate(String filePath, Set<String> symbols) {
     }
 
     /**
@@ -407,7 +399,7 @@ public class KiteAutoImportService {
                 lastImportEnd = child.getTextRange().getEndOffset();
                 // Skip past any newlines after the import
                 PsiElement next = child.getNextSibling();
-                while (next != null && isWhitespace(next)) {
+                while (isWhitespace(next)) {
                     if (next.getText().contains("\n")) {
                         lastImportEnd = next.getTextRange().getEndOffset();
                         break;
@@ -424,7 +416,7 @@ public class KiteAutoImportService {
     }
 
     private static PsiElement skipWhitespace(PsiElement element, boolean forward) {
-        while (element != null && isWhitespace(element)) {
+        while (isWhitespace(element)) {
             element = forward ? element.getNextSibling() : element.getPrevSibling();
         }
         return element;

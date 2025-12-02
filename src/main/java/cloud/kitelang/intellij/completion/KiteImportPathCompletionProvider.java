@@ -57,7 +57,7 @@ public class KiteImportPathCompletionProvider extends CompletionProvider<Complet
 
         for (VirtualFile vFile : kiteFiles) {
             // Skip the current file
-            if (currentVFile != null && vFile.equals(currentVFile)) {
+            if (vFile.equals(currentVFile)) {
                 continue;
             }
 

@@ -184,12 +184,10 @@ public class KiteUnusedVariableInspection extends KiteInspectionBase {
             if (nextType == KiteTokenTypes.ASSIGN || nextType == KiteTokenTypes.LBRACE) {
                 // Could be a declaration name, but check more context
                 // If the previous element is also an identifier (type), this is a property name
-                if (prev != null && prev.getNode() != null &&
-                    prev.getNode().getElementType() == KiteTokenTypes.IDENTIFIER) {
-                    // This could be "type name = value" pattern in schema/resource
-                    // which is a declaration, not a usage
-                    return false;
-                }
+                // This could be "type name = value" pattern in schema/resource
+                // which is a declaration, not a usage
+                return prev == null || prev.getNode() == null ||
+                       prev.getNode().getElementType() != KiteTokenTypes.IDENTIFIER;
             }
         }
 

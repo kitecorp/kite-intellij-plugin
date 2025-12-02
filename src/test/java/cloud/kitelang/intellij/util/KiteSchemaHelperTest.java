@@ -32,31 +32,9 @@ public class KiteSchemaHelperTest extends KiteTestBase {
         assertTrue(properties.containsKey("port"));
         assertTrue(properties.containsKey("ssl"));
 
-        assertEquals("string", properties.get("host").type);
-        assertEquals("number", properties.get("port").type);
-        assertEquals("boolean", properties.get("ssl").type);
-    }
-
-    public void testFindSchemaPropertiesWithCloudAnnotation() {
-        configureByText("""
-                schema VM {
-                    string name
-                    @cloud string id
-                    @cloud string status
-                    number memory
-                }
-                """);
-
-        PsiFile file = myFixture.getFile();
-        Map<String, KiteSchemaHelper.SchemaPropertyInfo> properties =
-                KiteSchemaHelper.findSchemaProperties(file, "VM");
-
-        assertEquals(4, properties.size());
-
-        assertFalse("name should not be cloud", properties.get("name").isCloud);
-        assertTrue("id should be cloud", properties.get("id").isCloud);
-        assertTrue("status should be cloud", properties.get("status").isCloud);
-        assertFalse("memory should not be cloud", properties.get("memory").isCloud);
+        assertEquals("string", properties.get("host").type());
+        assertEquals("number", properties.get("port").type());
+        assertEquals("boolean", properties.get("ssl").type());
     }
 
     public void testFindSchemaPropertiesWithDefaults() {
@@ -90,7 +68,7 @@ public class KiteSchemaHelperTest extends KiteTestBase {
 
         assertEquals(2, properties.size());
         assertTrue(properties.containsKey("data"));
-        assertEquals("any", properties.get("data").type);
+        assertEquals("any", properties.get("data").type());
     }
 
     public void testFindSchemaPropertiesNotFound() {

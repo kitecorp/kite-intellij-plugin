@@ -21,10 +21,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import javax.swing.*;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 /**
  * Provides inlay hints for the Kite language.
@@ -145,1242 +142,1235 @@ public class KiteInlayHintsProvider implements InlayHintsProvider<KiteInlayHints
     }
 
     /**
-     * Collector that traverses PSI and creates inlay hints.
-     */
-    private static class KiteInlayHintsCollector implements InlayHintsCollector {
-        private final Editor editor;
-        private final Settings settings;
-
-        KiteInlayHintsCollector(Editor editor, Settings settings) {
-            this.editor = editor;
-            this.settings = settings;
-        }
+         * Collector that traverses PSI and creates inlay hints.
+         */
+        private record KiteInlayHintsCollector(Editor editor, Settings settings) implements InlayHintsCollector {
 
         @Override
-        public boolean collect(@NotNull PsiElement element, @NotNull Editor editor, @NotNull InlayHintsSink sink) {
-            ASTNode node = element.getNode();
-            if (node == null) return true;
+            public boolean collect(@NotNull PsiElement element, @NotNull Editor editor, @NotNull InlayHintsSink sink) {
+                ASTNode node = element.getNode();
+                if (node == null) return true;
 
-            IElementType elementType = node.getElementType();
+                IElementType elementType = node.getElementType();
 
-            // Show type hints for VARIABLE declarations without explicit type
-            if (settings.showTypeHints && elementType == KiteElementTypes.VARIABLE_DECLARATION) {
-                collectTypeHints(element, sink);
+                // Show type hints for VARIABLE declarations without explicit type
+                if (settings.showTypeHints && elementType == KiteElementTypes.VARIABLE_DECLARATION) {
+                    collectTypeHints(element, sink);
+                }
+
+                // Show type hints for RESOURCE property assignments
+                if (settings.showTypeHints && elementType == KiteElementTypes.RESOURCE_DECLARATION) {
+                    collectResourcePropertyTypeHints(element, sink);
+                }
+
+                // Show type hints for COMPONENT instantiation input assignments
+                if (settings.showTypeHints && elementType == KiteElementTypes.COMPONENT_DECLARATION) {
+                    // Check if this is a component instantiation (has two identifiers: type and instance name)
+                    if (isComponentInstantiation(element.getNode())) {
+                        collectComponentInputTypeHints(element, sink);
+                    }
+                }
+
+                // Show parameter hints for function calls
+                if (settings.showParameterHints) {
+                    // Function calls are identifiers followed by parentheses with arguments
+                    if (elementType == KiteTokenTypes.IDENTIFIER) {
+                        collectParameterHints(element, sink);
+                    }
+                }
+
+                return true;
             }
 
-            // Show type hints for RESOURCE property assignments
-            if (settings.showTypeHints && elementType == KiteElementTypes.RESOURCE_DECLARATION) {
-                collectResourcePropertyTypeHints(element, sink);
-            }
-
-            // Show type hints for COMPONENT instantiation input assignments
-            if (settings.showTypeHints && elementType == KiteElementTypes.COMPONENT_DECLARATION) {
-                // Check if this is a component instantiation (has two identifiers: type and instance name)
-                if (isComponentInstantiation(element.getNode())) {
-                    collectComponentInputTypeHints(element, sink);
-                }
-            }
-
-            // Show parameter hints for function calls
-            if (settings.showParameterHints) {
-                // Function calls are identifiers followed by parentheses with arguments
-                if (elementType == KiteTokenTypes.IDENTIFIER) {
-                    collectParameterHints(element, sink);
-                }
-            }
-
-            return true;
-        }
-
-        /**
-         * Collect type hints for VAR declarations.
-         * Shows inferred type when the type is not explicitly specified.
-         * <p>
-         * Example: var x = "hello"  ->  var x: string = "hello"
-         */
-        private void collectTypeHints(PsiElement varDeclaration, InlayHintsSink sink) {
-            ASTNode node = varDeclaration.getNode();
-            if (node == null) return;
+            /**
+             * Collect type hints for VAR declarations.
+             * Shows inferred type when the type is not explicitly specified.
+             * <p>
+             * Example: var x = "hello"  ->  var x: string = "hello"
+             */
+            private void collectTypeHints(PsiElement varDeclaration, InlayHintsSink sink) {
+                ASTNode node = varDeclaration.getNode();
+                if (node == null) return;
 
 
-            // Check if type is already explicitly specified
-            // VAR_DECLARATION structure: VAR <type>? <name> = <value>
-            ASTNode[] children = node.getChildren(null);
+                // Check if type is already explicitly specified
+                // VAR_DECLARATION structure: VAR <type>? <name> = <value>
+                ASTNode[] children = node.getChildren(null);
 
-            boolean hasExplicitType = false;
-            ASTNode nameNode = null;
-            ASTNode valueNode = null;
-            ASTNode assignNode = null;  // Track the = sign position
-            boolean foundEquals = false;
+                boolean hasExplicitType = false;
+                ASTNode nameNode = null;
+                ASTNode valueNode = null;
+                ASTNode assignNode = null;  // Track the = sign position
+                boolean foundEquals = false;
 
-            for (ASTNode child : children) {
-                IElementType childType = child.getElementType();
+                for (ASTNode child : children) {
+                    IElementType childType = child.getElementType();
 
-                // Skip whitespace and newlines (both Kite tokens and IntelliJ's built-in whitespace)
-                if (childType == KiteTokenTypes.WHITESPACE ||
-                    childType == KiteTokenTypes.NL ||
-                    childType == KiteTokenTypes.NEWLINE ||
-                    childType == TokenType.WHITE_SPACE) {
-                    continue;
-                }
+                    // Skip whitespace and newlines (both Kite tokens and IntelliJ's built-in whitespace)
+                    if (childType == KiteTokenTypes.WHITESPACE ||
+                        childType == KiteTokenTypes.NL ||
+                        childType == KiteTokenTypes.NEWLINE ||
+                        childType == TokenType.WHITE_SPACE) {
+                        continue;
+                    }
 
-                // Skip the VAR keyword
-                if (childType == KiteTokenTypes.VAR) {
-                    continue;
-                }
+                    // Skip the VAR keyword
+                    if (childType == KiteTokenTypes.VAR) {
+                        continue;
+                    }
 
-                // Skip decorators (identified by @ symbol)
-                if (childType == KiteTokenTypes.AT) {
-                    // Skip the decorator and its content
-                    continue;
-                }
+                    // Skip decorators (identified by @ symbol)
+                    if (childType == KiteTokenTypes.AT) {
+                        // Skip the decorator and its content
+                        continue;
+                    }
 
-                if (childType == KiteTokenTypes.ASSIGN) {
-                    assignNode = child;  // Remember the = position
-                    foundEquals = true;
-                    continue;
-                }
+                    if (childType == KiteTokenTypes.ASSIGN) {
+                        assignNode = child;  // Remember the = position
+                        foundEquals = true;
+                        continue;
+                    }
 
-                if (!foundEquals) {
-                    // Before equals: could be type or name
-                    if (childType == KiteTokenTypes.IDENTIFIER) {
-                        if (nameNode == null) {
-                            // First identifier - could be type or name
-                            nameNode = child;
-                        } else {
-                            // Second identifier - first was type, this is name
+                    if (!foundEquals) {
+                        // Before equals: could be type or name
+                        if (childType == KiteTokenTypes.IDENTIFIER) {
+                            if (nameNode == null) {
+                                // First identifier - could be type or name
+                                nameNode = child;
+                            } else {
+                                // Second identifier - first was type, this is name
+                                hasExplicitType = true;
+                                nameNode = child;
+                            }
+                        }
+                        // Check for built-in type keywords (object, any) or type identifiers
+                        else if (isTypeKeyword(childType) ||
+                                 (childType == KiteTokenTypes.IDENTIFIER && isBuiltInTypeName(child.getText()))) {
                             hasExplicitType = true;
-                            nameNode = child;
                         }
-                    }
-                    // Check for built-in type keywords (object, any) or type identifiers
-                    else if (isTypeKeyword(childType) ||
-                             (childType == KiteTokenTypes.IDENTIFIER && isBuiltInTypeName(child.getText()))) {
-                        hasExplicitType = true;
-                    }
-                } else {
-                    // After equals: this is the value
-                    valueNode = child;
-                    break;
-                }
-            }
-
-            // Only show hint if no explicit type and we have a name and value
-            if (!hasExplicitType && nameNode != null && valueNode != null) {
-                String inferredType = inferType(valueNode);
-                if (inferredType != null) {
-                    // Place hint right after the variable name
-                    int offset = nameNode.getTextRange().getEndOffset();
-                    PresentationFactory factory = new PresentationFactory(editor);
-                    // Use roundWithBackground for proper vertical baseline alignment
-                    InlayPresentation text = factory.smallText(":" + inferredType);
-                    InlayPresentation presentation = factory.roundWithBackground(text);
-                    sink.addInlineElement(offset, true, presentation, false);
-                }
-            }
-        }
-
-        /**
-         * Collect type hints for resource property assignments.
-         * Looks up the property type from the matching schema.
-         * <p>
-         * Example: resource DatabaseConfig photos { host = "..." } shows ": string" after "host"
-         */
-        private void collectResourcePropertyTypeHints(PsiElement resourceDeclaration, InlayHintsSink sink) {
-            ASTNode node = resourceDeclaration.getNode();
-            if (node == null) return;
-
-
-            // Get the resource type name (first identifier after RESOURCE keyword)
-            String schemaName = getResourceTypeName(node);
-            if (schemaName == null) return;
-
-            // Find the matching schema
-            PsiFile file = resourceDeclaration.getContainingFile();
-            if (file == null) return;
-
-            java.util.Map<String, String> schemaProperties = findSchemaProperties(file, schemaName);
-            if (schemaProperties.isEmpty()) return;
-
-            // Find property assignments inside the resource body
-            boolean insideBraces = false;
-            for (ASTNode child : node.getChildren(null)) {
-                IElementType childType = child.getElementType();
-
-                if (childType == KiteTokenTypes.LBRACE) {
-                    insideBraces = true;
-                    continue;
-                }
-                if (childType == KiteTokenTypes.RBRACE) {
-                    break;
-                }
-
-                // Look for property assignments: identifier = value
-                if (insideBraces && childType == KiteTokenTypes.IDENTIFIER) {
-                    String propertyName = child.getText();
-
-                    // Check if followed by =
-                    ASTNode next = child.getTreeNext();
-                    while (next != null && KitePsiUtil.isWhitespace(next.getElementType())) {
-                        next = next.getTreeNext();
-                    }
-
-                    if (next != null && next.getElementType() == KiteTokenTypes.ASSIGN) {
-                        // This is a property assignment - look up the type from schema
-                        String propertyType = schemaProperties.get(propertyName);
-                        if (propertyType != null) {
-                            int offset = child.getTextRange().getEndOffset();
-                            PresentationFactory factory = new PresentationFactory(editor);
-                            InlayPresentation text = factory.smallText(":" + propertyType);
-                            InlayPresentation presentation = factory.roundWithBackground(text);
-                            sink.addInlineElement(offset, true, presentation, false);
-                        }
-                    }
-                }
-            }
-        }
-
-        /**
-         * Get the resource type name from a resource declaration.
-         * Pattern: resource TypeName instanceName { ... }
-         * Returns the first identifier after RESOURCE keyword.
-         *
-         * @see KiteSchemaHelper#extractResourceTypeName(PsiElement)
-         */
-        @Nullable
-        private String getResourceTypeName(ASTNode resourceNode) {
-            var psi = resourceNode.getPsi();
-            return psi != null ? KiteSchemaHelper.extractResourceTypeName(psi) : null;
-        }
-
-        /**
-         * Find schema properties by name. Returns a map of property name to type.
-         * Searches in current file and imported files.
-         *
-         * @see KiteSchemaHelper#findSchemaProperties(PsiFile, String)
-         */
-        private java.util.Map<String, String> findSchemaProperties(PsiFile file, String schemaName) {
-            // Delegate to KiteSchemaHelper and extract just the type names
-            java.util.Map<String, KiteSchemaHelper.SchemaPropertyInfo> fullProperties =
-                KiteSchemaHelper.findSchemaProperties(file, schemaName);
-
-            java.util.Map<String, String> properties = new java.util.HashMap<>();
-            for (java.util.Map.Entry<String, KiteSchemaHelper.SchemaPropertyInfo> entry : fullProperties.entrySet()) {
-                properties.put(entry.getKey(), entry.getValue().type);
-            }
-            return properties;
-        }
-
-        /**
-         * Check if a COMPONENT_DECLARATION is a component instantiation (not a definition).
-         * Instantiation: component TypeName instanceName { ... } (two identifiers)
-         * Definition: component TypeName { ... } (one identifier)
-         */
-        private boolean isComponentInstantiation(ASTNode componentNode) {
-            var psi = componentNode.getPsi();
-            return psi != null && KiteSchemaHelper.isComponentInstantiation(psi);
-        }
-
-        /**
-         * Get the component type name from a component instantiation.
-         * Pattern: component TypeName instanceName { ... }
-         * Returns the type name only if this is an instantiation (2 identifiers before {).
-         */
-        @Nullable
-        private String getComponentTypeName(ASTNode componentNode) {
-            var psi = componentNode.getPsi();
-            return psi != null ? KiteSchemaHelper.extractComponentTypeName(psi) : null;
-        }
-
-        /**
-         * Collect type hints for component instantiation input assignments.
-         * Looks up the input types from the component definition.
-         * <p>
-         * Example: component WebServer api { name = "payments" } shows ":string" after "name"
-         */
-        private void collectComponentInputTypeHints(PsiElement componentInstantiation, InlayHintsSink sink) {
-            ASTNode node = componentInstantiation.getNode();
-            if (node == null) return;
-
-
-            // Get the component type name (first identifier after COMPONENT keyword)
-            String componentTypeName = getComponentTypeName(node);
-            if (componentTypeName == null) return;
-
-            // Find the component definition and get input types
-            PsiFile file = componentInstantiation.getContainingFile();
-            if (file == null) return;
-
-            java.util.Map<String, String> inputTypes = findComponentInputTypes(file, componentTypeName);
-            if (inputTypes.isEmpty()) return;
-
-            // Find input assignments inside the component body
-            boolean insideBraces = false;
-            for (ASTNode child : node.getChildren(null)) {
-                IElementType childType = child.getElementType();
-
-                if (childType == KiteTokenTypes.LBRACE) {
-                    insideBraces = true;
-                    continue;
-                }
-                if (childType == KiteTokenTypes.RBRACE) {
-                    break;
-                }
-
-                // Look for input assignments: identifier = value
-                if (insideBraces && childType == KiteTokenTypes.IDENTIFIER) {
-                    String inputName = child.getText();
-
-                    // Check if followed by =
-                    ASTNode next = child.getTreeNext();
-                    while (next != null && KitePsiUtil.isWhitespace(next.getElementType())) {
-                        next = next.getTreeNext();
-                    }
-
-                    if (next != null && next.getElementType() == KiteTokenTypes.ASSIGN) {
-                        // This is an input assignment - look up the type from component definition
-                        String inputType = inputTypes.get(inputName);
-                        if (inputType != null) {
-                            int offset = child.getTextRange().getEndOffset();
-                            PresentationFactory factory = new PresentationFactory(editor);
-                            InlayPresentation text = factory.smallText(":" + inputType);
-                            InlayPresentation presentation = factory.roundWithBackground(text);
-                            sink.addInlineElement(offset, true, presentation, false);
-                        }
-                    }
-                }
-            }
-        }
-
-        /**
-         * Find component input types by searching for the component definition.
-         * Returns a map of input name to type.
-         */
-        private java.util.Map<String, String> findComponentInputTypes(PsiFile file, String componentTypeName) {
-            var inputTypes = new java.util.HashMap<String, String>();
-
-            // Search in current file
-            findComponentInputTypesRecursive(file.getNode(), componentTypeName, inputTypes);
-
-            // If not found, search in imported files
-            if (inputTypes.isEmpty()) {
-                KiteImportHelper.forEachImport(file, importedFile ->
-                        findComponentInputTypesRecursive(importedFile.getNode(), componentTypeName, inputTypes));
-            }
-
-            return inputTypes;
-        }
-
-        /**
-         * Recursively search for a component definition and extract its input types.
-         */
-        private void findComponentInputTypesRecursive(ASTNode node, String componentTypeName, java.util.Map<String, String> inputTypes) {
-            if (node == null) return;
-
-            if (node.getElementType() == KiteElementTypes.COMPONENT_DECLARATION) {
-                // Check if this is the component definition (not instantiation) we're looking for
-                if (!isComponentInstantiation(node)) {
-                    String name = getComponentTypeName(node);
-                    if (componentTypeName.equals(name)) {
-                        extractComponentInputTypes(node, inputTypes);
-                        return;
-                    }
-                }
-            }
-
-            // Recurse into children
-            for (ASTNode child : node.getChildren(null)) {
-                findComponentInputTypesRecursive(child, componentTypeName, inputTypes);
-                if (!inputTypes.isEmpty()) return; // Found it
-            }
-        }
-
-        /**
-         * Extract input declarations from a component definition.
-         * Pattern inside component: input type name [= defaultValue]
-         */
-        private void extractComponentInputTypes(ASTNode componentNode, java.util.Map<String, String> inputTypes) {
-            boolean insideBraces = false;
-
-            for (ASTNode child : componentNode.getChildren(null)) {
-                IElementType childType = child.getElementType();
-
-                if (childType == KiteTokenTypes.LBRACE) {
-                    insideBraces = true;
-                    continue;
-                }
-                if (childType == KiteTokenTypes.RBRACE) {
-                    break;
-                }
-
-                if (!insideBraces) continue;
-
-                // Look for INPUT_DECLARATION elements
-                if (childType == KiteElementTypes.INPUT_DECLARATION) {
-                    extractInputDeclaration(child, inputTypes);
-                }
-            }
-        }
-
-        /**
-         * Extract type and name from an input declaration.
-         * Pattern: input type name [= defaultValue]
-         */
-        private void extractInputDeclaration(ASTNode inputDeclNode, java.util.Map<String, String> inputTypes) {
-            boolean foundInput = false;
-            String currentType = null;
-
-            for (ASTNode child : inputDeclNode.getChildren(null)) {
-                IElementType childType = child.getElementType();
-
-                // Skip whitespace
-                if (KitePsiUtil.isWhitespace(childType)) continue;
-
-                if (childType == KiteTokenTypes.INPUT) {
-                    foundInput = true;
-                    continue;
-                }
-
-                if (!foundInput) continue;
-
-                // Handle 'any' keyword as type
-                if (childType == KiteTokenTypes.ANY) {
-                    currentType = "any";
-                    continue;
-                }
-
-                // Handle array suffix []
-                if (childType == KiteElementTypes.ARRAY_LITERAL && currentType != null) {
-                    currentType = currentType + "[]";
-                    continue;
-                }
-
-                // Track type -> name pattern
-                if (childType == KiteTokenTypes.IDENTIFIER) {
-                    if (currentType == null) {
-                        // First identifier is the type
-                        currentType = child.getText();
                     } else {
-                        // Second identifier is the input name
-                        inputTypes.put(child.getText(), currentType);
-                        return; // Done with this input declaration
+                        // After equals: this is the value
+                        valueNode = child;
+                        break;
                     }
                 }
 
-                // Stop at = (rest is default value)
-                if (childType == KiteTokenTypes.ASSIGN) {
-                    return;
+                // Only show hint if no explicit type and we have a name and value
+                if (!hasExplicitType && nameNode != null && valueNode != null) {
+                    String inferredType = inferType(valueNode);
+                    if (inferredType != null) {
+                        // Place hint right after the variable name
+                        int offset = nameNode.getTextRange().getEndOffset();
+                        PresentationFactory factory = new PresentationFactory(editor);
+                        // Use roundWithBackground for proper vertical baseline alignment
+                        InlayPresentation text = factory.smallText(":" + inferredType);
+                        InlayPresentation presentation = factory.roundWithBackground(text);
+                        sink.addInlineElement(offset, true, presentation, false);
+                    }
                 }
             }
-        }
 
-        /**
-         * Check if the element type is a type keyword (object, any) or an identifier that
-         * represents a type. In Kite, built-in types like string, number, boolean are
-         * just identifiers in type position.
-         */
-        private boolean isTypeKeyword(IElementType type) {
-            // Only OBJECT and ANY are actual type keywords in KiteTokenTypes
-            // string, number, boolean are regular identifiers when used as types
-            return type == KiteTokenTypes.OBJECT ||
-                   type == KiteTokenTypes.ANY;
-        }
+            /**
+             * Collect type hints for resource property assignments.
+             * Looks up the property type from the matching schema.
+             * <p>
+             * Example: resource DatabaseConfig photos { host = "..." } shows ": string" after "host"
+             */
+            private void collectResourcePropertyTypeHints(PsiElement resourceDeclaration, InlayHintsSink sink) {
+                ASTNode node = resourceDeclaration.getNode();
+                if (node == null) return;
 
-        /**
-         * Check if an identifier text represents a built-in type name.
-         */
-        private boolean isBuiltInTypeName(String text) {
-            return "string".equals(text) ||
-                   "number".equals(text) ||
-                   "boolean".equals(text) ||
-                   "object".equals(text) ||
-                   "any".equals(text) ||
-                   "void".equals(text);
-        }
 
-        /**
-         * Infer the type from a value node.
-         */
-        private String inferType(ASTNode valueNode) {
-            if (valueNode == null) return null;
+                // Get the resource type name (first identifier after RESOURCE keyword)
+                String schemaName = getResourceTypeName(node);
+                if (schemaName == null) return;
 
-            IElementType valueType = valueNode.getElementType();
+                // Find the matching schema
+                PsiFile file = resourceDeclaration.getContainingFile();
+                if (file == null) return;
 
-            // String literal - can be STRING token or DQUOTE (opening quote of interpolated string)
-            // Also check for SINGLE_STRING which is single-quoted strings
-            if (valueType == KiteTokenTypes.STRING ||
-                valueType == KiteTokenTypes.DQUOTE ||
-                valueType == KiteTokenTypes.SINGLE_STRING) {
-                return "string";
-            }
+                Map<String, String> schemaProperties = findSchemaProperties(file, schemaName);
+                if (schemaProperties.isEmpty()) return;
 
-            // Number literal
-            if (valueType == KiteTokenTypes.NUMBER) {
-                return "number";
-            }
+                // Find property assignments inside the resource body
+                boolean insideBraces = false;
+                for (ASTNode child : node.getChildren(null)) {
+                    IElementType childType = child.getElementType();
 
-            // Boolean literals
-            if (valueType == KiteTokenTypes.TRUE || valueType == KiteTokenTypes.FALSE) {
-                return "boolean";
-            }
-
-            // Null literal
-            if (valueType == KiteTokenTypes.NULL) {
-                return "null";
-            }
-
-            // Object literal
-            if (valueType == KiteElementTypes.OBJECT_LITERAL) {
-                return "object";
-            }
-
-            // Array literal
-            if (valueType == KiteElementTypes.ARRAY_LITERAL) {
-                return "array";
-            }
-
-            // Check if this is a function call, property access, or identifier
-            if (valueType == KiteTokenTypes.IDENTIFIER) {
-                String identifierName = valueNode.getText();
-
-                // Check what follows the identifier
-                ASTNode next = valueNode.getTreeNext();
-                while (next != null && KitePsiUtil.isWhitespace(next.getElementType())) {
-                    next = next.getTreeNext();
-                }
-
-                if (next != null && next.getElementType() == KiteTokenTypes.LPAREN) {
-                    // This is a function call - get return type
-                    PsiElement psi = valueNode.getPsi();
-                    if (psi != null && psi.getContainingFile() != null) {
-                        return inferTypeFromFunctionCall(psi.getContainingFile(), identifierName);
+                    if (childType == KiteTokenTypes.LBRACE) {
+                        insideBraces = true;
+                        continue;
                     }
-                } else if (next != null && next.getElementType() == KiteTokenTypes.DOT) {
-                    // This is a property access (e.g., api.endpoint) - look up property type
-                    ASTNode propNode = next.getTreeNext();
-                    while (propNode != null && KitePsiUtil.isWhitespace(propNode.getElementType())) {
-                        propNode = propNode.getTreeNext();
+                    if (childType == KiteTokenTypes.RBRACE) {
+                        break;
                     }
-                    if (propNode != null && propNode.getElementType() == KiteTokenTypes.IDENTIFIER) {
-                        String propertyName = propNode.getText();
-                        PsiElement psi = valueNode.getPsi();
-                        if (psi != null && psi.getContainingFile() != null) {
-                            return inferTypeFromPropertyAccess(psi.getContainingFile(), identifierName, propertyName);
+
+                    // Look for property assignments: identifier = value
+                    if (insideBraces && childType == KiteTokenTypes.IDENTIFIER) {
+                        String propertyName = child.getText();
+
+                        // Check if followed by =
+                        ASTNode next = child.getTreeNext();
+                        while (next != null && KitePsiUtil.isWhitespace(next.getElementType())) {
+                            next = next.getTreeNext();
+                        }
+
+                        if (next != null && next.getElementType() == KiteTokenTypes.ASSIGN) {
+                            // This is a property assignment - look up the type from schema
+                            String propertyType = schemaProperties.get(propertyName);
+                            if (propertyType != null) {
+                                int offset = child.getTextRange().getEndOffset();
+                                PresentationFactory factory = new PresentationFactory(editor);
+                                InlayPresentation text = factory.smallText(":" + propertyType);
+                                InlayPresentation presentation = factory.roundWithBackground(text);
+                                sink.addInlineElement(offset, true, presentation, false);
+                            }
                         }
                     }
-                } else {
-                    // Regular identifier reference - look up its type
-                    PsiElement psi = valueNode.getPsi();
-                    if (psi != null && psi.getContainingFile() != null) {
-                        return inferTypeFromIdentifier(psi.getContainingFile(), identifierName);
+                }
+            }
+
+            /**
+             * Get the resource type name from a resource declaration.
+             * Pattern: resource TypeName instanceName { ... }
+             * Returns the first identifier after RESOURCE keyword.
+             *
+             * @see KiteSchemaHelper#extractResourceTypeName(PsiElement)
+             */
+            @Nullable
+            private String getResourceTypeName(ASTNode resourceNode) {
+                var psi = resourceNode.getPsi();
+                return psi != null ? KiteSchemaHelper.extractResourceTypeName(psi) : null;
+            }
+
+            /**
+             * Find schema properties by name. Returns a map of property name to type.
+             * Searches in current file and imported files.
+             *
+             * @see KiteSchemaHelper#findSchemaProperties(PsiFile, String)
+             */
+            private Map<String, String> findSchemaProperties(PsiFile file, String schemaName) {
+                // Delegate to KiteSchemaHelper and extract just the type names
+                Map<String, KiteSchemaHelper.SchemaPropertyInfo> fullProperties =
+                        KiteSchemaHelper.findSchemaProperties(file, schemaName);
+
+                Map<String, String> properties = new HashMap<>();
+                for (Map.Entry<String, KiteSchemaHelper.SchemaPropertyInfo> entry : fullProperties.entrySet()) {
+                    properties.put(entry.getKey(), entry.getValue().type());
+                }
+                return properties;
+            }
+
+            /**
+             * Check if a COMPONENT_DECLARATION is a component instantiation (not a definition).
+             * Instantiation: component TypeName instanceName { ... } (two identifiers)
+             * Definition: component TypeName { ... } (one identifier)
+             */
+            private boolean isComponentInstantiation(ASTNode componentNode) {
+                var psi = componentNode.getPsi();
+                return psi != null && KiteSchemaHelper.isComponentInstantiation(psi);
+            }
+
+            /**
+             * Get the component type name from a component instantiation.
+             * Pattern: component TypeName instanceName { ... }
+             * Returns the type name only if this is an instantiation (2 identifiers before {).
+             */
+            @Nullable
+            private String getComponentTypeName(ASTNode componentNode) {
+                var psi = componentNode.getPsi();
+                return psi != null ? KiteSchemaHelper.extractComponentTypeName(psi) : null;
+            }
+
+            /**
+             * Collect type hints for component instantiation input assignments.
+             * Looks up the input types from the component definition.
+             * <p>
+             * Example: component WebServer api { name = "payments" } shows ":string" after "name"
+             */
+            private void collectComponentInputTypeHints(PsiElement componentInstantiation, InlayHintsSink sink) {
+                ASTNode node = componentInstantiation.getNode();
+                if (node == null) return;
+
+
+                // Get the component type name (first identifier after COMPONENT keyword)
+                String componentTypeName = getComponentTypeName(node);
+                if (componentTypeName == null) return;
+
+                // Find the component definition and get input types
+                PsiFile file = componentInstantiation.getContainingFile();
+                if (file == null) return;
+
+                Map<String, String> inputTypes = findComponentInputTypes(file, componentTypeName);
+                if (inputTypes.isEmpty()) return;
+
+                // Find input assignments inside the component body
+                boolean insideBraces = false;
+                for (ASTNode child : node.getChildren(null)) {
+                    IElementType childType = child.getElementType();
+
+                    if (childType == KiteTokenTypes.LBRACE) {
+                        insideBraces = true;
+                        continue;
+                    }
+                    if (childType == KiteTokenTypes.RBRACE) {
+                        break;
+                    }
+
+                    // Look for input assignments: identifier = value
+                    if (insideBraces && childType == KiteTokenTypes.IDENTIFIER) {
+                        String inputName = child.getText();
+
+                        // Check if followed by =
+                        ASTNode next = child.getTreeNext();
+                        while (next != null && KitePsiUtil.isWhitespace(next.getElementType())) {
+                            next = next.getTreeNext();
+                        }
+
+                        if (next != null && next.getElementType() == KiteTokenTypes.ASSIGN) {
+                            // This is an input assignment - look up the type from component definition
+                            String inputType = inputTypes.get(inputName);
+                            if (inputType != null) {
+                                int offset = child.getTextRange().getEndOffset();
+                                PresentationFactory factory = new PresentationFactory(editor);
+                                InlayPresentation text = factory.smallText(":" + inputType);
+                                InlayPresentation presentation = factory.roundWithBackground(text);
+                                sink.addInlineElement(offset, true, presentation, false);
+                            }
+                        }
                     }
                 }
             }
 
-            // For other expressions we can't easily infer the type
-            return null;
-        }
+            /**
+             * Find component input types by searching for the component definition.
+             * Returns a map of input name to type.
+             */
+            private Map<String, String> findComponentInputTypes(PsiFile file, String componentTypeName) {
+                var inputTypes = new HashMap<String, String>();
 
-        /**
-         * Infer type from an identifier by looking up its declaration.
-         */
-        @Nullable
-        private String inferTypeFromIdentifier(PsiFile file, String identifierName) {
-            // Search in current file
-            var type = findIdentifierType(file.getNode(), identifierName);
-            if (type != null) return type;
+                // Search in current file
+                findComponentInputTypesRecursive(file.getNode(), componentTypeName, inputTypes);
 
-            // Search in imported files
-            return KiteImportHelper.searchInImports(file,
-                    importedFile -> findIdentifierType(importedFile.getNode(), identifierName));
-        }
+                // If not found, search in imported files
+                if (inputTypes.isEmpty()) {
+                    KiteImportHelper.forEachImport(file, importedFile ->
+                            findComponentInputTypesRecursive(importedFile.getNode(), componentTypeName, inputTypes));
+                }
 
-        /**
-         * Find the type of an identifier from declarations in the given node.
-         */
-        @Nullable
-        private String findIdentifierType(ASTNode node, String identifierName) {
-            if (node == null) return null;
+                return inputTypes;
+            }
 
-            IElementType nodeType = node.getElementType();
+            /**
+             * Recursively search for a component definition and extract its input types.
+             */
+            private void findComponentInputTypesRecursive(ASTNode node, String componentTypeName, Map<String, String> inputTypes) {
+                if (node == null) return;
 
-            // Check variable, input, output declarations
-            if (nodeType == KiteElementTypes.VARIABLE_DECLARATION ||
-                nodeType == KiteElementTypes.INPUT_DECLARATION ||
-                nodeType == KiteElementTypes.OUTPUT_DECLARATION) {
+                if (node.getElementType() == KiteElementTypes.COMPONENT_DECLARATION) {
+                    // Check if this is the component definition (not instantiation) we're looking for
+                    if (!isComponentInstantiation(node)) {
+                        String name = getComponentTypeName(node);
+                        if (componentTypeName.equals(name)) {
+                            extractComponentInputTypes(node, inputTypes);
+                            return;
+                        }
+                    }
+                }
 
-                String declName = extractDeclarationName(node, nodeType);
-                if (identifierName.equals(declName)) {
-                    return extractDeclarationType(node, nodeType);
+                // Recurse into children
+                for (ASTNode child : node.getChildren(null)) {
+                    findComponentInputTypesRecursive(child, componentTypeName, inputTypes);
+                    if (!inputTypes.isEmpty()) return; // Found it
                 }
             }
 
-            // Recurse into children
-            for (ASTNode child : node.getChildren(null)) {
-                String result = findIdentifierType(child, identifierName);
-                if (result != null) return result;
+            /**
+             * Extract input declarations from a component definition.
+             * Pattern inside component: input type name [= defaultValue]
+             */
+            private void extractComponentInputTypes(ASTNode componentNode, Map<String, String> inputTypes) {
+                boolean insideBraces = false;
+
+                for (ASTNode child : componentNode.getChildren(null)) {
+                    IElementType childType = child.getElementType();
+
+                    if (childType == KiteTokenTypes.LBRACE) {
+                        insideBraces = true;
+                        continue;
+                    }
+                    if (childType == KiteTokenTypes.RBRACE) {
+                        break;
+                    }
+
+                    if (!insideBraces) continue;
+
+                    // Look for INPUT_DECLARATION elements
+                    if (childType == KiteElementTypes.INPUT_DECLARATION) {
+                        extractInputDeclaration(child, inputTypes);
+                    }
+                }
             }
 
-            return null;
-        }
+            /**
+             * Extract type and name from an input declaration.
+             * Pattern: input type name [= defaultValue]
+             */
+            private void extractInputDeclaration(ASTNode inputDeclNode, Map<String, String> inputTypes) {
+                boolean foundInput = false;
+                String currentType = null;
 
-        /**
-         * Infer type from a function call by looking up the function's return type.
-         */
-        @Nullable
-        private String inferTypeFromFunctionCall(PsiFile file, String functionName) {
-            // Search in current file
-            var type = findFunctionReturnType(file.getNode(), functionName);
-            if (type != null) return type;
-
-            // Search in imported files
-            return KiteImportHelper.searchInImports(file,
-                    importedFile -> findFunctionReturnType(importedFile.getNode(), functionName));
-        }
-
-        /**
-         * Find a function's return type by searching for its declaration.
-         */
-        @Nullable
-        private String findFunctionReturnType(ASTNode node, String functionName) {
-            if (node == null) return null;
-
-            if (node.getElementType() == KiteElementTypes.FUNCTION_DECLARATION) {
-                // Check if this is the function we're looking for
-                // Pattern: fun name(params) returnType { }
-                boolean foundFun = false;
-                boolean foundName = false;
-                boolean foundRparen = false;
-                String returnType = null;
-
-                for (ASTNode child : node.getChildren(null)) {
+                for (ASTNode child : inputDeclNode.getChildren(null)) {
                     IElementType childType = child.getElementType();
 
                     // Skip whitespace
                     if (KitePsiUtil.isWhitespace(childType)) continue;
 
-                    if (childType == KiteTokenTypes.FUN) {
-                        foundFun = true;
+                    if (childType == KiteTokenTypes.INPUT) {
+                        foundInput = true;
                         continue;
                     }
 
-                    if (foundFun && !foundName && childType == KiteTokenTypes.IDENTIFIER) {
-                        if (child.getText().equals(functionName)) {
-                            foundName = true;
+                    if (!foundInput) continue;
+
+                    // Handle 'any' keyword as type
+                    if (childType == KiteTokenTypes.ANY) {
+                        currentType = "any";
+                        continue;
+                    }
+
+                    // Handle array suffix []
+                    if (childType == KiteElementTypes.ARRAY_LITERAL && currentType != null) {
+                        currentType = currentType + "[]";
+                        continue;
+                    }
+
+                    // Track type -> name pattern
+                    if (childType == KiteTokenTypes.IDENTIFIER) {
+                        if (currentType == null) {
+                            // First identifier is the type
+                            currentType = child.getText();
                         } else {
-                            // Not the function we're looking for
-                            break;
-                        }
-                        continue;
-                    }
-
-                    if (foundName && childType == KiteTokenTypes.RPAREN) {
-                        foundRparen = true;
-                        continue;
-                    }
-
-                    // After RPAREN, look for return type (before LBRACE)
-                    if (foundRparen) {
-                        if (childType == KiteTokenTypes.LBRACE) {
-                            // No explicit return type, or we've passed it
-                            break;
-                        }
-                        if (childType == KiteTokenTypes.IDENTIFIER) {
-                            returnType = child.getText();
-                            // Check for array suffix
-                            ASTNode nextSib = child.getTreeNext();
-                            while (nextSib != null && KitePsiUtil.isWhitespace(nextSib.getElementType())) {
-                                nextSib = nextSib.getTreeNext();
-                            }
-                            if (nextSib != null && nextSib.getElementType() == KiteTokenTypes.LBRACK) {
-                                returnType = returnType + "[]";
-                            }
-                            return returnType;
-                        }
-                        if (childType == KiteTokenTypes.ANY) {
-                            return "any";
-                        }
-                    }
-                }
-            }
-
-            // Recurse into children
-            for (ASTNode child : node.getChildren(null)) {
-                String result = findFunctionReturnType(child, functionName);
-                if (result != null) return result;
-            }
-
-            return null;
-        }
-
-        /**
-         * Infer type from a property access expression (e.g., api.endpoint).
-         * Resolves the object, then looks up the property type.
-         */
-        @Nullable
-        private String inferTypeFromPropertyAccess(PsiFile file, String objectName, String propertyName) {
-            // First, find what type 'objectName' is (should be a component instance or resource)
-            var objectType = findComponentOrResourceType(file.getNode(), objectName);
-            if (objectType == null) {
-                // Check in imports
-                objectType = KiteImportHelper.searchInImports(file,
-                        importedFile -> findComponentOrResourceType(importedFile.getNode(), objectName));
-            }
-
-            if (objectType == null) return null;
-
-            // Now look up the output type from the component definition
-            var outputTypes = findComponentOutputTypes(file, objectType);
-            return outputTypes.get(propertyName);
-        }
-
-        /**
-         * Find the component or resource type for a given instance name.
-         * Pattern: component TypeName instanceName { } or resource TypeName instanceName { }
-         */
-        @Nullable
-        private String findComponentOrResourceType(ASTNode node, String instanceName) {
-            if (node == null) return null;
-
-            IElementType nodeType = node.getElementType();
-
-            if (nodeType == KiteElementTypes.COMPONENT_DECLARATION ||
-                nodeType == KiteElementTypes.RESOURCE_DECLARATION) {
-
-                // Look for pattern: keyword TypeName instanceName
-                boolean foundKeyword = false;
-                String typeName = null;
-
-                for (ASTNode child : node.getChildren(null)) {
-                    IElementType childType = child.getElementType();
-
-                    if (KitePsiUtil.isWhitespace(childType)) continue;
-
-                    if (childType == KiteTokenTypes.COMPONENT || childType == KiteTokenTypes.RESOURCE) {
-                        foundKeyword = true;
-                        continue;
-                    }
-
-                    if (foundKeyword && childType == KiteTokenTypes.IDENTIFIER) {
-                        if (typeName == null) {
-                            typeName = child.getText();
-                        } else {
-                            // Second identifier is the instance name
-                            if (child.getText().equals(instanceName)) {
-                                return typeName;
-                            }
-                            break;
+                            // Second identifier is the input name
+                            inputTypes.put(child.getText(), currentType);
+                            return; // Done with this input declaration
                         }
                     }
 
-                    if (childType == KiteTokenTypes.LBRACE) break;
-                }
-            }
-
-            // Recurse into children
-            for (ASTNode child : node.getChildren(null)) {
-                String result = findComponentOrResourceType(child, instanceName);
-                if (result != null) return result;
-            }
-
-            return null;
-        }
-
-        /**
-         * Find component output types by searching for the component definition.
-         * Returns a map of output name to type.
-         */
-        private java.util.Map<String, String> findComponentOutputTypes(PsiFile file, String componentTypeName) {
-            var outputTypes = new java.util.HashMap<String, String>();
-
-            // Search in current file
-            findComponentOutputTypesRecursive(file.getNode(), componentTypeName, outputTypes);
-
-            // If not found, search in imported files
-            if (outputTypes.isEmpty()) {
-                KiteImportHelper.forEachImport(file, importedFile ->
-                        findComponentOutputTypesRecursive(importedFile.getNode(), componentTypeName, outputTypes));
-            }
-
-            return outputTypes;
-        }
-
-        /**
-         * Recursively search for a component definition and extract its output types.
-         */
-        private void findComponentOutputTypesRecursive(ASTNode node, String componentTypeName,
-                                                       java.util.Map<String, String> outputTypes) {
-            if (node == null) return;
-
-            if (node.getElementType() == KiteElementTypes.COMPONENT_DECLARATION) {
-                // Check if this is the component definition (not instantiation) we're looking for
-                if (!isComponentInstantiation(node)) {
-                    String name = getComponentTypeName(node);
-                    if (componentTypeName.equals(name)) {
-                        extractComponentOutputTypes(node, outputTypes);
+                    // Stop at = (rest is default value)
+                    if (childType == KiteTokenTypes.ASSIGN) {
                         return;
                     }
                 }
             }
 
-            // Recurse into children
-            for (ASTNode child : node.getChildren(null)) {
-                findComponentOutputTypesRecursive(child, componentTypeName, outputTypes);
-                if (!outputTypes.isEmpty()) return; // Found it
+            /**
+             * Check if the element type is a type keyword (object, any) or an identifier that
+             * represents a type. In Kite, built-in types like string, number, boolean are
+             * just identifiers in type position.
+             */
+            private boolean isTypeKeyword(IElementType type) {
+                // Only OBJECT and ANY are actual type keywords in KiteTokenTypes
+                // string, number, boolean are regular identifiers when used as types
+                return type == KiteTokenTypes.OBJECT ||
+                       type == KiteTokenTypes.ANY;
             }
-        }
 
-        /**
-         * Extract output declarations from a component definition.
-         * Pattern inside component: output type name = value
-         */
-        private void extractComponentOutputTypes(ASTNode componentNode, java.util.Map<String, String> outputTypes) {
-            boolean insideBraces = false;
-
-            for (ASTNode child : componentNode.getChildren(null)) {
-                IElementType childType = child.getElementType();
-
-                if (childType == KiteTokenTypes.LBRACE) {
-                    insideBraces = true;
-                    continue;
-                }
-                if (childType == KiteTokenTypes.RBRACE) {
-                    break;
-                }
-
-                if (!insideBraces) continue;
-
-                // Look for OUTPUT_DECLARATION elements
-                if (childType == KiteElementTypes.OUTPUT_DECLARATION) {
-                    extractOutputDeclaration(child, outputTypes);
-                }
+            /**
+             * Check if an identifier text represents a built-in type name.
+             */
+            private boolean isBuiltInTypeName(String text) {
+                return "string".equals(text) ||
+                       "number".equals(text) ||
+                       "boolean".equals(text) ||
+                       "object".equals(text) ||
+                       "any".equals(text) ||
+                       "void".equals(text);
             }
-        }
 
-        /**
-         * Extract type and name from an output declaration.
-         * Pattern: output type name = value
-         */
-        private void extractOutputDeclaration(ASTNode outputDeclNode, java.util.Map<String, String> outputTypes) {
-            boolean foundOutput = false;
-            String currentType = null;
+            /**
+             * Infer the type from a value node.
+             */
+            private String inferType(ASTNode valueNode) {
+                if (valueNode == null) return null;
 
-            for (ASTNode child : outputDeclNode.getChildren(null)) {
-                IElementType childType = child.getElementType();
+                IElementType valueType = valueNode.getElementType();
 
-                // Skip whitespace
-                if (KitePsiUtil.isWhitespace(childType)) continue;
-
-                if (childType == KiteTokenTypes.OUTPUT) {
-                    foundOutput = true;
-                    continue;
+                // String literal - can be STRING token or DQUOTE (opening quote of interpolated string)
+                // Also check for SINGLE_STRING which is single-quoted strings
+                if (valueType == KiteTokenTypes.STRING ||
+                    valueType == KiteTokenTypes.DQUOTE ||
+                    valueType == KiteTokenTypes.SINGLE_STRING) {
+                    return "string";
                 }
 
-                if (!foundOutput) continue;
-
-                // Handle 'any' keyword as type
-                if (childType == KiteTokenTypes.ANY) {
-                    currentType = "any";
-                    continue;
+                // Number literal
+                if (valueType == KiteTokenTypes.NUMBER) {
+                    return "number";
                 }
 
-                // Handle array suffix []
-                if (childType == KiteTokenTypes.LBRACK && currentType != null) {
-                    // Check for RBRACK
-                    ASTNode nextSib = child.getTreeNext();
-                    while (nextSib != null && KitePsiUtil.isWhitespace(nextSib.getElementType())) {
-                        nextSib = nextSib.getTreeNext();
+                // Boolean literals
+                if (valueType == KiteTokenTypes.TRUE || valueType == KiteTokenTypes.FALSE) {
+                    return "boolean";
+                }
+
+                // Null literal
+                if (valueType == KiteTokenTypes.NULL) {
+                    return "null";
+                }
+
+                // Object literal
+                if (valueType == KiteElementTypes.OBJECT_LITERAL) {
+                    return "object";
+                }
+
+                // Array literal
+                if (valueType == KiteElementTypes.ARRAY_LITERAL) {
+                    return "array";
+                }
+
+                // Check if this is a function call, property access, or identifier
+                if (valueType == KiteTokenTypes.IDENTIFIER) {
+                    String identifierName = valueNode.getText();
+
+                    // Check what follows the identifier
+                    ASTNode next = valueNode.getTreeNext();
+                    while (next != null && KitePsiUtil.isWhitespace(next.getElementType())) {
+                        next = next.getTreeNext();
                     }
-                    if (nextSib != null && nextSib.getElementType() == KiteTokenTypes.RBRACK) {
-                        currentType = currentType + "[]";
-                    }
-                    continue;
-                }
 
-                // Track type -> name pattern
-                if (childType == KiteTokenTypes.IDENTIFIER) {
-                    if (currentType == null) {
-                        // First identifier is the type
-                        currentType = child.getText();
+                    if (next != null && next.getElementType() == KiteTokenTypes.LPAREN) {
+                        // This is a function call - get return type
+                        PsiElement psi = valueNode.getPsi();
+                        if (psi != null && psi.getContainingFile() != null) {
+                            return inferTypeFromFunctionCall(psi.getContainingFile(), identifierName);
+                        }
+                    } else if (next != null && next.getElementType() == KiteTokenTypes.DOT) {
+                        // This is a property access (e.g., api.endpoint) - look up property type
+                        ASTNode propNode = next.getTreeNext();
+                        while (propNode != null && KitePsiUtil.isWhitespace(propNode.getElementType())) {
+                            propNode = propNode.getTreeNext();
+                        }
+                        if (propNode != null && propNode.getElementType() == KiteTokenTypes.IDENTIFIER) {
+                            String propertyName = propNode.getText();
+                            PsiElement psi = valueNode.getPsi();
+                            if (psi != null && psi.getContainingFile() != null) {
+                                return inferTypeFromPropertyAccess(psi.getContainingFile(), identifierName, propertyName);
+                            }
+                        }
                     } else {
-                        // Second identifier is the output name
-                        outputTypes.put(child.getText(), currentType);
-                        return; // Done with this output declaration
+                        // Regular identifier reference - look up its type
+                        PsiElement psi = valueNode.getPsi();
+                        if (psi != null && psi.getContainingFile() != null) {
+                            return inferTypeFromIdentifier(psi.getContainingFile(), identifierName);
+                        }
                     }
                 }
 
-                // Stop at = (rest is value)
-                if (childType == KiteTokenTypes.ASSIGN) {
-                    return;
-                }
-            }
-        }
-
-        /**
-         * Extract the name from a declaration.
-         */
-        @Nullable
-        private String extractDeclarationName(ASTNode declNode, IElementType declType) {
-            ASTNode nameNode = null;
-            boolean foundKeyword = false;
-
-            for (ASTNode child : declNode.getChildren(null)) {
-                IElementType childType = child.getElementType();
-
-                // Skip whitespace
-                if (KitePsiUtil.isWhitespace(childType)) continue;
-
-                // Look for the keyword
-                if (childType == KiteTokenTypes.VAR ||
-                    childType == KiteTokenTypes.INPUT ||
-                    childType == KiteTokenTypes.OUTPUT) {
-                    foundKeyword = true;
-                    continue;
-                }
-
-                if (!foundKeyword) continue;
-
-                // Track identifiers - the last one before = is the name
-                if (childType == KiteTokenTypes.IDENTIFIER) {
-                    nameNode = child;
-                }
-
-                // Stop at = or {
-                if (childType == KiteTokenTypes.ASSIGN || childType == KiteTokenTypes.LBRACE) {
-                    break;
-                }
+                // For other expressions we can't easily infer the type
+                return null;
             }
 
-            return nameNode != null ? nameNode.getText() : null;
-        }
+            /**
+             * Infer type from an identifier by looking up its declaration.
+             */
+            @Nullable
+            private String inferTypeFromIdentifier(PsiFile file, String identifierName) {
+                // Search in current file
+                var type = findIdentifierType(file.getNode(), identifierName);
+                if (type != null) return type;
 
-        /**
-         * Extract the explicit type from a declaration, if present.
-         * Pattern: var/input/output [type] name = value
-         */
-        @Nullable
-        private String extractDeclarationType(ASTNode declNode, IElementType declType) {
-            boolean foundKeyword = false;
-            String firstIdentifier = null;
-            String secondIdentifier = null;
-            boolean foundArraySuffix = false;
+                // Search in imported files
+                return KiteImportHelper.searchInImports(file,
+                        importedFile -> findIdentifierType(importedFile.getNode(), identifierName));
+            }
 
-            for (ASTNode child : declNode.getChildren(null)) {
-                IElementType childType = child.getElementType();
+            /**
+             * Find the type of an identifier from declarations in the given node.
+             */
+            @Nullable
+            private String findIdentifierType(ASTNode node, String identifierName) {
+                if (node == null) return null;
 
-                // Skip whitespace
-                if (KitePsiUtil.isWhitespace(childType)) continue;
+                IElementType nodeType = node.getElementType();
 
-                // Look for the keyword
-                if (childType == KiteTokenTypes.VAR ||
-                    childType == KiteTokenTypes.INPUT ||
-                    childType == KiteTokenTypes.OUTPUT) {
-                    foundKeyword = true;
-                    continue;
-                }
+                // Check variable, input, output declarations
+                if (nodeType == KiteElementTypes.VARIABLE_DECLARATION ||
+                    nodeType == KiteElementTypes.INPUT_DECLARATION ||
+                    nodeType == KiteElementTypes.OUTPUT_DECLARATION) {
 
-                if (!foundKeyword) continue;
-
-                // Handle 'any' as a type keyword
-                if (childType == KiteTokenTypes.ANY) {
-                    firstIdentifier = "any";
-                    continue;
-                }
-
-                // Check for array suffix []
-                if (childType == KiteTokenTypes.LBRACK) {
-                    foundArraySuffix = true;
-                    continue;
-                }
-                if (childType == KiteTokenTypes.RBRACK && foundArraySuffix) {
-                    if (firstIdentifier != null) {
-                        firstIdentifier = firstIdentifier + "[]";
-                    }
-                    foundArraySuffix = false;
-                    continue;
-                }
-
-                // Track identifiers
-                if (childType == KiteTokenTypes.IDENTIFIER) {
-                    if (firstIdentifier == null) {
-                        firstIdentifier = child.getText();
-                    } else {
-                        secondIdentifier = child.getText();
+                    String declName = extractDeclarationName(node, nodeType);
+                    if (identifierName.equals(declName)) {
+                        return extractDeclarationType(node, nodeType);
                     }
                 }
 
-                // Stop at = or {
-                if (childType == KiteTokenTypes.ASSIGN || childType == KiteTokenTypes.LBRACE) {
-                    break;
+                // Recurse into children
+                for (ASTNode child : node.getChildren(null)) {
+                    String result = findIdentifierType(child, identifierName);
+                    if (result != null) return result;
+                }
+
+                return null;
+            }
+
+            /**
+             * Infer type from a function call by looking up the function's return type.
+             */
+            @Nullable
+            private String inferTypeFromFunctionCall(PsiFile file, String functionName) {
+                // Search in current file
+                var type = findFunctionReturnType(file.getNode(), functionName);
+                if (type != null) return type;
+
+                // Search in imported files
+                return KiteImportHelper.searchInImports(file,
+                        importedFile -> findFunctionReturnType(importedFile.getNode(), functionName));
+            }
+
+            /**
+             * Find a function's return type by searching for its declaration.
+             */
+            @Nullable
+            private String findFunctionReturnType(ASTNode node, String functionName) {
+                if (node == null) return null;
+
+                if (node.getElementType() == KiteElementTypes.FUNCTION_DECLARATION) {
+                    // Check if this is the function we're looking for
+                    // Pattern: fun name(params) returnType { }
+                    boolean foundFun = false;
+                    boolean foundName = false;
+                    boolean foundRparen = false;
+                    String returnType = null;
+
+                    for (ASTNode child : node.getChildren(null)) {
+                        IElementType childType = child.getElementType();
+
+                        // Skip whitespace
+                        if (KitePsiUtil.isWhitespace(childType)) continue;
+
+                        if (childType == KiteTokenTypes.FUN) {
+                            foundFun = true;
+                            continue;
+                        }
+
+                        if (foundFun && !foundName && childType == KiteTokenTypes.IDENTIFIER) {
+                            if (child.getText().equals(functionName)) {
+                                foundName = true;
+                            } else {
+                                // Not the function we're looking for
+                                break;
+                            }
+                            continue;
+                        }
+
+                        if (foundName && childType == KiteTokenTypes.RPAREN) {
+                            foundRparen = true;
+                            continue;
+                        }
+
+                        // After RPAREN, look for return type (before LBRACE)
+                        if (foundRparen) {
+                            if (childType == KiteTokenTypes.LBRACE) {
+                                // No explicit return type, or we've passed it
+                                break;
+                            }
+                            if (childType == KiteTokenTypes.IDENTIFIER) {
+                                returnType = child.getText();
+                                // Check for array suffix
+                                ASTNode nextSib = child.getTreeNext();
+                                while (nextSib != null && KitePsiUtil.isWhitespace(nextSib.getElementType())) {
+                                    nextSib = nextSib.getTreeNext();
+                                }
+                                if (nextSib != null && nextSib.getElementType() == KiteTokenTypes.LBRACK) {
+                                    returnType = returnType + "[]";
+                                }
+                                return returnType;
+                            }
+                            if (childType == KiteTokenTypes.ANY) {
+                                return "any";
+                            }
+                        }
+                    }
+                }
+
+                // Recurse into children
+                for (ASTNode child : node.getChildren(null)) {
+                    String result = findFunctionReturnType(child, functionName);
+                    if (result != null) return result;
+                }
+
+                return null;
+            }
+
+            /**
+             * Infer type from a property access expression (e.g., api.endpoint).
+             * Resolves the object, then looks up the property type.
+             */
+            @Nullable
+            private String inferTypeFromPropertyAccess(PsiFile file, String objectName, String propertyName) {
+                // First, find what type 'objectName' is (should be a component instance or resource)
+                var objectType = findComponentOrResourceType(file.getNode(), objectName);
+                if (objectType == null) {
+                    // Check in imports
+                    objectType = KiteImportHelper.searchInImports(file,
+                            importedFile -> findComponentOrResourceType(importedFile.getNode(), objectName));
+                }
+
+                if (objectType == null) return null;
+
+                // Now look up the output type from the component definition
+                var outputTypes = findComponentOutputTypes(file, objectType);
+                return outputTypes.get(propertyName);
+            }
+
+            /**
+             * Find the component or resource type for a given instance name.
+             * Pattern: component TypeName instanceName { } or resource TypeName instanceName { }
+             */
+            @Nullable
+            private String findComponentOrResourceType(ASTNode node, String instanceName) {
+                if (node == null) return null;
+
+                IElementType nodeType = node.getElementType();
+
+                if (nodeType == KiteElementTypes.COMPONENT_DECLARATION ||
+                    nodeType == KiteElementTypes.RESOURCE_DECLARATION) {
+
+                    // Look for pattern: keyword TypeName instanceName
+                    boolean foundKeyword = false;
+                    String typeName = null;
+
+                    for (ASTNode child : node.getChildren(null)) {
+                        IElementType childType = child.getElementType();
+
+                        if (KitePsiUtil.isWhitespace(childType)) continue;
+
+                        if (childType == KiteTokenTypes.COMPONENT || childType == KiteTokenTypes.RESOURCE) {
+                            foundKeyword = true;
+                            continue;
+                        }
+
+                        if (foundKeyword && childType == KiteTokenTypes.IDENTIFIER) {
+                            if (typeName == null) {
+                                typeName = child.getText();
+                            } else {
+                                // Second identifier is the instance name
+                                if (child.getText().equals(instanceName)) {
+                                    return typeName;
+                                }
+                                break;
+                            }
+                        }
+
+                        if (childType == KiteTokenTypes.LBRACE) break;
+                    }
+                }
+
+                // Recurse into children
+                for (ASTNode child : node.getChildren(null)) {
+                    String result = findComponentOrResourceType(child, instanceName);
+                    if (result != null) return result;
+                }
+
+                return null;
+            }
+
+            /**
+             * Find component output types by searching for the component definition.
+             * Returns a map of output name to type.
+             */
+            private Map<String, String> findComponentOutputTypes(PsiFile file, String componentTypeName) {
+                var outputTypes = new HashMap<String, String>();
+
+                // Search in current file
+                findComponentOutputTypesRecursive(file.getNode(), componentTypeName, outputTypes);
+
+                // If not found, search in imported files
+                if (outputTypes.isEmpty()) {
+                    KiteImportHelper.forEachImport(file, importedFile ->
+                            findComponentOutputTypesRecursive(importedFile.getNode(), componentTypeName, outputTypes));
+                }
+
+                return outputTypes;
+            }
+
+            /**
+             * Recursively search for a component definition and extract its output types.
+             */
+            private void findComponentOutputTypesRecursive(ASTNode node, String componentTypeName,
+                                                           Map<String, String> outputTypes) {
+                if (node == null) return;
+
+                if (node.getElementType() == KiteElementTypes.COMPONENT_DECLARATION) {
+                    // Check if this is the component definition (not instantiation) we're looking for
+                    if (!isComponentInstantiation(node)) {
+                        String name = getComponentTypeName(node);
+                        if (componentTypeName.equals(name)) {
+                            extractComponentOutputTypes(node, outputTypes);
+                            return;
+                        }
+                    }
+                }
+
+                // Recurse into children
+                for (ASTNode child : node.getChildren(null)) {
+                    findComponentOutputTypesRecursive(child, componentTypeName, outputTypes);
+                    if (!outputTypes.isEmpty()) return; // Found it
                 }
             }
 
-            // If we have two identifiers, first is type, second is name
-            if (secondIdentifier != null) {
-                return firstIdentifier;
-            }
+            /**
+             * Extract output declarations from a component definition.
+             * Pattern inside component: output type name = value
+             */
+            private void extractComponentOutputTypes(ASTNode componentNode, Map<String, String> outputTypes) {
+                boolean insideBraces = false;
 
-            // If we only have one identifier and it's a built-in type name,
-            // then we don't have explicit type info
-            // Otherwise, try to infer from the value
-            return null;
-        }
-
-        /**
-         * Collect parameter name hints for function calls.
-         * Shows parameter names before arguments in function calls.
-         * <p>
-         * Example: greet("Alice", 30) shows "name:" before "Alice" and "age:" before 30
-         */
-        private void collectParameterHints(PsiElement identifier, InlayHintsSink sink) {
-            // Check if this identifier is followed by parentheses (function call)
-            ASTNode identifierNode = identifier.getNode();
-            if (identifierNode == null) return;
-
-            ASTNode sibling = identifierNode.getTreeNext();
-
-            // Skip whitespace
-            while (sibling != null &&
-                   (sibling.getElementType() == KiteTokenTypes.WHITESPACE ||
-                    sibling.getElementType() == KiteTokenTypes.NL)) {
-                sibling = sibling.getTreeNext();
-            }
-
-            // Check if followed by LPAREN
-            if (sibling == null || sibling.getElementType() != KiteTokenTypes.LPAREN) {
-                return;
-            }
-
-            // Check that this is NOT a function declaration (identifier preceded by 'fun')
-            ASTNode prevSibling = identifierNode.getTreePrev();
-            while (prevSibling != null &&
-                   (prevSibling.getElementType() == KiteTokenTypes.WHITESPACE ||
-                    prevSibling.getElementType() == KiteTokenTypes.NL ||
-                    prevSibling.getElementType() == TokenType.WHITE_SPACE)) {
-                prevSibling = prevSibling.getTreePrev();
-            }
-            if (prevSibling != null && prevSibling.getElementType() == KiteTokenTypes.FUN) {
-                return; // This is a function declaration, not a call
-            }
-
-            // This is a function call - find the function declaration to get parameter names
-            String functionName = identifierNode.getText();
-            PsiFile file = identifier.getContainingFile();
-            if (file == null) return;
-
-            // Find function declaration with this name
-            List<String> parameterNames = findFunctionParameters(file, functionName);
-            if (parameterNames.isEmpty()) return;
-
-            // Collect arguments
-            List<ASTNode> arguments = collectArguments(sibling);
-
-            // Add hints for each argument
-            PresentationFactory factory = new PresentationFactory(editor);
-            for (int i = 0; i < Math.min(arguments.size(), parameterNames.size()); i++) {
-                ASTNode arg = arguments.get(i);
-                String paramName = parameterNames.get(i);
-
-                // Only show hint if the argument is not already a named argument
-                if (!isNamedArgument(arg)) {
-                    int offset = arg.getTextRange().getStartOffset();
-                    // Use roundWithBackground for proper vertical baseline alignment
-                    InlayPresentation text = factory.smallText(paramName + ":");
-                    InlayPresentation presentation = factory.roundWithBackground(text);
-                    sink.addInlineElement(offset, true, presentation, false);
-                }
-            }
-        }
-
-        /**
-         * Find parameter names for a function by searching for its declaration.
-         * First searches in the current file, then in imported files.
-         */
-        private List<String> findFunctionParameters(PsiFile file, String functionName) {
-            var params = new ArrayList<String>();
-
-            // Search the current file for function declarations
-            searchForFunctionDeclaration(file.getNode(), functionName, params);
-
-            // If not found, search in imported files
-            if (params.isEmpty()) {
-                KiteImportHelper.forEachImport(file, importedFile ->
-                        searchForFunctionDeclaration(importedFile.getNode(), functionName, params));
-            }
-
-            return params;
-        }
-
-        /**
-         * Recursively search for a function declaration and extract its parameter names.
-         */
-        private void searchForFunctionDeclaration(ASTNode node, String functionName, List<String> params) {
-            if (node == null) return;
-
-            if (node.getElementType() == KiteElementTypes.FUNCTION_DECLARATION) {
-                // Check if this is the function we're looking for
-                ASTNode[] children = node.getChildren(null);
-                boolean foundFun = false;
-                boolean foundName = false;
-                boolean inParams = false;
-
-                for (ASTNode child : children) {
+                for (ASTNode child : componentNode.getChildren(null)) {
                     IElementType childType = child.getElementType();
 
-                    if (childType == KiteTokenTypes.FUN) {
-                        foundFun = true;
+                    if (childType == KiteTokenTypes.LBRACE) {
+                        insideBraces = true;
+                        continue;
+                    }
+                    if (childType == KiteTokenTypes.RBRACE) {
+                        break;
+                    }
+
+                    if (!insideBraces) continue;
+
+                    // Look for OUTPUT_DECLARATION elements
+                    if (childType == KiteElementTypes.OUTPUT_DECLARATION) {
+                        extractOutputDeclaration(child, outputTypes);
+                    }
+                }
+            }
+
+            /**
+             * Extract type and name from an output declaration.
+             * Pattern: output type name = value
+             */
+            private void extractOutputDeclaration(ASTNode outputDeclNode, Map<String, String> outputTypes) {
+                boolean foundOutput = false;
+                String currentType = null;
+
+                for (ASTNode child : outputDeclNode.getChildren(null)) {
+                    IElementType childType = child.getElementType();
+
+                    // Skip whitespace
+                    if (KitePsiUtil.isWhitespace(childType)) continue;
+
+                    if (childType == KiteTokenTypes.OUTPUT) {
+                        foundOutput = true;
                         continue;
                     }
 
-                    if (foundFun && !foundName && childType == KiteTokenTypes.IDENTIFIER) {
-                        if (child.getText().equals(functionName)) {
-                            foundName = true;
+                    if (!foundOutput) continue;
+
+                    // Handle 'any' keyword as type
+                    if (childType == KiteTokenTypes.ANY) {
+                        currentType = "any";
+                        continue;
+                    }
+
+                    // Handle array suffix []
+                    if (childType == KiteTokenTypes.LBRACK && currentType != null) {
+                        // Check for RBRACK
+                        ASTNode nextSib = child.getTreeNext();
+                        while (nextSib != null && KitePsiUtil.isWhitespace(nextSib.getElementType())) {
+                            nextSib = nextSib.getTreeNext();
+                        }
+                        if (nextSib != null && nextSib.getElementType() == KiteTokenTypes.RBRACK) {
+                            currentType = currentType + "[]";
+                        }
+                        continue;
+                    }
+
+                    // Track type -> name pattern
+                    if (childType == KiteTokenTypes.IDENTIFIER) {
+                        if (currentType == null) {
+                            // First identifier is the type
+                            currentType = child.getText();
                         } else {
-                            return; // Not the function we're looking for
+                            // Second identifier is the output name
+                            outputTypes.put(child.getText(), currentType);
+                            return; // Done with this output declaration
                         }
+                    }
+
+                    // Stop at = (rest is value)
+                    if (childType == KiteTokenTypes.ASSIGN) {
+                        return;
+                    }
+                }
+            }
+
+            /**
+             * Extract the name from a declaration.
+             */
+            @Nullable
+            private String extractDeclarationName(ASTNode declNode, IElementType declType) {
+                ASTNode nameNode = null;
+                boolean foundKeyword = false;
+
+                for (ASTNode child : declNode.getChildren(null)) {
+                    IElementType childType = child.getElementType();
+
+                    // Skip whitespace
+                    if (KitePsiUtil.isWhitespace(childType)) continue;
+
+                    // Look for the keyword
+                    if (childType == KiteTokenTypes.VAR ||
+                        childType == KiteTokenTypes.INPUT ||
+                        childType == KiteTokenTypes.OUTPUT) {
+                        foundKeyword = true;
                         continue;
                     }
 
-                    if (foundName && childType == KiteTokenTypes.LPAREN) {
-                        inParams = true;
+                    if (!foundKeyword) continue;
+
+                    // Track identifiers - the last one before = is the name
+                    if (childType == KiteTokenTypes.IDENTIFIER) {
+                        nameNode = child;
+                    }
+
+                    // Stop at = or {
+                    if (childType == KiteTokenTypes.ASSIGN || childType == KiteTokenTypes.LBRACE) {
+                        break;
+                    }
+                }
+
+                return nameNode != null ? nameNode.getText() : null;
+            }
+
+            /**
+             * Extract the explicit type from a declaration, if present.
+             * Pattern: var/input/output [type] name = value
+             */
+            @Nullable
+            private String extractDeclarationType(ASTNode declNode, IElementType declType) {
+                boolean foundKeyword = false;
+                String firstIdentifier = null;
+                String secondIdentifier = null;
+                boolean foundArraySuffix = false;
+
+                for (ASTNode child : declNode.getChildren(null)) {
+                    IElementType childType = child.getElementType();
+
+                    // Skip whitespace
+                    if (KitePsiUtil.isWhitespace(childType)) continue;
+
+                    // Look for the keyword
+                    if (childType == KiteTokenTypes.VAR ||
+                        childType == KiteTokenTypes.INPUT ||
+                        childType == KiteTokenTypes.OUTPUT) {
+                        foundKeyword = true;
                         continue;
                     }
 
-                    if (inParams && childType == KiteTokenTypes.RPAREN) {
-                        return; // Done collecting parameters
+                    if (!foundKeyword) continue;
+
+                    // Handle 'any' as a type keyword
+                    if (childType == KiteTokenTypes.ANY) {
+                        firstIdentifier = "any";
+                        continue;
                     }
 
-                    if (inParams && childType == KiteTokenTypes.IDENTIFIER) {
-                        // Parameters in Kite: fun greet(string name, number age)
-                        // Type comes FIRST, then the name
-                        // So we need to check: if PREVIOUS non-whitespace was an identifier,
-                        // then THIS is the parameter name
-                        ASTNode prev = child.getTreePrev();
-                        while (prev != null &&
-                               (prev.getElementType() == KiteTokenTypes.WHITESPACE ||
-                                prev.getElementType() == KiteTokenTypes.NL ||
-                                prev.getElementType() == TokenType.WHITE_SPACE)) {
-                            prev = prev.getTreePrev();
+                    // Check for array suffix []
+                    if (childType == KiteTokenTypes.LBRACK) {
+                        foundArraySuffix = true;
+                        continue;
+                    }
+                    if (childType == KiteTokenTypes.RBRACK && foundArraySuffix) {
+                        if (firstIdentifier != null) {
+                            firstIdentifier = firstIdentifier + "[]";
                         }
+                        foundArraySuffix = false;
+                        continue;
+                    }
 
-                        // If previous is an identifier (the type), current is the param name
-                        if (prev != null &&
-                            (prev.getElementType() == KiteTokenTypes.IDENTIFIER ||
-                             isTypeKeyword(prev.getElementType()))) {
-                            params.add(child.getText());
+                    // Track identifiers
+                    if (childType == KiteTokenTypes.IDENTIFIER) {
+                        if (firstIdentifier == null) {
+                            firstIdentifier = child.getText();
+                        } else {
+                            secondIdentifier = child.getText();
                         }
                     }
+
+                    // Stop at = or {
+                    if (childType == KiteTokenTypes.ASSIGN || childType == KiteTokenTypes.LBRACE) {
+                        break;
+                    }
                 }
-                return;
+
+                // If we have two identifiers, first is type, second is name
+                if (secondIdentifier != null) {
+                    return firstIdentifier;
+                }
+
+                // If we only have one identifier and it's a built-in type name,
+                // then we don't have explicit type info
+                // Otherwise, try to infer from the value
+                return null;
             }
 
-            // Recurse into children
-            for (ASTNode child : node.getChildren(null)) {
-                searchForFunctionDeclaration(child, functionName, params);
-                if (!params.isEmpty()) return; // Found it
+            /**
+             * Collect parameter name hints for function calls.
+             * Shows parameter names before arguments in function calls.
+             * <p>
+             * Example: greet("Alice", 30) shows "name:" before "Alice" and "age:" before 30
+             */
+            private void collectParameterHints(PsiElement identifier, InlayHintsSink sink) {
+                // Check if this identifier is followed by parentheses (function call)
+                ASTNode identifierNode = identifier.getNode();
+                if (identifierNode == null) return;
+
+                ASTNode sibling = identifierNode.getTreeNext();
+
+                // Skip whitespace
+                while (sibling != null &&
+                       (sibling.getElementType() == KiteTokenTypes.WHITESPACE ||
+                        sibling.getElementType() == KiteTokenTypes.NL)) {
+                    sibling = sibling.getTreeNext();
+                }
+
+                // Check if followed by LPAREN
+                if (sibling == null || sibling.getElementType() != KiteTokenTypes.LPAREN) {
+                    return;
+                }
+
+                // Check that this is NOT a function declaration (identifier preceded by 'fun')
+                ASTNode prevSibling = identifierNode.getTreePrev();
+                while (prevSibling != null &&
+                       (prevSibling.getElementType() == KiteTokenTypes.WHITESPACE ||
+                        prevSibling.getElementType() == KiteTokenTypes.NL ||
+                        prevSibling.getElementType() == TokenType.WHITE_SPACE)) {
+                    prevSibling = prevSibling.getTreePrev();
+                }
+                if (prevSibling != null && prevSibling.getElementType() == KiteTokenTypes.FUN) {
+                    return; // This is a function declaration, not a call
+                }
+
+                // This is a function call - find the function declaration to get parameter names
+                String functionName = identifierNode.getText();
+                PsiFile file = identifier.getContainingFile();
+                if (file == null) return;
+
+                // Find function declaration with this name
+                List<String> parameterNames = findFunctionParameters(file, functionName);
+                if (parameterNames.isEmpty()) return;
+
+                // Collect arguments
+                List<ASTNode> arguments = collectArguments(sibling);
+
+                // Add hints for each argument
+                PresentationFactory factory = new PresentationFactory(editor);
+                for (int i = 0; i < Math.min(arguments.size(), parameterNames.size()); i++) {
+                    ASTNode arg = arguments.get(i);
+                    String paramName = parameterNames.get(i);
+
+                    // Only show hint if the argument is not already a named argument
+                    if (!isNamedArgument(arg)) {
+                        int offset = arg.getTextRange().getStartOffset();
+                        // Use roundWithBackground for proper vertical baseline alignment
+                        InlayPresentation text = factory.smallText(paramName + ":");
+                        InlayPresentation presentation = factory.roundWithBackground(text);
+                        sink.addInlineElement(offset, true, presentation, false);
+                    }
+                }
+            }
+
+            /**
+             * Find parameter names for a function by searching for its declaration.
+             * First searches in the current file, then in imported files.
+             */
+            private List<String> findFunctionParameters(PsiFile file, String functionName) {
+                var params = new ArrayList<String>();
+
+                // Search the current file for function declarations
+                searchForFunctionDeclaration(file.getNode(), functionName, params);
+
+                // If not found, search in imported files
+                if (params.isEmpty()) {
+                    KiteImportHelper.forEachImport(file, importedFile ->
+                            searchForFunctionDeclaration(importedFile.getNode(), functionName, params));
+                }
+
+                return params;
+            }
+
+            /**
+             * Recursively search for a function declaration and extract its parameter names.
+             */
+            private void searchForFunctionDeclaration(ASTNode node, String functionName, List<String> params) {
+                if (node == null) return;
+
+                if (node.getElementType() == KiteElementTypes.FUNCTION_DECLARATION) {
+                    // Check if this is the function we're looking for
+                    ASTNode[] children = node.getChildren(null);
+                    boolean foundFun = false;
+                    boolean foundName = false;
+                    boolean inParams = false;
+
+                    for (ASTNode child : children) {
+                        IElementType childType = child.getElementType();
+
+                        if (childType == KiteTokenTypes.FUN) {
+                            foundFun = true;
+                            continue;
+                        }
+
+                        if (foundFun && !foundName && childType == KiteTokenTypes.IDENTIFIER) {
+                            if (child.getText().equals(functionName)) {
+                                foundName = true;
+                            } else {
+                                return; // Not the function we're looking for
+                            }
+                            continue;
+                        }
+
+                        if (foundName && childType == KiteTokenTypes.LPAREN) {
+                            inParams = true;
+                            continue;
+                        }
+
+                        if (inParams && childType == KiteTokenTypes.RPAREN) {
+                            return; // Done collecting parameters
+                        }
+
+                        if (inParams && childType == KiteTokenTypes.IDENTIFIER) {
+                            // Parameters in Kite: fun greet(string name, number age)
+                            // Type comes FIRST, then the name
+                            // So we need to check: if PREVIOUS non-whitespace was an identifier,
+                            // then THIS is the parameter name
+                            ASTNode prev = child.getTreePrev();
+                            while (prev != null &&
+                                   (prev.getElementType() == KiteTokenTypes.WHITESPACE ||
+                                    prev.getElementType() == KiteTokenTypes.NL ||
+                                    prev.getElementType() == TokenType.WHITE_SPACE)) {
+                                prev = prev.getTreePrev();
+                            }
+
+                            // If previous is an identifier (the type), current is the param name
+                            if (prev != null &&
+                                (prev.getElementType() == KiteTokenTypes.IDENTIFIER ||
+                                 isTypeKeyword(prev.getElementType()))) {
+                                params.add(child.getText());
+                            }
+                        }
+                    }
+                    return;
+                }
+
+                // Recurse into children
+                for (ASTNode child : node.getChildren(null)) {
+                    searchForFunctionDeclaration(child, functionName, params);
+                    if (!params.isEmpty()) return; // Found it
+                }
+            }
+
+            /**
+             * Collect argument nodes from a function call.
+             * Returns the first token of each argument (for hint placement).
+             */
+            private List<ASTNode> collectArguments(ASTNode lparenNode) {
+                List<ASTNode> arguments = new ArrayList<>();
+
+                ASTNode current = lparenNode.getTreeNext();
+                boolean expectingNewArg = true;
+                int parenDepth = 0;
+                int braceDepth = 0;
+                int bracketDepth = 0;
+                int stringDepth = 0; // Track nested string depth instead of toggle
+
+
+                while (current != null) {
+                    IElementType type = current.getElementType();
+
+                    // Exit when we hit the closing RPAREN at depth 0
+                    if (type == KiteTokenTypes.RPAREN && parenDepth == 0 && stringDepth == 0) {
+                        break;
+                    }
+
+                    // Track nesting depth
+                    if (type == KiteTokenTypes.LPAREN) parenDepth++;
+                    else if (type == KiteTokenTypes.RPAREN) parenDepth--;
+                    else if (type == KiteTokenTypes.LBRACE) braceDepth++;
+                    else if (type == KiteTokenTypes.RBRACE) braceDepth--;
+                    else if (type == KiteTokenTypes.LBRACK) bracketDepth++;
+                    else if (type == KiteTokenTypes.RBRACK) bracketDepth--;
+
+                    // Track string boundaries - handle both tokenization styles
+                    // STRING/SINGLE_STRING are atomic, DQUOTE/STRING_DQUOTE mark interpolated string boundaries
+                    if (type == KiteTokenTypes.DQUOTE) {
+                        // Opening quote - enter string
+                        stringDepth = 1;
+                    } else if (type == KiteTokenTypes.STRING_DQUOTE) {
+                        // Closing quote - exit string
+                        stringDepth = 0;
+                    }
+                    // Skip over STRING_TEXT and INTERP tokens - they're inside strings
+                    // STRING and SINGLE_STRING are atomic and don't affect string depth
+
+                    // Comma at top level marks end of argument
+                    if (type == KiteTokenTypes.COMMA && parenDepth == 0 && braceDepth == 0 && bracketDepth == 0 && stringDepth == 0) {
+                        expectingNewArg = true;
+                        current = current.getTreeNext();
+                        continue;
+                    }
+
+                    // Skip whitespace and newlines
+                    if (type == KiteTokenTypes.WHITESPACE ||
+                        type == KiteTokenTypes.NL ||
+                        type == KiteTokenTypes.NEWLINE ||
+                        type == TokenType.WHITE_SPACE) {
+                        current = current.getTreeNext();
+                        continue;
+                    }
+
+                    // Skip string content tokens - they're part of the string argument, not new arguments
+                    if (type == KiteTokenTypes.STRING_TEXT ||
+                        type == KiteTokenTypes.INTERP_START ||
+                        type == KiteTokenTypes.INTERP_END ||
+                        type == KiteTokenTypes.INTERP_IDENTIFIER ||
+                        type == KiteTokenTypes.INTERP_SIMPLE) {
+                        current = current.getTreeNext();
+                        continue;
+                    }
+
+                    // First non-whitespace, non-string-content token after comma or start is the argument start
+                    if (expectingNewArg) {
+                        arguments.add(current);
+                        expectingNewArg = false;
+                    }
+
+                    current = current.getTreeNext();
+                }
+
+                return arguments;
+            }
+
+            /**
+             * Check if an argument is already a named argument (name: value or name = value).
+             */
+            private boolean isNamedArgument(ASTNode arg) {
+                // Look for colon or equals after an identifier
+                if (arg.getElementType() != KiteTokenTypes.IDENTIFIER) {
+                    return false;
+                }
+
+                ASTNode next = arg.getTreeNext();
+                while (next != null &&
+                       (next.getElementType() == KiteTokenTypes.WHITESPACE ||
+                        next.getElementType() == KiteTokenTypes.NL)) {
+                    next = next.getTreeNext();
+                }
+
+                return next != null &&
+                       (next.getElementType() == KiteTokenTypes.COLON ||
+                        next.getElementType() == KiteTokenTypes.ASSIGN);
             }
         }
-
-        /**
-         * Collect argument nodes from a function call.
-         * Returns the first token of each argument (for hint placement).
-         */
-        private List<ASTNode> collectArguments(ASTNode lparenNode) {
-            List<ASTNode> arguments = new ArrayList<>();
-
-            ASTNode current = lparenNode.getTreeNext();
-            boolean expectingNewArg = true;
-            int parenDepth = 0;
-            int braceDepth = 0;
-            int bracketDepth = 0;
-            int stringDepth = 0; // Track nested string depth instead of toggle
-
-
-            while (current != null) {
-                IElementType type = current.getElementType();
-
-                // Exit when we hit the closing RPAREN at depth 0
-                if (type == KiteTokenTypes.RPAREN && parenDepth == 0 && stringDepth == 0) {
-                    break;
-                }
-
-                // Track nesting depth
-                if (type == KiteTokenTypes.LPAREN) parenDepth++;
-                else if (type == KiteTokenTypes.RPAREN) parenDepth--;
-                else if (type == KiteTokenTypes.LBRACE) braceDepth++;
-                else if (type == KiteTokenTypes.RBRACE) braceDepth--;
-                else if (type == KiteTokenTypes.LBRACK) bracketDepth++;
-                else if (type == KiteTokenTypes.RBRACK) bracketDepth--;
-
-                // Track string boundaries - handle both tokenization styles
-                // STRING/SINGLE_STRING are atomic, DQUOTE/STRING_DQUOTE mark interpolated string boundaries
-                if (type == KiteTokenTypes.DQUOTE) {
-                    // Opening quote - enter string
-                    stringDepth = 1;
-                } else if (type == KiteTokenTypes.STRING_DQUOTE) {
-                    // Closing quote - exit string
-                    stringDepth = 0;
-                }
-                // Skip over STRING_TEXT and INTERP tokens - they're inside strings
-                // STRING and SINGLE_STRING are atomic and don't affect string depth
-
-                // Comma at top level marks end of argument
-                if (type == KiteTokenTypes.COMMA && parenDepth == 0 && braceDepth == 0 && bracketDepth == 0 && stringDepth == 0) {
-                    expectingNewArg = true;
-                    current = current.getTreeNext();
-                    continue;
-                }
-
-                // Skip whitespace and newlines
-                if (type == KiteTokenTypes.WHITESPACE ||
-                    type == KiteTokenTypes.NL ||
-                    type == KiteTokenTypes.NEWLINE ||
-                    type == TokenType.WHITE_SPACE) {
-                    current = current.getTreeNext();
-                    continue;
-                }
-
-                // Skip string content tokens - they're part of the string argument, not new arguments
-                if (type == KiteTokenTypes.STRING_TEXT ||
-                    type == KiteTokenTypes.INTERP_START ||
-                    type == KiteTokenTypes.INTERP_END ||
-                    type == KiteTokenTypes.INTERP_IDENTIFIER ||
-                    type == KiteTokenTypes.INTERP_SIMPLE) {
-                    current = current.getTreeNext();
-                    continue;
-                }
-
-                // First non-whitespace, non-string-content token after comma or start is the argument start
-                if (expectingNewArg) {
-                    arguments.add(current);
-                    expectingNewArg = false;
-                }
-
-                current = current.getTreeNext();
-            }
-
-            return arguments;
-        }
-
-        /**
-         * Check if an argument is already a named argument (name: value or name = value).
-         */
-        private boolean isNamedArgument(ASTNode arg) {
-            // Look for colon or equals after an identifier
-            if (arg.getElementType() != KiteTokenTypes.IDENTIFIER) {
-                return false;
-            }
-
-            ASTNode next = arg.getTreeNext();
-            while (next != null &&
-                   (next.getElementType() == KiteTokenTypes.WHITESPACE ||
-                    next.getElementType() == KiteTokenTypes.NL)) {
-                next = next.getTreeNext();
-            }
-
-            return next != null &&
-                   (next.getElementType() == KiteTokenTypes.COLON ||
-                    next.getElementType() == KiteTokenTypes.ASSIGN);
-        }
-    }
 }

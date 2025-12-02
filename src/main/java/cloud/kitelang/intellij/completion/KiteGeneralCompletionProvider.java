@@ -25,7 +25,6 @@ import org.jetbrains.annotations.Nullable;
 import java.util.*;
 
 import static cloud.kitelang.intellij.util.KitePsiUtil.skipWhitespaceBackward;
-import static cloud.kitelang.intellij.util.KitePsiUtil.skipWhitespaceForward;
 
 /**
  * Provides general code completion for the Kite language.
@@ -432,7 +431,7 @@ public class KiteGeneralCompletionProvider extends CompletionProvider<Completion
         // Add initialized properties first (bold, higher priority)
         for (String propertyName : initializedProperties) {
             KiteSchemaHelper.SchemaPropertyInfo propInfo = schemaProperties.get(propertyName);
-            String typeText = propInfo != null ? propInfo.type : "property";
+            String typeText = propInfo != null ? propInfo.type() : "property";
 
             LookupElementBuilder element = LookupElementBuilder.create(propertyName)
                     .withTypeText(typeText)
@@ -447,7 +446,7 @@ public class KiteGeneralCompletionProvider extends CompletionProvider<Completion
             if (initializedProperties.contains(propertyName)) continue;
 
             KiteSchemaHelper.SchemaPropertyInfo propInfo = entry.getValue();
-            String typeText = propInfo.isCloud ? propInfo.type + " (cloud)" : propInfo.type;
+            String typeText = propInfo.type();
 
             LookupElementBuilder element = LookupElementBuilder.create(propertyName)
                     .withTypeText(typeText)

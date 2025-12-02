@@ -241,18 +241,44 @@ import alpha from "ga|"  // Press Tab
 - Built-in type names
 - Property access chains
 
+### Required Schema Properties
+
+Schema properties without a default value are **required**. Resource instances must provide all required properties.
+
+```kite
+schema DatabaseConfig {
+    string host           // Required - no default value
+    number port = 5432    // Optional - has default value
+}
+
+resource DatabaseConfig myDb {
+    host = "localhost"    // OK - required property provided
+    // port not needed (has default)
+}
+```
+
+**Detection:**
+- **Warning**: `Missing required property 'propertyName'`
+- Shows on the resource instance name when required properties are missing
+- Implemented in: `KiteMissingPropertyInspection`
+- Test file: `KiteMissingPropertyInspectionTest`
+
+**Optional Properties:**
+- Properties with default values (`= value`)
+
 ---
 
 ## Quick Fixes
 
 ### Available Quick Fixes
 
-| Quick Fix            | Trigger                | Action                                    |
-|----------------------|------------------------|-------------------------------------------|
-| Remove unused import | Unused import warning  | Removes import or symbol                  |
-| Add import           | Undefined symbol error | Adds import when symbol exists in project |
-| Wildcard to Named    | `import *` statement   | Converts `import *` to explicit named imports |
-| Optimize imports     | Cmd+Alt+O / Ctrl+Alt+O | Removes all unused imports at once        |
+| Quick Fix                | Trigger                   | Action                                        |
+|--------------------------|---------------------------|-----------------------------------------------|
+| Remove unused import     | Unused import warning     | Removes import or symbol                      |
+| Add import               | Undefined symbol error    | Adds import when symbol exists in project     |
+| Wildcard to Named        | `import *` statement      | Converts `import *` to explicit named imports |
+| Optimize imports         | Cmd+Alt+O / Ctrl+Alt+O    | Removes all unused imports at once            |
+| Add missing property     | Missing property warning  | Adds property with type-appropriate default   |
 
 ### Add Import Quick Fix
 
@@ -273,6 +299,39 @@ Removes all unused imports via Cmd+Alt+O (Mac) or Ctrl+Alt+O (Windows/Linux):
 - Detects usage in string interpolation (`$var` and `${var}`)
 - **Sorts imports alphabetically by path** (case-insensitive)
 - **Sorts symbols within multi-symbol imports** (`import z, a, m` → `import a, m, z`)
+
+### Add Missing Property Quick Fix
+
+When a resource is missing required schema properties, this quick fix adds them:
+
+```kite
+// Before applying quick fix
+schema Config {
+    string host
+    number port
+}
+resource Config server {
+}  // Warning: Missing required property 'host'
+
+// After applying "Add missing property 'host'" quick fix
+resource Config server {
+    host = ""  // Added with type-appropriate default
+}
+```
+
+**Type-Appropriate Defaults:**
+
+| Type      | Default Value |
+|-----------|---------------|
+| string    | `""`          |
+| number    | `0`           |
+| boolean   | `false`       |
+| any       | `null`        |
+| type[]    | `[]`          |
+| custom    | `{}`          |
+
+- Implemented in: `AddRequiredPropertyQuickFix`
+- Test file: `AddRequiredPropertyQuickFixTest`
 
 ---
 

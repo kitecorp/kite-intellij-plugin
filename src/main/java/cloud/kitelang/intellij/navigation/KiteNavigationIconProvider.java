@@ -22,8 +22,7 @@ public class KiteNavigationIconProvider extends IconProvider {
     @Override
     public @Nullable Icon getIcon(@NotNull PsiElement element, int flags) {
         // Handle our custom navigatable wrapper - get icon from its presentation
-        if (element instanceof KiteNavigatablePsiElement) {
-            KiteNavigatablePsiElement wrapper = (KiteNavigatablePsiElement) element;
+        if (element instanceof KiteNavigatablePsiElement wrapper) {
             if (wrapper.getPresentation() != null) {
                 return wrapper.getPresentation().getIcon(false);
             }

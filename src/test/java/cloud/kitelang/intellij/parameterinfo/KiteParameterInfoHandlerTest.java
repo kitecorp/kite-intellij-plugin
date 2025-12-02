@@ -167,9 +167,9 @@ public class KiteParameterInfoHandlerTest extends KiteTestBase {
         KiteParameterInfoHandler.KiteFunctionInfo info =
                 new KiteParameterInfoHandler.KiteFunctionInfo("greet", params, "string");
 
-        assertEquals("greet", info.getFunctionName());
-        assertEquals(2, info.getParameters().size());
-        assertEquals("string", info.getReturnType());
+        assertEquals("greet", info.functionName());
+        assertEquals(2, info.parameters().size());
+        assertEquals("string", info.returnType());
     }
 
     public void testKiteFunctionInfoParametersText() {
@@ -203,7 +203,7 @@ public class KiteParameterInfoHandlerTest extends KiteTestBase {
         KiteParameterInfoHandler.KiteFunctionInfo info =
                 new KiteParameterInfoHandler.KiteFunctionInfo("log", params, null);
 
-        assertNull(info.getReturnType());
+        assertNull(info.returnType());
     }
 
     // ========== KiteParameter Tests ==========
@@ -212,18 +212,18 @@ public class KiteParameterInfoHandlerTest extends KiteTestBase {
         KiteParameterInfoHandler.KiteParameter param =
                 new KiteParameterInfoHandler.KiteParameter("string", "name", 5, 16);
 
-        assertEquals("string", param.type);
-        assertEquals("name", param.name);
-        assertEquals(5, param.startOffset);
-        assertEquals(16, param.endOffset);
+        assertEquals("string", param.type());
+        assertEquals("name", param.name());
+        assertEquals(5, param.startOffset());
+        assertEquals(16, param.endOffset());
     }
 
     public void testKiteParameterArrayType() {
         KiteParameterInfoHandler.KiteParameter param =
                 new KiteParameterInfoHandler.KiteParameter("string[]", "items", 0, 15);
 
-        assertEquals("string[]", param.type);
-        assertEquals("items", param.name);
+        assertEquals("string[]", param.type());
+        assertEquals("items", param.name());
     }
 
     // ========== Edge Cases ==========

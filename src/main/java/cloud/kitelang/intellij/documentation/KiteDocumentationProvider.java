@@ -49,7 +49,7 @@ public class KiteDocumentationProvider extends AbstractDocumentationProvider {
     public @Nullable PsiElement getDocumentationElementForLookupItem(PsiManager psiManager, Object object, PsiElement element) {
         // Handle decorator lookup items - create a unique fake element for each decorator
         if (object instanceof DecoratorLookupItem decoratorItem) {
-            return new DecoratorDocElement(decoratorItem.name, element);
+            return new DecoratorDocElement(decoratorItem.name(), element);
         }
         return null;
     }
@@ -122,7 +122,7 @@ public class KiteDocumentationProvider extends AbstractDocumentationProvider {
         // Handle @ symbol - show doc for the decorator that follows
         if (elementType == KiteTokenTypes.AT) {
             PsiElement next = contextElement.getNextSibling();
-            while (next != null && isWhitespaceElement(next)) {
+            while (isWhitespaceElement(next)) {
                 next = next.getNextSibling();
             }
             if (next != null && next.getNode() != null &&

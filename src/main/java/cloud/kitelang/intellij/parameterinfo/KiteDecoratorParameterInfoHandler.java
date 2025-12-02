@@ -27,87 +27,48 @@ import java.util.Map;
 public class KiteDecoratorParameterInfoHandler implements ParameterInfoHandler<PsiElement, KiteDecoratorParameterInfoHandler.KiteDecoratorInfo> {
 
     /**
-     * Represents decorator parameter information to display.
-     */
-    public static class KiteDecoratorInfo {
-        private final String decoratorName;
-        private final List<DecoratorParam> parameters;
-        private final boolean hasNamedArgs;
-
-        public KiteDecoratorInfo(String decoratorName, List<DecoratorParam> parameters, boolean hasNamedArgs) {
-            this.decoratorName = decoratorName;
-            this.parameters = parameters;
-            this.hasNamedArgs = hasNamedArgs;
-        }
-
-        public String getDecoratorName() {
-            return decoratorName;
-        }
-
-        public List<DecoratorParam> getParameters() {
-            return parameters;
-        }
-
-        public boolean hasNamedArgs() {
-            return hasNamedArgs;
-        }
+         * Represents decorator parameter information to display.
+         */
+        public record KiteDecoratorInfo(String decoratorName, List<DecoratorParam> parameters, boolean hasNamedArgs) {
 
         /**
-         * Get the presentation text for parameters.
-         */
-        public String getParametersText() {
-            if (parameters.isEmpty()) {
-                return "<no parameters>";
-            }
-            StringBuilder sb = new StringBuilder();
-            for (int i = 0; i < parameters.size(); i++) {
-                if (i > 0) {
-                    sb.append(hasNamedArgs ? " or " : ", ");
+             * Get the presentation text for parameters.
+             */
+            public String getParametersText() {
+                if (parameters.isEmpty()) {
+                    return "<no parameters>";
                 }
-                DecoratorParam param = parameters.get(i);
-                if (param.isNamed) {
-                    sb.append(param.name).append(": ").append(param.type);
-                } else {
-                    sb.append(param.name).append(": ").append(param.type);
+                StringBuilder sb = new StringBuilder();
+                for (int i = 0; i < parameters.size(); i++) {
+                    if (i > 0) {
+                        sb.append(hasNamedArgs ? " or " : ", ");
+                    }
+                    DecoratorParam param = parameters.get(i);
+                    if (param.isNamed) {
+                        sb.append(param.name).append(": ").append(param.type);
+                    } else {
+                        sb.append(param.name).append(": ").append(param.type);
+                    }
                 }
+                return sb.toString();
             }
-            return sb.toString();
         }
-    }
 
     /**
-     * Represents a single decorator parameter.
-     */
-    public static class DecoratorParam {
-        public final String name;
-        public final String type;
-        public final boolean isNamed;
-        public final int startOffset;
-        public final int endOffset;
-
-        public DecoratorParam(String name, String type, boolean isNamed) {
-            this.name = name;
-            this.type = type;
-            this.isNamed = isNamed;
-            this.startOffset = 0;
-            this.endOffset = 0;
-        }
-
-        public DecoratorParam(String name, String type, boolean isNamed, int startOffset, int endOffset) {
-            this.name = name;
-            this.type = type;
-            this.isNamed = isNamed;
-            this.startOffset = startOffset;
-            this.endOffset = endOffset;
-        }
+         * Represents a single decorator parameter.
+         */
+        public record DecoratorParam(String name, String type, boolean isNamed, int startOffset, int endOffset) {
+            public DecoratorParam(String name, String type, boolean isNamed) {
+                this(name, type, isNamed, 0, 0);
+            }
 
         public String getDisplayText() {
-            if (isNamed) {
+                if (isNamed) {
+                    return name + ": " + type;
+                }
                 return name + ": " + type;
             }
-            return name + ": " + type;
         }
-    }
 
     // Map of decorator names to their parameter info
     private static final Map<String, KiteDecoratorInfo> DECORATOR_PARAMS = new HashMap<>();
@@ -180,7 +141,7 @@ public class KiteDecoratorParameterInfoHandler implements ParameterInfoHandler<P
 
         // Find the decorator info
         KiteDecoratorInfo decoratorInfo = DECORATOR_PARAMS.get(decoratorName);
-        if (decoratorInfo == null || decoratorInfo.getParameters().isEmpty()) {
+        if (decoratorInfo == null || decoratorInfo.parameters().isEmpty()) {
             return null; // Unknown decorator or no parameters
         }
 
@@ -249,8 +210,8 @@ public class KiteDecoratorParameterInfoHandler implements ParameterInfoHandler<P
         int highlightStart = -1;
         int highlightEnd = -1;
 
-        if (!info.getParameters().isEmpty()) {
-            List<DecoratorParam> params = info.getParameters();
+        if (!info.parameters().isEmpty()) {
+            List<DecoratorParam> params = info.parameters();
 
             if (info.hasNamedArgs()) {
                 // For named args (like @validate), highlight based on what's being typed
@@ -319,7 +280,7 @@ public class KiteDecoratorParameterInfoHandler implements ParameterInfoHandler<P
                 if (parenDepth == 0) {
                     // Found the opening paren, look for identifier before it
                     PsiElement prev = current.getPrevSibling();
-                    while (prev != null && KitePsiUtil.isWhitespaceElement(prev)) {
+                    while (KitePsiUtil.isWhitespaceElement(prev)) {
                         prev = prev.getPrevSibling();
                     }
                     if (prev != null && prev.getNode() != null &&
@@ -358,7 +319,7 @@ public class KiteDecoratorParameterInfoHandler implements ParameterInfoHandler<P
         }
         // Check if preceded by @
         PsiElement prev = identifier.getPrevSibling();
-        while (prev != null && KitePsiUtil.isWhitespaceElement(prev)) {
+        while (KitePsiUtil.isWhitespaceElement(prev)) {
             prev = prev.getPrevSibling();
         }
         return prev != null && prev.getNode() != null &&
@@ -407,7 +368,7 @@ public class KiteDecoratorParameterInfoHandler implements ParameterInfoHandler<P
             // Look for identifier: pattern before cursor
             String currentNamedArg = findCurrentNamedArg(lparen, offset);
             if (currentNamedArg != null) {
-                List<DecoratorParam> params = info.getParameters();
+                List<DecoratorParam> params = info.parameters();
                 for (int i = 0; i < params.size(); i++) {
                     if (params.get(i).name.equals(currentNamedArg)) {
                         return i;

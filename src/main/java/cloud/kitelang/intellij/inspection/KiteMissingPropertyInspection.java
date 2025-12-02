@@ -3,10 +3,12 @@ package cloud.kitelang.intellij.inspection;
 import cloud.kitelang.intellij.psi.KiteElementTypes;
 import cloud.kitelang.intellij.psi.KiteFile;
 import cloud.kitelang.intellij.psi.KiteTokenTypes;
+import cloud.kitelang.intellij.quickfix.AddRequiredPropertyQuickFix;
 import cloud.kitelang.intellij.reference.KiteImportHelper;
 import cloud.kitelang.intellij.util.KitePsiUtil;
 import cloud.kitelang.intellij.util.KiteSchemaHelper;
 import com.intellij.codeInspection.InspectionManager;
+import com.intellij.codeInspection.LocalQuickFix;
 import com.intellij.codeInspection.ProblemDescriptor;
 import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiFile;
@@ -72,23 +74,27 @@ public class KiteMissingPropertyInspection extends KiteInspectionBase {
         var schemaName = KiteSchemaHelper.extractResourceTypeName(resourceDecl);
         if (schemaName == null) return;
 
-        // Find the schema and get required properties
-        var requiredProperties = findRequiredSchemaProperties(file, schemaName);
-        if (requiredProperties.isEmpty()) return;
+        // Find the schema and get required properties with their types
+        var requiredPropertiesWithTypes = findRequiredSchemaPropertiesWithTypes(file, schemaName);
+        if (requiredPropertiesWithTypes.isEmpty()) return;
 
         // Get properties defined in this resource
         var definedProperties = extractResourceProperties(resourceDecl);
 
         // Find missing required properties
         var resourceNameElement = findResourceNameElement(resourceDecl);
-        for (var required : requiredProperties) {
+        for (var entry : requiredPropertiesWithTypes.entrySet()) {
+            String required = entry.getKey();
+            String type = entry.getValue();
             if (!definedProperties.contains(required)) {
                 var targetElement = resourceNameElement != null ? resourceNameElement : resourceDecl;
+                LocalQuickFix quickFix = new AddRequiredPropertyQuickFix(required, type);
                 var problem = createWarning(
                         manager,
                         targetElement,
                         "Missing required property '" + required + "'",
-                        isOnTheFly
+                        isOnTheFly,
+                        quickFix
                 );
                 problems.add(problem);
             }
@@ -144,6 +150,137 @@ public class KiteMissingPropertyInspection extends KiteInspectionBase {
         }
 
         return required;
+    }
+
+    /**
+     * Find required properties from a schema with their types.
+     * Returns a map of property name to property type.
+     */
+    private Map<String, String> findRequiredSchemaPropertiesWithTypes(PsiFile file, String schemaName) {
+        var requiredWithTypes = new LinkedHashMap<String, String>();
+        var foundSchema = new boolean[]{false};
+
+        // Search in current file
+        findSchemaAndExtractRequiredWithTypes(file, schemaName, requiredWithTypes, foundSchema);
+
+        // If not found, search in imported files
+        if (!foundSchema[0]) {
+            KiteImportHelper.forEachImport(file, importedFile ->
+                    findSchemaAndExtractRequiredWithTypes(importedFile, schemaName, requiredWithTypes, foundSchema));
+        }
+
+        return requiredWithTypes;
+    }
+
+    private void findSchemaAndExtractRequiredWithTypes(PsiElement element, String schemaName,
+                                                        Map<String, String> requiredWithTypes, boolean[] foundSchema) {
+        if (element == null || element.getNode() == null || foundSchema[0]) return;
+
+        var type = element.getNode().getElementType();
+
+        if (type == KiteElementTypes.SCHEMA_DECLARATION) {
+            var name = KiteSchemaHelper.extractSchemaName(element);
+            if (schemaName.equals(name)) {
+                foundSchema[0] = true;
+                extractRequiredSchemaPropertiesWithTypes(element, requiredWithTypes);
+                return;
+            }
+        }
+
+        // Recurse into children
+        var child = element.getFirstChild();
+        while (child != null) {
+            findSchemaAndExtractRequiredWithTypes(child, schemaName, requiredWithTypes, foundSchema);
+            if (foundSchema[0]) return;
+            child = child.getNextSibling();
+        }
+    }
+
+    /**
+     * Extract required properties with their types from a schema.
+     */
+    private void extractRequiredSchemaPropertiesWithTypes(PsiElement schemaDecl, Map<String, String> requiredWithTypes) {
+        boolean insideBraces = false;
+        String currentType = null;
+        String currentPropertyName = null;
+        boolean hasDefault = false;
+
+        var child = schemaDecl.getFirstChild();
+        while (child != null) {
+            if (child.getNode() != null) {
+                var type = child.getNode().getElementType();
+
+                if (type == KiteTokenTypes.LBRACE) {
+                    insideBraces = true;
+                } else if (type == KiteTokenTypes.RBRACE) {
+                    // End of block - check last property
+                    if (currentPropertyName != null && currentType != null && !hasDefault) {
+                        requiredWithTypes.put(currentPropertyName, currentType);
+                    }
+                    break;
+                } else if (insideBraces) {
+                    // Skip whitespace
+                    if (KitePsiUtil.isWhitespace(type)) {
+                        child = child.getNextSibling();
+                        continue;
+                    }
+
+                    // Skip decorators (@ followed by identifier)
+                    if (type == KiteTokenTypes.AT) {
+                        child = child.getNextSibling();
+                        continue;
+                    }
+
+                    // Handle 'any' keyword as type
+                    if (type == KiteTokenTypes.ANY) {
+                        currentType = "any";
+                        child = child.getNextSibling();
+                        continue;
+                    }
+
+                    // Skip array literal brackets but mark type as array
+                    if (type == KiteElementTypes.ARRAY_LITERAL) {
+                        if (currentType != null) {
+                            currentType = currentType + "[]";
+                        }
+                        child = child.getNextSibling();
+                        continue;
+                    }
+
+                    // Track type -> name pattern
+                    if (type == KiteTokenTypes.IDENTIFIER) {
+                        var text = child.getText();
+                        // Skip decorator names like "cloud", "minValue", etc.
+                        if (isDecoratorName(text)) {
+                            child = child.getNextSibling();
+                            continue;
+                        }
+
+                        if (currentType == null) {
+                            currentType = text;
+                        } else {
+                            currentPropertyName = text;
+                        }
+                    }
+
+                    // = means property has default
+                    if (type == KiteTokenTypes.ASSIGN) {
+                        hasDefault = true;
+                    }
+
+                    // Newline ends property definition
+                    if (type == KiteTokenTypes.NL || type == KiteTokenTypes.NEWLINE) {
+                        if (currentPropertyName != null && currentType != null && !hasDefault) {
+                            requiredWithTypes.put(currentPropertyName, currentType);
+                        }
+                        currentType = null;
+                        currentPropertyName = null;
+                        hasDefault = false;
+                    }
+                }
+            }
+            child = child.getNextSibling();
+        }
     }
 
     private void findSchemaAndExtractRequired(PsiElement element, String schemaName, Set<String> required, boolean[] foundSchema) {

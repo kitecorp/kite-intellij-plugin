@@ -408,9 +408,7 @@ public class KiteLineMarkerProvider implements LineMarkerProvider {
                         prevPrevType == KiteTokenTypes.OUTPUT) {
                         // This could be: var type name - this is the name
                         var afterThis = KitePsiUtil.skipWhitespace(identifier.getNextSibling());
-                        if (afterThis != null && afterThis.getNode().getElementType() == KiteTokenTypes.ASSIGN) {
-                            return false; // It's the variable name
-                        }
+                        return afterThis == null || afterThis.getNode().getElementType() != KiteTokenTypes.ASSIGN; // It's the variable name
                     }
                 }
             }
@@ -420,16 +418,9 @@ public class KiteLineMarkerProvider implements LineMarkerProvider {
     }
 
     /**
-     * Information about a declaration.
-     */
-    private static class DeclarationInfo {
-        final String type;
-        final Icon icon;
-
-        DeclarationInfo(String type, Icon icon) {
-            this.type = type;
-            this.icon = icon;
-        }
+         * Information about a declaration.
+         */
+        private record DeclarationInfo(String type, Icon icon) {
     }
 
     /**
@@ -438,8 +429,7 @@ public class KiteLineMarkerProvider implements LineMarkerProvider {
     private static class KiteUsageCellRenderer extends DefaultPsiElementCellRenderer {
         @Override
         public String getElementText(PsiElement element) {
-            if (element instanceof KiteNavigatablePsiElement) {
-                KiteNavigatablePsiElement navElement = (KiteNavigatablePsiElement) element;
+            if (element instanceof KiteNavigatablePsiElement navElement) {
                 return navElement.getName();
             }
             return super.getElementText(element);
@@ -447,8 +437,7 @@ public class KiteLineMarkerProvider implements LineMarkerProvider {
 
         @Override
         public String getContainerText(PsiElement element, String name) {
-            if (element instanceof KiteNavigatablePsiElement) {
-                KiteNavigatablePsiElement navElement = (KiteNavigatablePsiElement) element;
+            if (element instanceof KiteNavigatablePsiElement navElement) {
                 if (navElement.getPresentation() != null) {
                     return navElement.getPresentation().getLocationString();
                 }
@@ -458,8 +447,7 @@ public class KiteLineMarkerProvider implements LineMarkerProvider {
 
         @Override
         protected Icon getIcon(PsiElement element) {
-            if (element instanceof KiteNavigatablePsiElement) {
-                KiteNavigatablePsiElement navElement = (KiteNavigatablePsiElement) element;
+            if (element instanceof KiteNavigatablePsiElement navElement) {
                 if (navElement.getPresentation() != null) {
                     return navElement.getPresentation().getIcon(false);
                 }

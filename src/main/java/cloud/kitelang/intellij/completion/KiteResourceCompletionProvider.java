@@ -65,16 +65,9 @@ public class KiteResourceCompletionProvider extends CompletionProvider<Completio
     // ========== Resource Context Detection ==========
 
     /**
-     * Context information about an enclosing resource block.
-     */
-    static class ResourceContext {
-        final String schemaName;
-        final PsiElement resourceDeclaration;
-
-        ResourceContext(String schemaName, PsiElement resourceDeclaration) {
-            this.schemaName = schemaName;
-            this.resourceDeclaration = resourceDeclaration;
-        }
+         * Context information about an enclosing resource block.
+         */
+        record ResourceContext(String schemaName, PsiElement resourceDeclaration) {
     }
 
     /**
@@ -159,13 +152,8 @@ public class KiteResourceCompletionProvider extends CompletionProvider<Completio
                 continue;
             }
 
-            // Skip @cloud properties - they are set by the cloud provider
-            if (propInfo.isCloud) {
-                continue;
-            }
-
             LookupElementBuilder element = LookupElementBuilder.create(propertyName)
-                    .withTypeText(propInfo.type)
+                    .withTypeText(propInfo.type())
                     .withIcon(KiteStructureViewIcons.PROPERTY)
                     .withBoldness(true)
                     .withInsertHandler((ctx, item) -> {

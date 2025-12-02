@@ -105,13 +105,11 @@ public final class KiteIdentifierContextHelper {
                 PsiElement prevPrev = skipWhitespaceBackward(prev.getPrevSibling());
                 if (prevPrev != null && prevPrev.getNode() != null) {
                     IElementType prevPrevType = prevPrev.getNode().getElementType();
-                    if (prevPrevType == KiteTokenTypes.INPUT ||
-                        prevPrevType == KiteTokenTypes.OUTPUT ||
-                        prevPrevType == KiteTokenTypes.VAR ||
-                        prevPrevType == KiteTokenTypes.RESOURCE ||
-                        prevPrevType == KiteTokenTypes.COMPONENT) {
-                        return true;
-                    }
+                    return prevPrevType == KiteTokenTypes.INPUT ||
+                           prevPrevType == KiteTokenTypes.OUTPUT ||
+                           prevPrevType == KiteTokenTypes.VAR ||
+                           prevPrevType == KiteTokenTypes.RESOURCE ||
+                           prevPrevType == KiteTokenTypes.COMPONENT;
                 }
             }
         }
@@ -215,10 +213,8 @@ public final class KiteIdentifierContextHelper {
             prevType == KiteTokenTypes.OUTPUT) {
             // Check if there's another identifier after this (the name)
             PsiElement next = skipWhitespace(identifier.getNextSibling());
-            if (next != null && next.getNode() != null &&
-                next.getNode().getElementType() == KiteTokenTypes.IDENTIFIER) {
-                return true; // This is a type annotation
-            }
+            return next != null && next.getNode() != null &&
+                   next.getNode().getElementType() == KiteTokenTypes.IDENTIFIER; // This is a type annotation
         }
 
         return false;
@@ -281,9 +277,7 @@ public final class KiteIdentifierContextHelper {
                 return true; // At the start of the body
             }
             IElementType prevPrevType = prevPrev.getNode().getElementType();
-            if (prevPrevType == KiteTokenTypes.NL || prevPrevType == KiteTokenTypes.LBRACE) {
-                return true;
-            }
+            return prevPrevType == KiteTokenTypes.NL || prevPrevType == KiteTokenTypes.LBRACE;
         }
 
         return false;

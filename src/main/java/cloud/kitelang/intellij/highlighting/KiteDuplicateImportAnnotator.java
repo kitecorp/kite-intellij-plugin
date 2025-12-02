@@ -35,11 +35,10 @@ public class KiteDuplicateImportAnnotator implements Annotator {
 
     @Override
     public void annotate(@NotNull PsiElement element, @NotNull AnnotationHolder holder) {
-        if (!(element instanceof PsiFile)) {
+        if (!(element instanceof PsiFile file)) {
             return;
         }
 
-        PsiFile file = (PsiFile) element;
         if (file.getLanguage() != KiteLanguage.INSTANCE) {
             return;
         }
@@ -144,19 +143,8 @@ public class KiteDuplicateImportAnnotator implements Annotator {
     }
 
     /**
-     * Information about an import.
-     */
-    private static class ImportInfo {
-        final String path;
-        final int startOffset;
-        final int endOffset;
-        final String symbol;
-
-        ImportInfo(String path, int startOffset, int endOffset, String symbol) {
-            this.path = path;
-            this.startOffset = startOffset;
-            this.endOffset = endOffset;
-            this.symbol = symbol;
-        }
+         * Information about an import.
+         */
+        private record ImportInfo(String path, int startOffset, int endOffset, String symbol) {
     }
 }

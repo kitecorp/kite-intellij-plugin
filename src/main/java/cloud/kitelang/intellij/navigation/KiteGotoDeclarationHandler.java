@@ -16,7 +16,6 @@ import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiFile;
 import com.intellij.psi.PsiManager;
-import com.intellij.psi.TokenType;
 import com.intellij.psi.search.FileTypeIndex;
 import com.intellij.psi.search.GlobalSearchScope;
 import com.intellij.psi.tree.IElementType;
@@ -566,7 +565,7 @@ public class KiteGotoDeclarationHandler implements GotoDeclarationHandler {
 
             // This is a TYPE definition if there's only one identifier before {
             // and it matches the type name we're looking for
-            if (firstIdentifier != null && secondIdentifier == null && typeName.equals(firstIdentifier)) {
+            if (secondIdentifier == null && typeName.equals(firstIdentifier)) {
                 LOG.info("[KiteGotoDecl] Found component TYPE definition: " + typeName);
                 return element;
             }
@@ -1175,11 +1174,7 @@ public class KiteGotoDeclarationHandler implements GotoDeclarationHandler {
 
         // Also recursively check imports in the imported file (for re-exports)
         PsiElement nestedDeclaration = findDeclarationInImportedFiles(importSourceFile, targetName, sourceElement, visited);
-        if (nestedDeclaration != null) {
-            return nestedDeclaration;
-        }
-
-        return null;
+        return nestedDeclaration;
     }
 
     /**
@@ -1399,9 +1394,7 @@ public class KiteGotoDeclarationHandler implements GotoDeclarationHandler {
             if (KiteDeclarationHelper.isDeclarationType(parentType)) {
                 // Find the name element in this declaration
                 PsiElement nameElement = KiteDeclarationHelper.findNameElementInDeclaration(parent, parentType);
-                if (nameElement == element) {
-                    return true;
-                }
+                return nameElement == element;
             }
         }
 
@@ -1503,16 +1496,9 @@ public class KiteGotoDeclarationHandler implements GotoDeclarationHandler {
     // ========== Resource Property to Schema Property Navigation ==========
 
     /**
-     * Simple class to hold resource property information.
-     */
-    private static class ResourcePropertyInfo {
-        final String schemaName;
-        final PsiElement resourceDeclaration;
-
-        ResourcePropertyInfo(String schemaName, PsiElement resourceDeclaration) {
-            this.schemaName = schemaName;
-            this.resourceDeclaration = resourceDeclaration;
-        }
+         * Simple class to hold resource property information.
+         */
+        private record ResourcePropertyInfo(String schemaName, PsiElement resourceDeclaration) {
     }
 
     /**

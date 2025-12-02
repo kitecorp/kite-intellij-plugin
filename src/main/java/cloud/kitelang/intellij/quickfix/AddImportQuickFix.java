@@ -97,21 +97,15 @@ public class AddImportQuickFix extends BaseIntentionAction implements HighPriori
 
     /**
      * Information about an existing import statement.
+     *
+     * @param startOffset      Start of the import statement
+     * @param endOffset        End of the import statement
+     * @param symbolsEndOffset End of the symbols list (before "from")
+     * @param isWildcard       True if "import *"
+     * @param symbols          List of imported symbols (empty if wildcard)
      */
-    private static class ExistingImportInfo {
-        final int startOffset;        // Start of the import statement
-        final int endOffset;          // End of the import statement
-        final int symbolsEndOffset;   // End of the symbols list (before "from")
-        final boolean isWildcard;     // True if "import *"
-        final List<String> symbols;   // List of imported symbols (empty if wildcard)
-
-        ExistingImportInfo(int startOffset, int endOffset, int symbolsEndOffset, boolean isWildcard, List<String> symbols) {
-            this.startOffset = startOffset;
-            this.endOffset = endOffset;
-            this.symbolsEndOffset = symbolsEndOffset;
-            this.isWildcard = isWildcard;
-            this.symbols = symbols;
-        }
+        private record ExistingImportInfo(int startOffset, int endOffset, int symbolsEndOffset, boolean isWildcard,
+                                          List<String> symbols) {
     }
 
     // Pattern for named imports: import X from "path" or import X, Y, Z from "path"
@@ -387,7 +381,7 @@ public class AddImportQuickFix extends BaseIntentionAction implements HighPriori
                 lastImportEnd = child.getTextRange().getEndOffset();
                 // Skip past any trailing newlines
                 PsiElement next = child.getNextSibling();
-                while (next != null && KitePsiUtil.isWhitespaceElement(next)) {
+                while (KitePsiUtil.isWhitespaceElement(next)) {
                     if (next.getText().contains("\n")) {
                         lastImportEnd = next.getTextRange().getEndOffset();
                         break;
@@ -667,17 +661,13 @@ public class AddImportQuickFix extends BaseIntentionAction implements HighPriori
     }
 
     /**
-     * Represents a candidate import that can resolve an undefined symbol.
-     */
-    public static class ImportCandidate {
-        public final String symbolName;
-        public final String importPath;
-        public final String fullPath;
-
-        public ImportCandidate(@NotNull String symbolName, @NotNull String importPath, @NotNull String fullPath) {
-            this.symbolName = symbolName;
-            this.importPath = importPath;
-            this.fullPath = fullPath;
+         * Represents a candidate import that can resolve an undefined symbol.
+         */
+        public record ImportCandidate(String symbolName, String importPath, String fullPath) {
+            public ImportCandidate(@NotNull String symbolName, @NotNull String importPath, @NotNull String fullPath) {
+                this.symbolName = symbolName;
+                this.importPath = importPath;
+                this.fullPath = fullPath;
+            }
         }
-    }
 }

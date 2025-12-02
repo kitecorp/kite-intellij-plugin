@@ -16,9 +16,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 
 /**
  * Parameter info handler for Kite language.
@@ -30,66 +28,44 @@ import java.util.Set;
 public class KiteParameterInfoHandler implements ParameterInfoHandler<PsiElement, KiteParameterInfoHandler.KiteFunctionInfo> {
 
     /**
-     * Represents function parameter information to display.
-     */
-    public static class KiteFunctionInfo {
-        private final String functionName;
-        private final List<KiteParameter> parameters;
-        private final String returnType;
-
-        public KiteFunctionInfo(String functionName, List<KiteParameter> parameters, @Nullable String returnType) {
-            this.functionName = functionName;
-            this.parameters = parameters;
-            this.returnType = returnType;
-        }
-
-        public String getFunctionName() {
-            return functionName;
-        }
-
-        public List<KiteParameter> getParameters() {
-            return parameters;
-        }
-
-        @Nullable
-        public String getReturnType() {
-            return returnType;
-        }
-
-        /**
-         * Get the presentation text for parameters.
+         * Represents function parameter information to display.
          */
-        public String getParametersText() {
-            if (parameters.isEmpty()) {
-                return "<no parameters>";
+        public record KiteFunctionInfo(String functionName, List<KiteParameter> parameters, String returnType) {
+            public KiteFunctionInfo(String functionName, List<KiteParameter> parameters, @Nullable String returnType) {
+                this.functionName = functionName;
+                this.parameters = parameters;
+                this.returnType = returnType;
             }
-            StringBuilder sb = new StringBuilder();
-            for (int i = 0; i < parameters.size(); i++) {
-                if (i > 0) {
-                    sb.append(", ");
+
+            @Override
+            @Nullable
+            public String returnType() {
+                return returnType;
+            }
+
+            /**
+             * Get the presentation text for parameters.
+             */
+            public String getParametersText() {
+                if (parameters.isEmpty()) {
+                    return "<no parameters>";
                 }
-                KiteParameter param = parameters.get(i);
-                sb.append(param.type).append(" ").append(param.name);
+                StringBuilder sb = new StringBuilder();
+                for (int i = 0; i < parameters.size(); i++) {
+                    if (i > 0) {
+                        sb.append(", ");
+                    }
+                    KiteParameter param = parameters.get(i);
+                    sb.append(param.type).append(" ").append(param.name);
+                }
+                return sb.toString();
             }
-            return sb.toString();
         }
-    }
 
     /**
-     * Represents a single parameter with type and name.
-     */
-    public static class KiteParameter {
-        public final String type;
-        public final String name;
-        public final int startOffset;
-        public final int endOffset;
-
-        public KiteParameter(String type, String name, int startOffset, int endOffset) {
-            this.type = type;
-            this.name = name;
-            this.startOffset = startOffset;
-            this.endOffset = endOffset;
-        }
+         * Represents a single parameter with type and name.
+         */
+        public record KiteParameter(String type, String name, int startOffset, int endOffset) {
     }
 
     @Override
@@ -186,8 +162,8 @@ public class KiteParameterInfoHandler implements ParameterInfoHandler<PsiElement
         int highlightStart = -1;
         int highlightEnd = -1;
 
-        if (currentParameterIndex >= 0 && currentParameterIndex < info.getParameters().size()) {
-            List<KiteParameter> params = info.getParameters();
+        if (currentParameterIndex >= 0 && currentParameterIndex < info.parameters().size()) {
+            List<KiteParameter> params = info.parameters();
 
             // Calculate the position in the display text
             int pos = 0;
@@ -237,7 +213,7 @@ public class KiteParameterInfoHandler implements ParameterInfoHandler<PsiElement
                 if (parenDepth == 0) {
                     // Found the opening paren, look for identifier before it
                     PsiElement prev = current.getPrevSibling();
-                    while (prev != null && KitePsiUtil.isWhitespaceElement(prev)) {
+                    while (KitePsiUtil.isWhitespaceElement(prev)) {
                         prev = prev.getPrevSibling();
                     }
                     if (prev != null && prev.getNode() != null &&
@@ -287,11 +263,7 @@ public class KiteParameterInfoHandler implements ParameterInfoHandler<PsiElement
         while (prev != null && KitePsiUtil.isWhitespace(prev.getElementType())) {
             prev = prev.getTreePrev();
         }
-        if (prev != null && prev.getElementType() == KiteTokenTypes.FUN) {
-            return false; // This is a function declaration, not a call
-        }
-
-        return true;
+        return prev == null || prev.getElementType() != KiteTokenTypes.FUN; // This is a function declaration, not a call
     }
 
     /**

@@ -67,32 +67,23 @@ public class KiteDecoratorCompletionProvider extends CompletionProvider<Completi
 
     /**
      * Information about a decorator for code completion.
+     *
+     * @param tailText Shows argument format like "(n)" or "([...])"
+     * @param template Template with $END$ marker for cursor position
+     * @param category Category for grouping
+     * @param targets  Bitmask of valid target declaration types
      */
-    private static class DecoratorInfo {
-        final String name;
-        final String description;
-        final String tailText;   // Shows argument format like "(n)" or "([...])"
-        final String template;   // Template with $END$ marker for cursor position
-        final String category;   // Category for grouping
-        final int targets;       // Bitmask of valid target declaration types
-
-        DecoratorInfo(String name, String description, String tailText, String template, String category, int targets) {
-            this.name = name;
-            this.description = description;
-            this.tailText = tailText;
-            this.template = template;
-            this.category = category;
-            this.targets = targets;
-        }
+        private record DecoratorInfo(String name, String description, String tailText, String template, String category,
+                                     int targets) {
 
         boolean hasArgs() {
-            return !tailText.isEmpty();
-        }
+                return !tailText.isEmpty();
+            }
 
-        boolean canApplyTo(int targetType) {
-            return (targets & targetType) != 0;
+            boolean canApplyTo(int targetType) {
+                return (targets & targetType) != 0;
+            }
         }
-    }
 
     @Override
     protected void addCompletions(@NotNull CompletionParameters parameters,
@@ -139,9 +130,7 @@ public class KiteDecoratorCompletionProvider extends CompletionProvider<Completi
         if (parent != null) {
             prev = parent.getPrevSibling();
             if (prev != null && prev.getNode() != null) {
-                if (prev.getNode().getElementType() == KiteTokenTypes.AT) {
-                    return true;
-                }
+                return prev.getNode().getElementType() == KiteTokenTypes.AT;
             }
         }
 
@@ -352,14 +341,14 @@ public class KiteDecoratorCompletionProvider extends CompletionProvider<Completi
                     if (parenDepth == 0) {
                         // Found the opening paren, look for identifier before it (decorator name)
                         PsiElement prev = current.getPrevSibling();
-                        while (prev != null && KitePsiUtil.isWhitespace(prev)) {
+                        while (KitePsiUtil.isWhitespace(prev)) {
                             prev = prev.getPrevSibling();
                         }
                         if (prev != null && prev.getNode() != null &&
                             prev.getNode().getElementType() == KiteTokenTypes.IDENTIFIER) {
                             // Check if this is preceded by @ (it's a decorator)
                             PsiElement beforeIdent = prev.getPrevSibling();
-                            while (beforeIdent != null && KitePsiUtil.isWhitespace(beforeIdent)) {
+                            while (KitePsiUtil.isWhitespace(beforeIdent)) {
                                 beforeIdent = beforeIdent.getPrevSibling();
                             }
                             if (beforeIdent != null && beforeIdent.getNode() != null &&
