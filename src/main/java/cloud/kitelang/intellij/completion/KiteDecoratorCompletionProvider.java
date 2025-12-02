@@ -3,9 +3,12 @@ package cloud.kitelang.intellij.completion;
 import cloud.kitelang.intellij.documentation.KiteDecoratorDocumentation;
 import cloud.kitelang.intellij.psi.KiteElementTypes;
 import cloud.kitelang.intellij.psi.KiteTokenTypes;
-import cloud.kitelang.intellij.util.KitePsiUtil;
 import cloud.kitelang.intellij.structure.KiteStructureViewIcons;
-import com.intellij.codeInsight.completion.*;
+import cloud.kitelang.intellij.util.KitePsiUtil;
+import com.intellij.codeInsight.completion.CompletionParameters;
+import com.intellij.codeInsight.completion.CompletionProvider;
+import com.intellij.codeInsight.completion.CompletionResultSet;
+import com.intellij.codeInsight.completion.PrioritizedLookupElement;
 import com.intellij.codeInsight.lookup.LookupElementBuilder;
 import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiFile;
@@ -20,11 +23,6 @@ import org.jetbrains.annotations.Nullable;
  */
 public class KiteDecoratorCompletionProvider extends CompletionProvider<CompletionParameters> {
 
-    // Decorator categories for grouping
-    private static final String CATEGORY_VALIDATION = "validation";
-    private static final String CATEGORY_RESOURCE = "resource";
-    private static final String CATEGORY_METADATA = "metadata";
-
     // Target types for decorators
     static final int TARGET_INPUT = 1;
     static final int TARGET_OUTPUT = 2;
@@ -34,7 +32,10 @@ public class KiteDecoratorCompletionProvider extends CompletionProvider<Completi
     static final int TARGET_SCHEMA = 32;
     static final int TARGET_SCHEMA_PROPERTY = 64;
     static final int TARGET_FUN = 128;
-
+    // Decorator categories for grouping
+    private static final String CATEGORY_VALIDATION = "validation";
+    private static final String CATEGORY_RESOURCE = "resource";
+    private static final String CATEGORY_METADATA = "metadata";
     // Common target combinations
     private static final int TARGET_INPUT_OUTPUT = TARGET_INPUT | TARGET_OUTPUT;
     private static final int TARGET_RESOURCE_COMPONENT = TARGET_RESOURCE | TARGET_COMPONENT;
@@ -66,46 +67,6 @@ public class KiteDecoratorCompletionProvider extends CompletionProvider<Completi
     };
 
     /**
-     * Information about a decorator for code completion.
-     *
-     * @param tailText Shows argument format like "(n)" or "([...])"
-     * @param template Template with $END$ marker for cursor position
-     * @param category Category for grouping
-     * @param targets  Bitmask of valid target declaration types
-     */
-        private record DecoratorInfo(String name, String description, String tailText, String template, String category,
-                                     int targets) {
-
-        boolean hasArgs() {
-                return !tailText.isEmpty();
-            }
-
-            boolean canApplyTo(int targetType) {
-                return (targets & targetType) != 0;
-            }
-        }
-
-    @Override
-    protected void addCompletions(@NotNull CompletionParameters parameters,
-                                  @NotNull ProcessingContext context,
-                                  @NotNull CompletionResultSet result) {
-        PsiElement position = parameters.getPosition();
-
-        // Check if we're after @ (decorator context)
-        if (isDecoratorContext(position)) {
-            int targetType = detectDecoratorTargetType(parameters);
-            addDecoratorCompletions(result, targetType);
-            return;
-        }
-
-        // Check if we're inside decorator argument parentheses
-        String decoratorName = getEnclosingDecoratorName(position);
-        if (decoratorName != null) {
-            addDecoratorArgumentCompletions(result, decoratorName);
-        }
-    }
-
-    /**
      * Check if this provider should handle completion at the given position.
      * Returns true if we're in a decorator context (after @ or inside decorator args).
      */
@@ -135,6 +96,83 @@ public class KiteDecoratorCompletionProvider extends CompletionProvider<Completi
         }
 
         return false;
+    }
+
+    /**
+     * Get the decorator name if cursor is inside decorator argument parentheses.
+     * Returns null if not inside decorator arguments.
+     * <p>
+     * Example: @minValue(|) -> returns "minValue"
+     *
+     * @validate(regex: "|") -> returns "validate"
+     */
+    @Nullable
+    private static String getEnclosingDecoratorName(PsiElement position) {
+        // Walk backwards through siblings and parents to find LPAREN
+        PsiElement current = position;
+        int parenDepth = 0;
+
+        while (current != null) {
+            if (current.getNode() != null) {
+                IElementType type = current.getNode().getElementType();
+
+                if (type == KiteTokenTypes.RPAREN) {
+                    parenDepth++;
+                } else if (type == KiteTokenTypes.LPAREN) {
+                    if (parenDepth == 0) {
+                        // Found the opening paren, look for identifier before it (decorator name)
+                        PsiElement prev = current.getPrevSibling();
+                        while (KitePsiUtil.isWhitespace(prev)) {
+                            prev = prev.getPrevSibling();
+                        }
+                        if (prev != null && prev.getNode() != null &&
+                            prev.getNode().getElementType() == KiteTokenTypes.IDENTIFIER) {
+                            // Check if this is preceded by @ (it's a decorator)
+                            PsiElement beforeIdent = prev.getPrevSibling();
+                            while (KitePsiUtil.isWhitespace(beforeIdent)) {
+                                beforeIdent = beforeIdent.getPrevSibling();
+                            }
+                            if (beforeIdent != null && beforeIdent.getNode() != null &&
+                                beforeIdent.getNode().getElementType() == KiteTokenTypes.AT) {
+                                return prev.getText();
+                            }
+                        }
+                        return null;
+                    }
+                    parenDepth--;
+                }
+            }
+
+            // Move to previous sibling or parent
+            PsiElement prev = current.getPrevSibling();
+            if (prev == null) {
+                current = current.getParent();
+            } else {
+                current = prev;
+            }
+        }
+
+        return null;
+    }
+
+    @Override
+    protected void addCompletions(@NotNull CompletionParameters parameters,
+                                  @NotNull ProcessingContext context,
+                                  @NotNull CompletionResultSet result) {
+        PsiElement position = parameters.getPosition();
+
+        // Check if we're after @ (decorator context)
+        if (isDecoratorContext(position)) {
+            int targetType = detectDecoratorTargetType(parameters);
+            addDecoratorCompletions(result, targetType);
+            return;
+        }
+
+        // Check if we're inside decorator argument parentheses
+        String decoratorName = getEnclosingDecoratorName(position);
+        if (decoratorName != null) {
+            addDecoratorArgumentCompletions(result, decoratorName);
+        }
     }
 
     /**
@@ -315,63 +353,6 @@ public class KiteDecoratorCompletionProvider extends CompletionProvider<Completi
 
             result.addElement(PrioritizedLookupElement.withPriority(element, priority));
         }
-    }
-
-    /**
-     * Get the decorator name if cursor is inside decorator argument parentheses.
-     * Returns null if not inside decorator arguments.
-     * <p>
-     * Example: @minValue(|) -> returns "minValue"
-     *
-     * @validate(regex: "|") -> returns "validate"
-     */
-    @Nullable
-    private static String getEnclosingDecoratorName(PsiElement position) {
-        // Walk backwards through siblings and parents to find LPAREN
-        PsiElement current = position;
-        int parenDepth = 0;
-
-        while (current != null) {
-            if (current.getNode() != null) {
-                IElementType type = current.getNode().getElementType();
-
-                if (type == KiteTokenTypes.RPAREN) {
-                    parenDepth++;
-                } else if (type == KiteTokenTypes.LPAREN) {
-                    if (parenDepth == 0) {
-                        // Found the opening paren, look for identifier before it (decorator name)
-                        PsiElement prev = current.getPrevSibling();
-                        while (KitePsiUtil.isWhitespace(prev)) {
-                            prev = prev.getPrevSibling();
-                        }
-                        if (prev != null && prev.getNode() != null &&
-                            prev.getNode().getElementType() == KiteTokenTypes.IDENTIFIER) {
-                            // Check if this is preceded by @ (it's a decorator)
-                            PsiElement beforeIdent = prev.getPrevSibling();
-                            while (KitePsiUtil.isWhitespace(beforeIdent)) {
-                                beforeIdent = beforeIdent.getPrevSibling();
-                            }
-                            if (beforeIdent != null && beforeIdent.getNode() != null &&
-                                beforeIdent.getNode().getElementType() == KiteTokenTypes.AT) {
-                                return prev.getText();
-                            }
-                        }
-                        return null;
-                    }
-                    parenDepth--;
-                }
-            }
-
-            // Move to previous sibling or parent
-            PsiElement prev = current.getPrevSibling();
-            if (prev == null) {
-                current = current.getParent();
-            } else {
-                current = prev;
-            }
-        }
-
-        return null;
     }
 
     /**
@@ -598,5 +579,25 @@ public class KiteDecoratorCompletionProvider extends CompletionProvider<Completi
                             ctx.getEditor().getCaretModel().moveToOffset(ctx.getTailOffset() - 1);
                         }),
                 200.0));
+    }
+
+    /**
+     * Information about a decorator for code completion.
+     *
+     * @param tailText Shows argument format like "(n)" or "([...])"
+     * @param template Template with $END$ marker for cursor position
+     * @param category Category for grouping
+     * @param targets  Bitmask of valid target declaration types
+     */
+    private record DecoratorInfo(String name, String description, String tailText, String template, String category,
+                                 int targets) {
+
+        boolean hasArgs() {
+            return !tailText.isEmpty();
+        }
+
+        boolean canApplyTo(int targetType) {
+            return (targets & targetType) != 0;
+        }
     }
 }

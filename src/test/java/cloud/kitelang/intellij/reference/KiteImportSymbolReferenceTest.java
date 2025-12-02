@@ -21,7 +21,7 @@ public class KiteImportSymbolReferenceTest extends KiteTestBase {
 
         configureByText("""
                 import defaultRegion from "common.kite"
-
+                
                 var x = defaultRegion
                 """);
 
@@ -42,7 +42,7 @@ public class KiteImportSymbolReferenceTest extends KiteTestBase {
 
         configureByText("""
                 import formatName from "common.kite"
-
+                
                 var x = formatName("app", "server")
                 """);
 
@@ -64,7 +64,7 @@ public class KiteImportSymbolReferenceTest extends KiteTestBase {
 
         configureByText("""
                 import Config from "common.kite"
-
+                
                 resource Config myConfig {
                     name = "test"
                     port = 8080
@@ -87,7 +87,7 @@ public class KiteImportSymbolReferenceTest extends KiteTestBase {
 
         configureByText("""
                 import alpha, beta from "common.kite"
-
+                
                 var x = alpha + beta
                 """);
 
@@ -107,7 +107,7 @@ public class KiteImportSymbolReferenceTest extends KiteTestBase {
 
         configureByText("""
                 import nonExistent from "common.kite"
-
+                
                 var x = "hello"
                 """);
 

@@ -126,7 +126,7 @@ public class KiteEmptyBlockInspectionTest extends KiteInspectionTestBase {
     public void testEmptyBlockWithWhitespace() {
         assertHasWeakWarning("""
                 schema Empty {
-
+                
                 }
                 """, "Empty schema body");
     }
@@ -134,8 +134,8 @@ public class KiteEmptyBlockInspectionTest extends KiteInspectionTestBase {
     public void testEmptyBlockWithMultipleNewlines() {
         assertHasWeakWarning("""
                 schema Empty {
-
-
+                
+                
                 }
                 """, "Empty schema body");
     }
@@ -167,7 +167,7 @@ public class KiteEmptyBlockInspectionTest extends KiteInspectionTestBase {
         var text = """
                 component Outer {
                     input string host
-
+                
                     component Inner {
                     }
                 }

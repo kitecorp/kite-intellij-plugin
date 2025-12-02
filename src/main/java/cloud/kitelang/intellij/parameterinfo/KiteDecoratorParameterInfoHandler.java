@@ -26,50 +26,6 @@ import java.util.Map;
  */
 public class KiteDecoratorParameterInfoHandler implements ParameterInfoHandler<PsiElement, KiteDecoratorParameterInfoHandler.KiteDecoratorInfo> {
 
-    /**
-         * Represents decorator parameter information to display.
-         */
-        public record KiteDecoratorInfo(String decoratorName, List<DecoratorParam> parameters, boolean hasNamedArgs) {
-
-        /**
-             * Get the presentation text for parameters.
-             */
-            public String getParametersText() {
-                if (parameters.isEmpty()) {
-                    return "<no parameters>";
-                }
-                StringBuilder sb = new StringBuilder();
-                for (int i = 0; i < parameters.size(); i++) {
-                    if (i > 0) {
-                        sb.append(hasNamedArgs ? " or " : ", ");
-                    }
-                    DecoratorParam param = parameters.get(i);
-                    if (param.isNamed) {
-                        sb.append(param.name).append(": ").append(param.type);
-                    } else {
-                        sb.append(param.name).append(": ").append(param.type);
-                    }
-                }
-                return sb.toString();
-            }
-        }
-
-    /**
-         * Represents a single decorator parameter.
-         */
-        public record DecoratorParam(String name, String type, boolean isNamed, int startOffset, int endOffset) {
-            public DecoratorParam(String name, String type, boolean isNamed) {
-                this(name, type, isNamed, 0, 0);
-            }
-
-        public String getDisplayText() {
-                if (isNamed) {
-                    return name + ": " + type;
-                }
-                return name + ": " + type;
-            }
-        }
-
     // Map of decorator names to their parameter info
     private static final Map<String, KiteDecoratorInfo> DECORATOR_PARAMS = new HashMap<>();
 
@@ -449,5 +405,49 @@ public class KiteDecoratorParameterInfoHandler implements ParameterInfoHandler<P
         }
 
         return null;
+    }
+
+    /**
+     * Represents decorator parameter information to display.
+     */
+    public record KiteDecoratorInfo(String decoratorName, List<DecoratorParam> parameters, boolean hasNamedArgs) {
+
+        /**
+         * Get the presentation text for parameters.
+         */
+        public String getParametersText() {
+            if (parameters.isEmpty()) {
+                return "<no parameters>";
+            }
+            StringBuilder sb = new StringBuilder();
+            for (int i = 0; i < parameters.size(); i++) {
+                if (i > 0) {
+                    sb.append(hasNamedArgs ? " or " : ", ");
+                }
+                DecoratorParam param = parameters.get(i);
+                if (param.isNamed) {
+                    sb.append(param.name).append(": ").append(param.type);
+                } else {
+                    sb.append(param.name).append(": ").append(param.type);
+                }
+            }
+            return sb.toString();
+        }
+    }
+
+    /**
+     * Represents a single decorator parameter.
+     */
+    public record DecoratorParam(String name, String type, boolean isNamed, int startOffset, int endOffset) {
+        public DecoratorParam(String name, String type, boolean isNamed) {
+            this(name, type, isNamed, 0, 0);
+        }
+
+        public String getDisplayText() {
+            if (isNamed) {
+                return name + ": " + type;
+            }
+            return name + ": " + type;
+        }
     }
 }

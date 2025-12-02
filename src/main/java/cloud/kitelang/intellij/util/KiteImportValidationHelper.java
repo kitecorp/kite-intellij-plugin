@@ -2,9 +2,7 @@ package cloud.kitelang.intellij.util;
 
 import cloud.kitelang.intellij.psi.KiteElementTypes;
 import cloud.kitelang.intellij.psi.KiteTokenTypes;
-import cloud.kitelang.intellij.reference.KiteImportHelper;
 import com.intellij.psi.PsiElement;
-import com.intellij.psi.PsiFile;
 import com.intellij.psi.tree.IElementType;
 import org.jetbrains.annotations.Nullable;
 

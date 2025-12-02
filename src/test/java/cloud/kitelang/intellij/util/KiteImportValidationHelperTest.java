@@ -24,13 +24,13 @@ public class KiteImportValidationHelperTest extends KiteTestBase {
 
         if (importStatement != null) {
             assertTrue("import * should be a wildcard import",
-                       KiteImportValidationHelper.isWildcardImport(importStatement));
+                    KiteImportValidationHelper.isWildcardImport(importStatement));
         } else {
             // If no IMPORT_STATEMENT element, use token-based check
             PsiElement importToken = findFirstElementOfType(file, KiteTokenTypes.IMPORT);
             assertNotNull("Should find IMPORT token", importToken);
             assertTrue("import * should be a wildcard import",
-                       KiteImportValidationHelper.isWildcardImportFromToken(importToken));
+                    KiteImportValidationHelper.isWildcardImportFromToken(importToken));
         }
     }
 
@@ -44,12 +44,12 @@ public class KiteImportValidationHelperTest extends KiteTestBase {
 
         if (importStatement != null) {
             assertFalse("import Config should not be a wildcard import",
-                        KiteImportValidationHelper.isWildcardImport(importStatement));
+                    KiteImportValidationHelper.isWildcardImport(importStatement));
         } else {
             PsiElement importToken = findFirstElementOfType(file, KiteTokenTypes.IMPORT);
             assertNotNull("Should find IMPORT token", importToken);
             assertFalse("import Config should not be a wildcard import",
-                        KiteImportValidationHelper.isWildcardImportFromToken(importToken));
+                    KiteImportValidationHelper.isWildcardImportFromToken(importToken));
         }
     }
 

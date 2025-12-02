@@ -195,27 +195,27 @@ public class KiteRefactoringTest extends KiteTestBase {
     public void testComplexFileParsesCorrectly() {
         configureByText("""
                 import * from "common.kite"
-
+                
                 schema Config {
                     string host
                     number port
                 }
-
+                
                 @description("Main config")
                 resource Config main {
                     host = "localhost"
                     port = 8080
                 }
-
+                
                 component WebServer {
                     input string port = "8080"
                     output string endpoint = "http://localhost:${port}"
                 }
-
+                
                 fun getUrl(string host, number port) string {
                     return "http://$host:${port}"
                 }
-
+                
                 var serverUrl = getUrl(main.host, main.port)
                 """);
 

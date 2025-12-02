@@ -149,59 +149,6 @@ public class KiteComponentDefinitionCompletionProvider extends CompletionProvide
     }
 
     /**
-         * A default value suggestion with display and description.
-         */
-        private record DefaultValueSuggestion(String value, String description) {
-    }
-
-    // ========== Context Classes ==========
-
-    /**
-         * Context information about an enclosing component definition block.
-         * Only for component DEFINITIONS (component TypeName { }), not instances.
-         */
-        private record ComponentDefinitionContext(String componentTypeName, PsiElement componentDeclaration) {
-    }
-
-    /**
-     * Information about an input/output declaration's type and property name.
-     *
-     * @param type    "string", "number", "boolean", etc.
-     * @param name    property name like "port", "host", "enabled"
-     * @param isInput true for input, false for output
-     */
-        private record InputOutputInfo(String type, String name, boolean isInput) {
-    }
-
-    // ========== Main Completion Method ==========
-
-    @Override
-    protected void addCompletions(@NotNull CompletionParameters parameters,
-                                  @NotNull ProcessingContext context,
-                                  @NotNull CompletionResultSet result) {
-        PsiElement position = parameters.getPosition();
-
-        // Check if we're inside a component DEFINITION body (not instance)
-        ComponentDefinitionContext componentDefContext = getEnclosingComponentDefinitionContext(position);
-        if (componentDefContext == null) {
-            return; // Not in a component definition context
-        }
-
-        // Check if we're after = in an input/output declaration
-        InputOutputInfo inputOutputInfo = getInputOutputInfo(position);
-        if (inputOutputInfo != null) {
-            // Provide type-based default value suggestions
-            addComponentDefinitionDefaultValueCompletions(result, inputOutputInfo);
-        } else if (!isBeforeAssignment(position)) {
-            // Not in value context - provide keyword completions
-            addComponentDefinitionKeywordCompletions(result);
-        } else {
-            // Before assignment - provide keyword completions
-            addComponentDefinitionKeywordCompletions(result);
-        }
-    }
-
-    /**
      * Check if we're inside a component definition context.
      * This is a public static method so other completion providers can check
      * and skip when we're in component definition context.
@@ -210,19 +157,7 @@ public class KiteComponentDefinitionCompletionProvider extends CompletionProvide
         return getEnclosingComponentDefinitionContextStatic(position) != null;
     }
 
-    // ========== Context Detection ==========
-
-    /**
-     * Get the component definition context if we're inside a component definition body.
-     * Returns null if not inside a component definition, or if it's a component instance.
-     * <p>
-     * Component definition: component TypeName { } (only one identifier before {)
-     * Component instance: component TypeName instanceName { } (two identifiers before {)
-     */
-    @Nullable
-    private ComponentDefinitionContext getEnclosingComponentDefinitionContext(PsiElement position) {
-        return getEnclosingComponentDefinitionContextStatic(position);
-    }
+    // ========== Context Classes ==========
 
     /**
      * Static version for use in isInComponentDefinitionContext check.
@@ -276,6 +211,8 @@ public class KiteComponentDefinitionCompletionProvider extends CompletionProvide
         return foundLBrace && identifierCount == 1;
     }
 
+    // ========== Main Completion Method ==========
+
     /**
      * Extract the type name from a component declaration.
      * For "component WebServer { }" returns "WebServer"
@@ -296,6 +233,46 @@ public class KiteComponentDefinitionCompletionProvider extends CompletionProvide
         return null;
     }
 
+    @Override
+    protected void addCompletions(@NotNull CompletionParameters parameters,
+                                  @NotNull ProcessingContext context,
+                                  @NotNull CompletionResultSet result) {
+        PsiElement position = parameters.getPosition();
+
+        // Check if we're inside a component DEFINITION body (not instance)
+        ComponentDefinitionContext componentDefContext = getEnclosingComponentDefinitionContext(position);
+        if (componentDefContext == null) {
+            return; // Not in a component definition context
+        }
+
+        // Check if we're after = in an input/output declaration
+        InputOutputInfo inputOutputInfo = getInputOutputInfo(position);
+        if (inputOutputInfo != null) {
+            // Provide type-based default value suggestions
+            addComponentDefinitionDefaultValueCompletions(result, inputOutputInfo);
+        } else if (!isBeforeAssignment(position)) {
+            // Not in value context - provide keyword completions
+            addComponentDefinitionKeywordCompletions(result);
+        } else {
+            // Before assignment - provide keyword completions
+            addComponentDefinitionKeywordCompletions(result);
+        }
+    }
+
+    // ========== Context Detection ==========
+
+    /**
+     * Get the component definition context if we're inside a component definition body.
+     * Returns null if not inside a component definition, or if it's a component instance.
+     * <p>
+     * Component definition: component TypeName { } (only one identifier before {)
+     * Component instance: component TypeName instanceName { } (two identifiers before {)
+     */
+    @Nullable
+    private ComponentDefinitionContext getEnclosingComponentDefinitionContext(PsiElement position) {
+        return getEnclosingComponentDefinitionContextStatic(position);
+    }
+
     /**
      * Check if position is before an assignment operator (= or +=).
      */
@@ -311,8 +288,6 @@ public class KiteComponentDefinitionCompletionProvider extends CompletionProvide
         }
         return false;
     }
-
-    // ========== Input/Output Info Extraction ==========
 
     /**
      * Extract the type and property name from the current input/output line.
@@ -406,8 +381,6 @@ public class KiteComponentDefinitionCompletionProvider extends CompletionProvide
         return null;
     }
 
-    // ========== Completion Methods ==========
-
     /**
      * Add default value completions for component definitions.
      * Called when cursor is after = in an input/output declaration.
@@ -494,6 +467,8 @@ public class KiteComponentDefinitionCompletionProvider extends CompletionProvide
         result.addElement(PrioritizedLookupElement.withPriority(falseElement, 590.0));
     }
 
+    // ========== Input/Output Info Extraction ==========
+
     /**
      * Add generic number completions when no property-specific suggestions exist.
      */
@@ -510,6 +485,8 @@ public class KiteComponentDefinitionCompletionProvider extends CompletionProvide
             priority -= 10.0;
         }
     }
+
+    // ========== Completion Methods ==========
 
     /**
      * Add keyword completions for component definition bodies.
@@ -548,5 +525,28 @@ public class KiteComponentDefinitionCompletionProvider extends CompletionProvide
             result.addElement(PrioritizedLookupElement.withPriority(element, typePriority));
             typePriority -= 5.0;
         }
+    }
+
+    /**
+     * A default value suggestion with display and description.
+     */
+    private record DefaultValueSuggestion(String value, String description) {
+    }
+
+    /**
+     * Context information about an enclosing component definition block.
+     * Only for component DEFINITIONS (component TypeName { }), not instances.
+     */
+    private record ComponentDefinitionContext(String componentTypeName, PsiElement componentDeclaration) {
+    }
+
+    /**
+     * Information about an input/output declaration's type and property name.
+     *
+     * @param type    "string", "number", "boolean", etc.
+     * @param name    property name like "port", "host", "enabled"
+     * @param isInput true for input, false for output
+     */
+    private record InputOutputInfo(String type, String name, boolean isInput) {
     }
 }

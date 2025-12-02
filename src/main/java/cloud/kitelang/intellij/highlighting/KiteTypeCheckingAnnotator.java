@@ -5,7 +5,9 @@ import cloud.kitelang.intellij.psi.KiteElementTypes;
 import cloud.kitelang.intellij.psi.KiteTokenTypes;
 import cloud.kitelang.intellij.quickfix.AddImportQuickFix;
 import cloud.kitelang.intellij.reference.KiteImportHelper;
-import cloud.kitelang.intellij.util.*;
+import cloud.kitelang.intellij.util.KiteDeclarationHelper;
+import cloud.kitelang.intellij.util.KitePsiUtil;
+import cloud.kitelang.intellij.util.KiteSchemaHelper;
 import com.intellij.codeInspection.ProblemHighlightType;
 import com.intellij.lang.annotation.AnnotationHolder;
 import com.intellij.lang.annotation.Annotator;
@@ -20,7 +22,8 @@ import java.util.*;
 
 import static cloud.kitelang.intellij.util.KiteIdentifierContextHelper.*;
 import static cloud.kitelang.intellij.util.KiteImportValidationHelper.*;
-import static cloud.kitelang.intellij.util.KitePsiUtil.*;
+import static cloud.kitelang.intellij.util.KitePsiUtil.isWhitespace;
+import static cloud.kitelang.intellij.util.KitePsiUtil.skipWhitespace;
 import static cloud.kitelang.intellij.util.KiteTypeInferenceHelper.*;
 
 /**
@@ -54,6 +57,26 @@ public class KiteTypeCheckingAnnotator implements Annotator {
             // Metadata decorators
             "description", "count", "cloud"
     );
+
+    @Nullable
+    public static String findForLoopVariable(PsiElement forStatement) {
+        boolean foundFor = false;
+        for (PsiElement child = forStatement.getFirstChild(); child != null; child = child.getNextSibling()) {
+            if (child.getNode() == null) continue;
+            IElementType type = child.getNode().getElementType();
+
+            if (type == KiteTokenTypes.FOR) {
+                foundFor = true;
+            } else if (foundFor && type == KiteTokenTypes.IDENTIFIER) {
+                return child.getText();
+            } else if (type == KiteTokenTypes.IN) {
+                break;
+            }
+        }
+        return null;
+    }
+
+    // ========== Declaration Collection ==========
 
     @Override
     public void annotate(@NotNull PsiElement element, @NotNull AnnotationHolder holder) {
@@ -97,8 +120,6 @@ public class KiteTypeCheckingAnnotator implements Annotator {
         // Check import ordering - imports must appear at the beginning of the file
         checkImportOrdering(file, holder);
     }
-
-    // ========== Declaration Collection ==========
 
     /**
      * Collects all declared names from an element and its children.
@@ -339,8 +360,10 @@ public class KiteTypeCheckingAnnotator implements Annotator {
         }
     }
 
+    // ========== Undefined Reference Checking ==========
+
     private void collectWildcardImportedFiles(PsiElement element, PsiFile containingFile,
-                                               Map<String, PsiFile> wildcardFiles) {
+                                              Map<String, PsiFile> wildcardFiles) {
         if (element.getNode() == null) return;
 
         IElementType type = element.getNode().getElementType();
@@ -378,7 +401,7 @@ public class KiteTypeCheckingAnnotator implements Annotator {
         }
     }
 
-    // ========== Undefined Reference Checking ==========
+    // ========== Type Mismatch Checking ==========
 
     private void checkUndefinedReferences(PsiElement element, Set<String> declaredNames, AnnotationHolder holder) {
         if (element.getNode() == null) return;
@@ -429,8 +452,6 @@ public class KiteTypeCheckingAnnotator implements Annotator {
             checkUndefinedReferences(child, declaredNames, holder);
         }
     }
-
-    // ========== Type Mismatch Checking ==========
 
     private void checkTypeMismatches(PsiElement element, AnnotationHolder holder) {
         if (element.getNode() == null) return;
@@ -508,6 +529,8 @@ public class KiteTypeCheckingAnnotator implements Annotator {
         }
     }
 
+    // ========== Decorator Checking ==========
+
     private void checkResourcePropertyTypeMismatches(PsiElement resourceDeclaration, AnnotationHolder holder) {
         String schemaName = KiteSchemaHelper.extractResourceTypeName(resourceDeclaration);
         if (schemaName == null) return;
@@ -560,7 +583,7 @@ public class KiteTypeCheckingAnnotator implements Annotator {
         }
     }
 
-    // ========== Decorator Checking ==========
+    // ========== Import Path Validation ==========
 
     private void checkUnknownDecorators(PsiElement element, AnnotationHolder holder) {
         if (element.getNode() == null) return;
@@ -588,7 +611,7 @@ public class KiteTypeCheckingAnnotator implements Annotator {
         }
     }
 
-    // ========== Import Path Validation ==========
+    // ========== Import Ordering ==========
 
     private void checkBrokenImportPaths(PsiElement element, PsiFile containingFile, @NotNull AnnotationHolder holder) {
         if (element.getNode() == null) return;
@@ -646,7 +669,7 @@ public class KiteTypeCheckingAnnotator implements Annotator {
         }
     }
 
-    // ========== Import Ordering ==========
+    // ========== Declaration Name Finding ==========
 
     private void checkImportOrdering(PsiFile file, @NotNull AnnotationHolder holder) {
         boolean seenNonImportStatement = false;
@@ -692,8 +715,6 @@ public class KiteTypeCheckingAnnotator implements Annotator {
         }
     }
 
-    // ========== Declaration Name Finding ==========
-
     @Nullable
     private String findComponentName(PsiElement componentDecl) {
         List<String> identifiers = new ArrayList<>();
@@ -710,23 +731,5 @@ public class KiteTypeCheckingAnnotator implements Annotator {
         }
 
         return identifiers.isEmpty() ? null : identifiers.get(identifiers.size() - 1);
-    }
-
-    @Nullable
-    public static String findForLoopVariable(PsiElement forStatement) {
-        boolean foundFor = false;
-        for (PsiElement child = forStatement.getFirstChild(); child != null; child = child.getNextSibling()) {
-            if (child.getNode() == null) continue;
-            IElementType type = child.getNode().getElementType();
-
-            if (type == KiteTokenTypes.FOR) {
-                foundFor = true;
-            } else if (foundFor && type == KiteTokenTypes.IDENTIFIER) {
-                return child.getText();
-            } else if (type == KiteTokenTypes.IN) {
-                break;
-            }
-        }
-        return null;
     }
 }

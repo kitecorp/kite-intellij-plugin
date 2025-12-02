@@ -5,8 +5,8 @@ import cloud.kitelang.intellij.psi.KiteTokenTypes;
 import cloud.kitelang.intellij.reference.KiteImportHelper;
 import cloud.kitelang.intellij.structure.KiteStructureViewIcons;
 import cloud.kitelang.intellij.util.KiteDeclarationHelper;
-import cloud.kitelang.intellij.util.KitePsiUtil;
 import cloud.kitelang.intellij.util.KitePropertyHelper;
+import cloud.kitelang.intellij.util.KitePsiUtil;
 import cloud.kitelang.intellij.util.KiteSchemaHelper;
 import com.intellij.codeInsight.completion.CompletionParameters;
 import com.intellij.codeInsight.completion.CompletionProvider;
@@ -20,7 +20,10 @@ import com.intellij.util.ProcessingContext;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.*;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 /**
  * Provides code completion inside resource blocks.
@@ -31,43 +34,12 @@ import java.util.*;
  */
 public class KiteResourceCompletionProvider extends CompletionProvider<CompletionParameters> {
 
-    @Override
-    protected void addCompletions(@NotNull CompletionParameters parameters,
-                                  @NotNull ProcessingContext context,
-                                  @NotNull CompletionResultSet result) {
-        PsiElement position = parameters.getPosition();
-        PsiFile file = parameters.getOriginalFile();
-
-        // Check if we're inside a resource block
-        ResourceContext resourceContext = getEnclosingResourceContext(position);
-        if (resourceContext == null) {
-            return; // Not in a resource block
-        }
-
-        // Check if we're on the LEFT side of = (property name) or RIGHT side (value)
-        if (isBeforeAssignment(position)) {
-            // LEFT side: only schema properties (non-@cloud)
-            addSchemaPropertyCompletions(file, result, resourceContext);
-        } else {
-            // RIGHT side: variables, resources, components, functions
-            addValueCompletions(file, result);
-        }
-    }
-
     /**
      * Check if position is inside a resource block.
      * Public static method for other providers to check resource context.
      */
     public static boolean isInResourceContext(@NotNull PsiElement position) {
         return getEnclosingResourceContext(position) != null;
-    }
-
-    // ========== Resource Context Detection ==========
-
-    /**
-         * Context information about an enclosing resource block.
-         */
-        record ResourceContext(String schemaName, PsiElement resourceDeclaration) {
     }
 
     /**
@@ -91,6 +63,8 @@ public class KiteResourceCompletionProvider extends CompletionProvider<Completio
         }
         return null;
     }
+
+    // ========== Resource Context Detection ==========
 
     /**
      * Check if the cursor is before the assignment operator (on the left side of =).
@@ -130,7 +104,28 @@ public class KiteResourceCompletionProvider extends CompletionProvider<Completio
         return true;
     }
 
-    // ========== Schema Property Completion ==========
+    @Override
+    protected void addCompletions(@NotNull CompletionParameters parameters,
+                                  @NotNull ProcessingContext context,
+                                  @NotNull CompletionResultSet result) {
+        PsiElement position = parameters.getPosition();
+        PsiFile file = parameters.getOriginalFile();
+
+        // Check if we're inside a resource block
+        ResourceContext resourceContext = getEnclosingResourceContext(position);
+        if (resourceContext == null) {
+            return; // Not in a resource block
+        }
+
+        // Check if we're on the LEFT side of = (property name) or RIGHT side (value)
+        if (isBeforeAssignment(position)) {
+            // LEFT side: only schema properties (non-@cloud)
+            addSchemaPropertyCompletions(file, result, resourceContext);
+        } else {
+            // RIGHT side: variables, resources, components, functions
+            addValueCompletions(file, result);
+        }
+    }
 
     /**
      * Add schema property completions with high priority.
@@ -139,7 +134,7 @@ public class KiteResourceCompletionProvider extends CompletionProvider<Completio
      */
     private void addSchemaPropertyCompletions(PsiFile file, @NotNull CompletionResultSet result, ResourceContext resourceContext) {
         Map<String, KiteSchemaHelper.SchemaPropertyInfo> schemaProperties =
-            KiteSchemaHelper.findSchemaProperties(file, resourceContext.schemaName);
+                KiteSchemaHelper.findSchemaProperties(file, resourceContext.schemaName);
 
         Set<String> existingProperties = KitePropertyHelper.collectExistingPropertyNames(resourceContext.resourceDeclaration);
 
@@ -165,7 +160,7 @@ public class KiteResourceCompletionProvider extends CompletionProvider<Completio
         }
     }
 
-    // ========== Value Completion (Right Side of =) ==========
+    // ========== Schema Property Completion ==========
 
     /**
      * Add value completions for the right side of assignments in resource blocks.
@@ -242,6 +237,8 @@ public class KiteResourceCompletionProvider extends CompletionProvider<Completio
         // Add from imported files
         addValueCompletionsFromImports(file, result, addedNames);
     }
+
+    // ========== Value Completion (Right Side of =) ==========
 
     /**
      * Add value completions from imported files.
@@ -324,5 +321,11 @@ public class KiteResourceCompletionProvider extends CompletionProvider<Completio
                 }
             });
         }
+    }
+
+    /**
+     * Context information about an enclosing resource block.
+     */
+    record ResourceContext(String schemaName, PsiElement resourceDeclaration) {
     }
 }

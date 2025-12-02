@@ -28,7 +28,7 @@ import java.util.regex.Pattern;
 /**
  * Handler for "Go to Declaration" (Cmd+Click) in Kite files.
  * Uses direct PSI traversal to resolve identifiers to their declarations.
- *
+ * <p>
  * For STRING tokens with interpolations:
  * - This handler provides navigation targets (finding the declaration)
  * - KiteReferenceContributor provides HighlightedReference for precise highlighting
@@ -430,13 +430,13 @@ public class KiteGotoDeclarationHandler implements GotoDeclarationHandler {
      * Resolve property access chain: navigate through nested object literals.
      * For "server.tag.New", chain = ["server", "tag"], propertyName = "New"
      * Steps:
-     *   1. Find declaration of "server" (the resource)
-     *   2. Find "tag" property inside server's block → get its OBJECT_LITERAL value
-     *   3. Find "New" property inside that object literal
-     *
+     * 1. Find declaration of "server" (the resource)
+     * 2. Find "tag" property inside server's block → get its OBJECT_LITERAL value
+     * 3. Find "New" property inside that object literal
+     * <p>
      * Special case for component instances:
-     *   For "serviceA.endpoint" where serviceA is a component INSTANCE (component WebServer serviceA {}),
-     *   look for "endpoint" in the component TYPE definition (component WebServer {}), not the instance body.
+     * For "serviceA.endpoint" where serviceA is a component INSTANCE (component WebServer serviceA {}),
+     * look for "endpoint" in the component TYPE definition (component WebServer {}), not the instance body.
      */
     @Nullable
     private PsiElement[] resolvePropertyAccessChain(PsiFile file, List<String> chain, String propertyName, PsiElement sourceElement) {
@@ -1127,7 +1127,7 @@ public class KiteGotoDeclarationHandler implements GotoDeclarationHandler {
             }
         }
 
-        return sb.length() > 0 ? sb.toString() : null;
+        return !sb.isEmpty() ? sb.toString() : null;
     }
 
     /**
@@ -1340,7 +1340,7 @@ public class KiteGotoDeclarationHandler implements GotoDeclarationHandler {
      * - The last identifier before = or { in input/output/var/resource/component/schema/function/type declarations
      * - The identifier after "for" keyword in for loops
      * - Property names in object literals (identifier before : or =)
-     *
+     * <p>
      * NOTE: Identifiers that come AFTER = are VALUES (references), not declaration names.
      * Example: in "instanceType = instanceTypes", instanceType is a property name (not navigable),
      * but instanceTypes is a value/reference (should be navigable).
@@ -1496,12 +1496,6 @@ public class KiteGotoDeclarationHandler implements GotoDeclarationHandler {
     // ========== Resource Property to Schema Property Navigation ==========
 
     /**
-         * Simple class to hold resource property information.
-         */
-        private record ResourcePropertyInfo(String schemaName, PsiElement resourceDeclaration) {
-    }
-
-    /**
      * Check if the element is a property name inside a resource block.
      * Returns info about the containing resource if so, null otherwise.
      * <p>
@@ -1579,7 +1573,6 @@ public class KiteGotoDeclarationHandler implements GotoDeclarationHandler {
         return null;
     }
 
-
     /**
      * Find the property NAME element in a schema (the identifier, not the type).
      * Schema syntax: schema Name { type propName [= default] }
@@ -1629,5 +1622,11 @@ public class KiteGotoDeclarationHandler implements GotoDeclarationHandler {
             child = child.getNextSibling();
         }
         return null;
+    }
+
+    /**
+     * Simple class to hold resource property information.
+     */
+    private record ResourcePropertyInfo(String schemaName, PsiElement resourceDeclaration) {
     }
 }

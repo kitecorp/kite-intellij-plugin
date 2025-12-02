@@ -133,7 +133,7 @@ public class KiteDeclarationHelperTest extends KiteTestBase {
                 fun calculateCost(number count) number {
                     return count * 10
                 }
-
+                
                 fun getName() string {
                     return "test"
                 }
@@ -158,7 +158,7 @@ public class KiteDeclarationHelperTest extends KiteTestBase {
                     string host
                     number port
                 }
-
+                
                 schema CacheConfig {
                     string endpoint
                 }
@@ -182,15 +182,15 @@ public class KiteDeclarationHelperTest extends KiteTestBase {
                 var config = "test"
                 input string name
                 output string result = "done"
-
+                
                 schema Config {
                     string value
                 }
-
+                
                 resource Config myConfig {
                     value = "hello"
                 }
-
+                
                 fun process() string {
                     return "processed"
                 }
@@ -373,11 +373,11 @@ public class KiteDeclarationHelperTest extends KiteTestBase {
         configureByText("""
                 var items = [1, 2, 3]
                 var names = ["a", "b"]
-
+                
                 for item in items {
                     var x = item
                 }
-
+                
                 for name in names {
                     var y = name
                 }

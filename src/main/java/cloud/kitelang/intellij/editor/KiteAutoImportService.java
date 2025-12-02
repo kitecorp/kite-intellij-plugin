@@ -231,29 +231,33 @@ public class KiteAutoImportService {
         // Pick the best candidate for each symbol (shortest path = closest file)
         Map<String, String> symbolToFile = new LinkedHashMap<>();
         for (var entry : symbolToCandidates.entrySet()) {
-            String symbol = entry.getKey();
-            List<String> candidates = entry.getValue();
-
-            // Sort by path length and parent traversal count to prefer closer files
-            candidates.sort((a, b) -> {
-                // Count parent directory traversals (../)
-                int aParentCount = countParentTraversals(a);
-                int bParentCount = countParentTraversals(b);
-                if (aParentCount != bParentCount) {
-                    return aParentCount - bParentCount;
-                }
-                // If same parent level, prefer shorter path
-                return a.length() - b.length();
-            });
+            var symbol = entry.getKey();
+            var candidates = pickCandidateByPathLength(entry);
 
             // Use the first (best) candidate
             if (!candidates.isEmpty()) {
                 symbolToFile.put(symbol, candidates.get(0));
-                LOG.info("Symbol '" + symbol + "' found in " + candidates.size() + " files, selected: " + candidates.get(0));
             }
         }
 
         return symbolToFile;
+    }
+
+    private static @NotNull List<String> pickCandidateByPathLength(Map.Entry<String, List<String>> entry) {
+        List<String> candidates = entry.getValue();
+
+        // Sort by path length and parent traversal count to prefer closer files
+        candidates.sort((a, b) -> {
+            // Count parent directory traversals (../)
+            int aParentCount = countParentTraversals(a);
+            int bParentCount = countParentTraversals(b);
+            if (aParentCount != bParentCount) {
+                return aParentCount - bParentCount;
+            }
+            // If same parent level, prefer shorter path
+            return a.length() - b.length();
+        });
+        return candidates;
     }
 
     /**
@@ -315,6 +319,17 @@ public class KiteAutoImportService {
             }
         }
 
+        Runnable writeAction = autoImportOnPaste(file, importText, updates);
+
+        // If already on EDT, run synchronously; otherwise schedule on EDT
+        if (ApplicationManager.getApplication().isDispatchThread()) {
+            writeAction.run();
+        } else {
+            ApplicationManager.getApplication().invokeLater(writeAction);
+        }
+    }
+
+    private static @NotNull Runnable autoImportOnPaste(PsiFile file, StringBuilder importText, List<ImportUpdate> updates) {
         var project = file.getProject();
         String importToAdd = importText.toString();
 
@@ -348,16 +363,7 @@ public class KiteAutoImportService {
                 LOG.info("Import addition completed");
             }, file);
         };
-
-        // If already on EDT, run synchronously; otherwise schedule on EDT
-        if (ApplicationManager.getApplication().isDispatchThread()) {
-            writeAction.run();
-        } else {
-            ApplicationManager.getApplication().invokeLater(writeAction);
-        }
-    }
-
-    private record ImportUpdate(String filePath, Set<String> symbols) {
+        return writeAction;
     }
 
     /**
@@ -429,5 +435,8 @@ public class KiteAutoImportService {
                type == KiteTokenTypes.NL ||
                type == KiteTokenTypes.WHITESPACE ||
                type == KiteTokenTypes.NEWLINE;
+    }
+
+    private record ImportUpdate(String filePath, Set<String> symbols) {
     }
 }

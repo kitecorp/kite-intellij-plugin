@@ -28,7 +28,7 @@ import static cloud.kitelang.intellij.util.KitePsiUtil.skipWhitespaceBackward;
 
 /**
  * Provides general code completion for the Kite language.
- *
+ * <p>
  * Completion types:
  * - Keywords (resource, component, var, input, output, etc.)
  * - Declared identifiers (variables, resources, components, etc.)
@@ -39,28 +39,28 @@ public class KiteGeneralCompletionProvider extends CompletionProvider<Completion
 
     // Keywords that can start a declaration or statement
     private static final String[] TOP_LEVEL_KEYWORDS = {
-        "resource", "component", "schema", "fun", "type",
-        "var", "input", "output", "import"
+            "resource", "component", "schema", "fun", "type",
+            "var", "input", "output", "import"
     };
 
     // Control flow keywords
     private static final String[] CONTROL_KEYWORDS = {
-        "if", "else", "for", "while", "in", "return"
+            "if", "else", "for", "while", "in", "return"
     };
 
     // Built-in types
     private static final String[] BUILTIN_TYPES = {
-        "string", "number", "boolean", "object", "any"
+            "string", "number", "boolean", "object", "any"
     };
 
     // Built-in array types
     private static final String[] BUILTIN_ARRAY_TYPES = {
-        "string[]", "number[]", "boolean[]", "object[]", "any[]"
+            "string[]", "number[]", "boolean[]", "object[]", "any[]"
     };
 
     // Literals
     private static final String[] LITERAL_KEYWORDS = {
-        "true", "false", "null", "this"
+            "true", "false", "null", "this"
     };
 
     @Override
@@ -192,9 +192,9 @@ public class KiteGeneralCompletionProvider extends CompletionProvider<Completion
         KiteDeclarationHelper.collectDeclarations(file, (name, declarationType, element) -> {
             if (KiteDeclarationHelper.isTypeDeclaration(declarationType)) {
                 result.addElement(
-                    LookupElementBuilder.create(name)
-                        .withTypeText(KiteDeclarationHelper.getTypeTextForDeclaration(declarationType))
-                        .withIcon(KiteDeclarationHelper.getIconForDeclaration(declarationType))
+                        LookupElementBuilder.create(name)
+                                .withTypeText(KiteDeclarationHelper.getTypeTextForDeclaration(declarationType))
+                                .withIcon(KiteDeclarationHelper.getIconForDeclaration(declarationType))
                 );
             }
         });
@@ -411,9 +411,9 @@ public class KiteGeneralCompletionProvider extends CompletionProvider<Completion
         // Collect properties from the final context
         KitePropertyHelper.collectPropertiesFromContext(currentContext, (propertyName, propertyElement) -> {
             result.addElement(
-                LookupElementBuilder.create(propertyName)
-                    .withTypeText("property")
-                    .withIcon(KiteStructureViewIcons.PROPERTY)
+                    LookupElementBuilder.create(propertyName)
+                            .withTypeText("property")
+                            .withIcon(KiteStructureViewIcons.PROPERTY)
             );
         });
     }
@@ -546,7 +546,7 @@ public class KiteGeneralCompletionProvider extends CompletionProvider<Completion
      */
     private LookupElement createKeywordLookup(String keyword) {
         return LookupElementBuilder.create(keyword)
-            .withBoldness(true)
-            .withTypeText("keyword");
+                .withBoldness(true)
+                .withTypeText("keyword");
     }
 }

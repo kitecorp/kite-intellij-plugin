@@ -149,7 +149,7 @@ public class RemoveUnusedImportQuickFix extends BaseIntentionAction {
             }
         }
 
-        if (newSymbols.length() == 0) {
+        if (newSymbols.isEmpty()) {
             // All symbols removed, delete the entire line
             removeEntireImportLine(document, project, text);
         } else {

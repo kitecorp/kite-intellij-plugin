@@ -68,14 +68,14 @@ public class KiteAutoImportOnPasteTest extends KiteTestBase {
 
     public void testAutoImportMultipleSymbolsFromSameFile() {
         addFile("common.kite", """
-            var region = "us-east-1"
-            var env = "prod"
-            """);
+                var region = "us-east-1"
+                var env = "prod"
+                """);
 
         configureByText("""
-            var myRegion = region
-            var myEnv = env
-            """);
+                var myRegion = region
+                var myEnv = env
+                """);
 
         triggerAutoImport(0, myFixture.getFile().getTextLength());
 
@@ -91,9 +91,9 @@ public class KiteAutoImportOnPasteTest extends KiteTestBase {
         addFile("config.kite", "var defaultPort = 8080");
 
         configureByText("""
-            var region = defaultRegion
-            var port = defaultPort
-            """);
+                var region = defaultRegion
+                var port = defaultPort
+                """);
 
         triggerAutoImport(0, myFixture.getFile().getTextLength());
 
@@ -106,9 +106,9 @@ public class KiteAutoImportOnPasteTest extends KiteTestBase {
 
     public void testNoImportForDefinedSymbol() {
         configureByText("""
-            var existingVar = "hello"
-            var result = existingVar
-            """);
+                var existingVar = "hello"
+                var result = existingVar
+                """);
 
         triggerAutoImport(0, myFixture.getFile().getTextLength());
 
@@ -120,9 +120,9 @@ public class KiteAutoImportOnPasteTest extends KiteTestBase {
         addFile("common.kite", "var sharedVar = \"test\"");
 
         configureByText("""
-            import sharedVar from "common.kite"
-            var result = sharedVar
-            """);
+                import sharedVar from "common.kite"
+                var result = sharedVar
+                """);
 
         triggerAutoImport(0, myFixture.getFile().getTextLength());
 
@@ -164,22 +164,22 @@ public class KiteAutoImportOnPasteTest extends KiteTestBase {
 
     public void testMergesWithExistingImportFromSameFile() {
         addFile("common.kite", """
-            var alpha = 1
-            var beta = 2
-            """);
+                var alpha = 1
+                var beta = 2
+                """);
 
         configureByText("""
-            import alpha from "common.kite"
-            var result = beta
-            """);
+                import alpha from "common.kite"
+                var result = beta
+                """);
 
         triggerAutoImport(0, myFixture.getFile().getTextLength());
 
         String result = myFixture.getFile().getText();
         // Should merge into single import
         assertTrue("Should have merged import",
-            result.contains("import alpha, beta from \"common.kite\"") ||
-            result.contains("import beta, alpha from \"common.kite\""));
+                result.contains("import alpha, beta from \"common.kite\"") ||
+                result.contains("import beta, alpha from \"common.kite\""));
     }
 
     // ==================== Edge Cases ====================
@@ -188,9 +188,9 @@ public class KiteAutoImportOnPasteTest extends KiteTestBase {
         addFile("common.kite", "var importedVar = \"value\"");
 
         configureByText("""
-            var existingVar = "hello"
-            var x = importedVar
-            """);
+                var existingVar = "hello"
+                var x = importedVar
+                """);
 
         triggerAutoImport(0, myFixture.getFile().getTextLength());
 

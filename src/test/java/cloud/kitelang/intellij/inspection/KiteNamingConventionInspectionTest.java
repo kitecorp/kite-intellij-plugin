@@ -145,8 +145,8 @@ public class KiteNamingConventionInspectionTest extends KiteInspectionTestBase {
         // Should detect both violations
         var violationCount = highlights.stream()
                 .filter(h -> h.getDescription() != null &&
-                            (h.getDescription().contains("camelCase") ||
-                             h.getDescription().contains("PascalCase")))
+                             (h.getDescription().contains("camelCase") ||
+                              h.getDescription().contains("PascalCase")))
                 .count();
         assertTrue("Should detect naming violations", violationCount >= 2);
     }
@@ -190,8 +190,8 @@ public class KiteNamingConventionInspectionTest extends KiteInspectionTestBase {
         var highlights = doHighlighting(text);
         var violationCount = highlights.stream()
                 .filter(h -> h.getDescription() != null &&
-                            (h.getDescription().contains("camelCase") ||
-                             h.getDescription().contains("PascalCase")))
+                             (h.getDescription().contains("camelCase") ||
+                              h.getDescription().contains("PascalCase")))
                 .count();
         assertEquals("Should not detect naming violations", 0, violationCount);
     }

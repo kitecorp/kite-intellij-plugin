@@ -143,8 +143,8 @@ public class KiteDuplicateImportAnnotator implements Annotator {
     }
 
     /**
-         * Information about an import.
-         */
-        private record ImportInfo(String path, int startOffset, int endOffset, String symbol) {
+     * Information about an import.
+     */
+    private record ImportInfo(String path, int startOffset, int endOffset, String symbol) {
     }
 }

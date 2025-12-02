@@ -354,9 +354,9 @@ public class KiteAnnotatorTest extends KiteTestBase {
     public void testComplexFile() {
         configureByText("""
                 import * from "common.kite"
-
+                
                 type Region = "us-east-1" | "us-west-2"
-
+                
                 schema DatabaseConfig {
                     string host
                     number port
@@ -364,7 +364,7 @@ public class KiteAnnotatorTest extends KiteTestBase {
                     any metadata
                     string[] tags
                 }
-
+                
                 @description("Main database")
                 @tags({Environment: "production"})
                 resource DatabaseConfig mainDb {
@@ -374,17 +374,17 @@ public class KiteAnnotatorTest extends KiteTestBase {
                     metadata = {}
                     tags = ["primary", "production"]
                 }
-
+                
                 component WebServer {
                     input string port = "8080"
                     input string host = "localhost"
                     output string endpoint = "http://${host}:${port}"
                 }
-
+                
                 fun formatUrl(string host, number port) string {
                     return "http://$host:${port}"
                 }
-
+                
                 var serverUrl = formatUrl(mainDb.host, mainDb.port)
                 """);
 

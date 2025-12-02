@@ -78,8 +78,8 @@ public class KitePsiParser implements PsiParser {
 
         // Check if this declaration can have nested content (component, schema, resource)
         boolean canHaveNestedDeclarations = elementType == KiteElementTypes.COMPONENT_DECLARATION ||
-                                           elementType == KiteElementTypes.SCHEMA_DECLARATION ||
-                                           elementType == KiteElementTypes.RESOURCE_DECLARATION;
+                                            elementType == KiteElementTypes.SCHEMA_DECLARATION ||
+                                            elementType == KiteElementTypes.RESOURCE_DECLARATION;
 
         // INPUT and OUTPUT are always single-line declarations
         boolean isSingleLineDeclaration = elementType == KiteElementTypes.INPUT_DECLARATION ||

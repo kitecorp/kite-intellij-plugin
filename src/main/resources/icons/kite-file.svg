@@ -1,42 +1,42 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">
-  <!-- Inclined diamond kite shape with two colors and rounded corners, tilted 8 degrees -->
-  <g transform="rotate(8 8 8)">
-    <!-- Top half (lighter blue) -->
-    <path d="M 8 2 L 13.5 7 L 8 8 Z"
-          fill="#7DADE2"
-          stroke="#2874A6"
-          stroke-width="0.5"
-          stroke-linejoin="round"
-          stroke-linecap="round"/>
+    <!-- Inclined diamond kite shape with two colors and rounded corners, tilted 8 degrees -->
+    <g transform="rotate(8 8 8)">
+        <!-- Top half (lighter blue) -->
+        <path d="M 8 2 L 13.5 7 L 8 8 Z"
+              fill="#7DADE2"
+              stroke="#2874A6"
+              stroke-width="0.5"
+              stroke-linejoin="round"
+              stroke-linecap="round"/>
 
-    <!-- Right half (medium blue) -->
-    <path d="M 8 8 L 13.5 7 L 8 14 Z"
-          fill="#3498DB"
-          stroke="#2874A6"
-          stroke-width="0.5"
-          stroke-linejoin="round"
-          stroke-linecap="round"/>
+        <!-- Right half (medium blue) -->
+        <path d="M 8 8 L 13.5 7 L 8 14 Z"
+              fill="#3498DB"
+              stroke="#2874A6"
+              stroke-width="0.5"
+              stroke-linejoin="round"
+              stroke-linecap="round"/>
 
-    <!-- Bottom half (very dark blue) -->
-    <path d="M 8 14 L 2.5 7 L 8 8 Z"
-          fill="#1A5276"
-          stroke="#2874A6"
-          stroke-width="0.5"
-          stroke-linejoin="round"
-          stroke-linecap="round"/>
+        <!-- Bottom half (very dark blue) -->
+        <path d="M 8 14 L 2.5 7 L 8 8 Z"
+              fill="#1A5276"
+              stroke="#2874A6"
+              stroke-width="0.5"
+              stroke-linejoin="round"
+              stroke-linecap="round"/>
 
-    <!-- Left half (medium blue) -->
-    <path d="M 8 2 L 2.5 7 L 8 8 Z"
-          fill="#3498DB"
-          stroke="#2874A6"
-          stroke-width="0.5"
-          stroke-linejoin="round"
-          stroke-linecap="round"/>
+        <!-- Left half (medium blue) -->
+        <path d="M 8 2 L 2.5 7 L 8 8 Z"
+              fill="#3498DB"
+              stroke="#2874A6"
+              stroke-width="0.5"
+              stroke-linejoin="round"
+              stroke-linecap="round"/>
 
-    <!-- Vertical center line only -->
-    <line x1="8" y1="2" x2="8" y2="14"
-          stroke="#2874A6"
-          stroke-width="0.3"
-          opacity="0.4"/>
-  </g>
+        <!-- Vertical center line only -->
+        <line x1="8" y1="2" x2="8" y2="14"
+              stroke="#2874A6"
+              stroke-width="0.3"
+              opacity="0.4"/>
+    </g>
 </svg>

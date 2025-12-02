@@ -1,6 +1,5 @@
 package cloud.kitelang.intellij.highlighting;
 
-import cloud.kitelang.intellij.psi.KiteElementTypes;
 import cloud.kitelang.intellij.psi.KiteTokenTypes;
 import cloud.kitelang.intellij.util.KiteIdentifierContextHelper;
 import com.intellij.lang.annotation.AnnotationHolder;
@@ -10,7 +9,6 @@ import com.intellij.openapi.editor.colors.TextAttributesKey;
 import com.intellij.openapi.editor.markup.TextAttributes;
 import com.intellij.openapi.util.TextRange;
 import com.intellij.psi.PsiElement;
-import com.intellij.psi.PsiFile;
 import com.intellij.psi.tree.IElementType;
 import com.intellij.ui.JBColor;
 import org.jetbrains.annotations.NotNull;
@@ -137,7 +135,7 @@ public class KiteAnnotator implements Annotator {
             }
             // It's a type if followed by optional [] and another identifier (not , or ) or :)
             else if (afterElement.matches("^(\\[\\d*\\])*\\s+[a-zA-Z_][a-zA-Z0-9_]*.*") &&
-                !afterElement.matches("^\\s*[,\\):].*")) {
+                     !afterElement.matches("^\\s*[,\\):].*")) {
                 isType = true;
             }
         }

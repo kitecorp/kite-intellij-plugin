@@ -5,7 +5,7 @@ import com.intellij.codeInspection.LocalInspectionTool;
 /**
  * Tests for KiteDeepNestingInspection.
  * Verifies detection of deeply nested code structures.
- *
+ * <p>
  * Note: Kite may not have traditional if/for/while constructs,
  * so these tests focus on the inspection not crashing and
  * basic scenarios that work with the language structure.

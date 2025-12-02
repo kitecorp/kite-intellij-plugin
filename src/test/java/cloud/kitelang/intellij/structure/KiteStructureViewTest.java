@@ -1,7 +1,6 @@
 package cloud.kitelang.intellij.structure;
 
 import cloud.kitelang.intellij.KiteTestBase;
-import com.intellij.ide.structureView.StructureViewTreeElement;
 import com.intellij.ide.util.treeView.smartTree.TreeElement;
 import com.intellij.psi.PsiFile;
 
@@ -285,27 +284,27 @@ public class KiteStructureViewTest extends KiteTestBase {
     public void testComplexFile() {
         configureByText("""
                 import * from "common.kite"
-
+                
                 schema DatabaseConfig {
                     string host
                     number port
                 }
-
+                
                 @description("Production database")
                 resource DatabaseConfig prod {
                     host = "db.example.com"
                     port = 5432
                 }
-
+                
                 component WebServer {
                     input string port = "8080"
                     output string endpoint = ""
                 }
-
+                
                 fun getUrl() string {
                     return "http://localhost"
                 }
-
+                
                 var config = {}
                 input string env = "dev"
                 output string status = "ok"

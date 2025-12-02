@@ -30,6 +30,14 @@ import java.util.regex.Pattern;
  */
 public class KiteImportHelper {
 
+    // Pattern to match import statements: import * from "path" or import Symbol from 'path'
+    // Matches both wildcard imports (import * from) and named imports (import name1, name2 from)
+    // Uses negative lookbehind to exclude commented lines (// at start of line or with leading whitespace)
+    private static final Pattern IMPORT_PATTERN = Pattern.compile(
+            "^\\s*import\\s+(?:\\*|[\\w,\\s]+)\\s+from\\s+[\"']([^\"']+)[\"']",
+            Pattern.MULTILINE
+    );
+
     /**
      * Get all imported files from a Kite file.
      *
@@ -40,14 +48,6 @@ public class KiteImportHelper {
     public static List<PsiFile> getImportedFiles(@NotNull PsiFile file) {
         return getImportedFiles(file, new HashSet<>());
     }
-
-    // Pattern to match import statements: import * from "path" or import Symbol from 'path'
-    // Matches both wildcard imports (import * from) and named imports (import name1, name2 from)
-    // Uses negative lookbehind to exclude commented lines (// at start of line or with leading whitespace)
-    private static final Pattern IMPORT_PATTERN = Pattern.compile(
-            "^\\s*import\\s+(?:\\*|[\\w,\\s]+)\\s+from\\s+[\"']([^\"']+)[\"']",
-            Pattern.MULTILINE
-    );
 
     /**
      * Get all imported files, tracking visited files to prevent circular imports.
@@ -651,16 +651,16 @@ public class KiteImportHelper {
         StringBuilder relPath = new StringBuilder();
         // Add ".." for each directory we need to go up
         for (int i = commonLen; i < fromParts.length; i++) {
-            if (relPath.length() > 0) relPath.append("/");
+            if (!relPath.isEmpty()) relPath.append("/");
             relPath.append("..");
         }
         // Add the remaining path parts
         for (int i = commonLen; i < toParts.length; i++) {
-            if (relPath.length() > 0) relPath.append("/");
+            if (!relPath.isEmpty()) relPath.append("/");
             relPath.append(toParts[i]);
         }
 
-        return relPath.length() > 0 ? relPath.toString() : toVFile.getName();
+        return !relPath.isEmpty() ? relPath.toString() : toVFile.getName();
     }
 
     /**
@@ -689,8 +689,8 @@ public class KiteImportHelper {
      */
     @Nullable
     private static <T> T searchInImportsRecursive(@NotNull PsiFile file,
-                                                   @NotNull Function<PsiFile, T> fileSearcher,
-                                                   @NotNull Set<String> visited) {
+                                                  @NotNull Function<PsiFile, T> fileSearcher,
+                                                  @NotNull Set<String> visited) {
         var importedFiles = getImportedFiles(file);
         for (var importedFile : importedFiles) {
             if (importedFile == null || importedFile.getVirtualFile() == null) {
@@ -742,8 +742,8 @@ public class KiteImportHelper {
      * Iterate over imports recursively, tracking visited files to prevent cycles.
      */
     private static void forEachImportRecursive(@NotNull PsiFile file,
-                                                @NotNull Consumer<PsiFile> fileConsumer,
-                                                @NotNull Set<String> visited) {
+                                               @NotNull Consumer<PsiFile> fileConsumer,
+                                               @NotNull Set<String> visited) {
         var importedFiles = getImportedFiles(file);
         for (var importedFile : importedFiles) {
             if (importedFile == null || importedFile.getVirtualFile() == null) {

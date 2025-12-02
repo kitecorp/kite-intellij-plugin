@@ -1,7 +1,6 @@
 package cloud.kitelang.intellij.navigation;
 
 import cloud.kitelang.intellij.KiteTestBase;
-import com.intellij.navigation.ChooseByNameContributor;
 import com.intellij.navigation.NavigationItem;
 
 /**

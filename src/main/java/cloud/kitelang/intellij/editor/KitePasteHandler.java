@@ -33,8 +33,8 @@ public class KitePasteHandler extends EditorActionHandler {
 
         // Get file before paste
         PsiFile psiFile = project != null
-            ? PsiDocumentManager.getInstance(project).getPsiFile(editor.getDocument())
-            : null;
+                ? PsiDocumentManager.getInstance(project).getPsiFile(editor.getDocument())
+                : null;
 
         // Check if this is a Kite file
         boolean isKiteFile = psiFile != null && psiFile.getFileType() == KiteFileType.INSTANCE;

@@ -1,7 +1,10 @@
 package cloud.kitelang.intellij.inspection;
 
 import cloud.kitelang.intellij.psi.KiteFile;
-import com.intellij.codeInspection.*;
+import com.intellij.codeInspection.LocalInspectionTool;
+import com.intellij.codeInspection.LocalQuickFix;
+import com.intellij.codeInspection.ProblemHighlightType;
+import com.intellij.codeInspection.ProblemsHolder;
 import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiElementVisitor;
 import com.intellij.psi.PsiFile;
@@ -11,11 +14,11 @@ import org.jetbrains.annotations.NotNull;
  * Abstract base class for Kite language inspections.
  * Uses the standard buildVisitor() pattern recommended by IntelliJ Platform SDK.
  * See: https://plugins.jetbrains.com/docs/intellij/code-inspections.html
- *
+ * <p>
  * Supports two modes:
  * 1. Element-level: Override checkElement() to check individual elements
  * 2. File-level: Override isFileLevelInspection() to return true and checkFile()
- *
+ * <p>
  * Note: IntelliJ's inspection engine handles PSI traversal automatically.
  * The visitor returned from buildVisitor() must NOT be recursive.
  */

@@ -10,7 +10,8 @@ import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiFile;
 import org.jetbrains.annotations.NotNull;
 
-import java.util.*;
+import java.util.HashSet;
+import java.util.Set;
 
 /**
  * Inspection that detects shadowed variables.
@@ -172,9 +173,9 @@ public class KiteShadowedVariableInspection extends KiteInspectionBase {
      * Recursively check for shadowed declarations.
      */
     private void checkDeclarationsRecursive(PsiElement element,
-                                             Set<String> outerScope,
-                                             ProblemsHolder holder,
-                                             boolean checkInputs) {
+                                            Set<String> outerScope,
+                                            ProblemsHolder holder,
+                                            boolean checkInputs) {
         if (element == null || element.getNode() == null) return;
 
         var type = element.getNode().getElementType();

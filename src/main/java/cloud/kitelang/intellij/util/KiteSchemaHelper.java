@@ -5,10 +5,12 @@ import cloud.kitelang.intellij.psi.KiteTokenTypes;
 import cloud.kitelang.intellij.reference.KiteImportHelper;
 import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiFile;
+import com.intellij.psi.TokenType;
 import com.intellij.psi.tree.IElementType;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.*;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * Helper class for schema-related operations.
@@ -19,19 +21,6 @@ public final class KiteSchemaHelper {
     private KiteSchemaHelper() {
         // Utility class - no instances
     }
-
-    /**
-         * Information about a schema property.
-         */
-        public record SchemaPropertyInfo(String type, boolean hasDefaultValue) {
-
-        /**
-             * A property is required if it has no default value.
-             */
-            public boolean isRequired() {
-                return !hasDefaultValue;
-            }
-        }
 
     /**
      * Find schema properties by name. Returns a map of property name to SchemaPropertyInfo.
@@ -144,7 +133,7 @@ public final class KiteSchemaHelper {
                     break;
                 } else if (insideBraces) {
                     // Skip whitespace (but not newlines - those end property definitions)
-                    if (type == KiteTokenTypes.WHITESPACE || type == com.intellij.psi.TokenType.WHITE_SPACE) {
+                    if (type == KiteTokenTypes.WHITESPACE || type == TokenType.WHITE_SPACE) {
                         child = child.getNextSibling();
                         continue;
                     }
@@ -281,6 +270,19 @@ public final class KiteSchemaHelper {
      */
     public static boolean isComponentInstantiation(PsiElement componentDecl) {
         return extractComponentTypeName(componentDecl) != null;
+    }
+
+    /**
+     * Information about a schema property.
+     */
+    public record SchemaPropertyInfo(String type, boolean hasDefaultValue) {
+
+        /**
+         * A property is required if it has no default value.
+         */
+        public boolean isRequired() {
+            return !hasDefaultValue;
+        }
     }
 
 }

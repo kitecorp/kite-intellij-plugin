@@ -22,6 +22,8 @@ public class KiteBlock extends AbstractBlock {
     private final SpacingBuilder spacingBuilder;
     private final Indent indent;
     private final Integer alignmentPadding; // For object property alignment
+    // Store schema alignment info at instance level for use during block building
+    private SchemaAlignmentInfo schemaAlignmentInfo = null;
 
     public KiteBlock(@NotNull ASTNode node,
                      @Nullable Wrap wrap,
@@ -89,11 +91,11 @@ public class KiteBlock extends AbstractBlock {
                 Indent childIndent = getChildIndent(childType, insideBraces, insideParens, insideBrackets, braceDepth);
 
                 blocks.add(new KiteBlock(
-                    child,
-                    null,
-                    null,
-                    childIndent,
-                    spacingBuilder
+                        child,
+                        null,
+                        null,
+                        childIndent,
+                        spacingBuilder
                 ));
 
                 // Update brace depth AFTER processing current element
@@ -204,7 +206,7 @@ public class KiteBlock extends AbstractBlock {
      * Used for object literals, parenthesized named arguments, and block declarations.
      * Creates blocks for all tokens, calculating padding for alignment.
      * Groups consecutive similar declarations and aligns within each group.
-     *
+     * <p>
      * For schema declarations, uses two-phase alignment:
      * 1. Align property names (padding after type identifiers)
      * 2. Align '=' signs (padding after property names)
@@ -502,7 +504,7 @@ public class KiteBlock extends AbstractBlock {
 
         // Identify alignment groups for both COLON and ASSIGN
         List<AlignmentGroup> colonGroups = containsParenthesizedNamedArgs() ?
-            identifyAlignmentGroups(KiteTokenTypes.COLON) : new ArrayList<>();
+                identifyAlignmentGroups(KiteTokenTypes.COLON) : new ArrayList<>();
         List<AlignmentGroup> assignGroups = identifyAlignmentGroups(KiteTokenTypes.ASSIGN);
 
         ASTNode child = myNode.getFirstChildNode();
@@ -554,12 +556,12 @@ public class KiteBlock extends AbstractBlock {
                     }
 
                     blocks.add(new KiteBlock(
-                        child,
-                        null,
-                        null,
-                        childIndent,
-                        spacingBuilder,
-                        padding
+                            child,
+                            null,
+                            null,
+                            childIndent,
+                            spacingBuilder,
+                            padding
                     ));
                 }
 
@@ -582,13 +584,13 @@ public class KiteBlock extends AbstractBlock {
      * Inlines the declaration's tokens rather than creating a block for the whole declaration.
      */
     private void buildDeclarationBlocks(ASTNode declarationElement,
-                                       IElementType alignToken,
-                                       List<AlignmentGroup> groups,
-                                       List<Block> blocks,
-                                       boolean insideBraces,
-                                       boolean insideParens,
-                                       boolean insideBrackets,
-                                       int braceDepth) {
+                                        IElementType alignToken,
+                                        List<AlignmentGroup> groups,
+                                        List<Block> blocks,
+                                        boolean insideBraces,
+                                        boolean insideParens,
+                                        boolean insideBrackets,
+                                        int braceDepth) {
         ASTNode child = declarationElement.getFirstChildNode();
         ASTNode previousIdentifier = null;
 
@@ -613,8 +615,7 @@ public class KiteBlock extends AbstractBlock {
                     AlignmentGroup group = findGroupForIdentifier(groups, previousIdentifier);
                     if (group != null) {
                         // Calculate full declaration width for this identifier
-                        int declarationWidth = calculateDeclarationWidth(declarationElement, previousIdentifier,
-                                                                         declarationElement.getElementType());
+                        int declarationWidth = calculateDeclarationWidth(declarationElement, previousIdentifier);
                         // For ASSIGN, always have at least 1 space; for COLON, longest key has 0 spaces
                         int extraSpace = (alignToken == KiteTokenTypes.ASSIGN) ? 1 : 0;
                         padding = group.maxKeyLength - declarationWidth + extraSpace;
@@ -623,12 +624,12 @@ public class KiteBlock extends AbstractBlock {
                 }
 
                 blocks.add(new KiteBlock(
-                    child,
-                    null,
-                    null,
-                    childIndent,
-                    spacingBuilder,
-                    padding
+                        child,
+                        null,
+                        null,
+                        childIndent,
+                        spacingBuilder,
+                        padding
                 ));
             }
 
@@ -641,7 +642,7 @@ public class KiteBlock extends AbstractBlock {
      * This is critical for proper indentation: by NOT creating a separate block for the literal,
      * the children's indent is calculated relative to the parent's (e.g., RESOURCE_DECLARATION's)
      * baseline, not the physical position of '{' in the source.
-     *
+     * <p>
      * For example, "tag = {" has the '{' at column 9, but we want content at column 6 (parent + 2).
      * If we created a block for OBJECT_LITERAL, IntelliJ would use column 9 as the baseline.
      * By inlining, we use the parent's baseline and brace depth for correct indentation.
@@ -679,11 +680,11 @@ public class KiteBlock extends AbstractBlock {
                     Indent childIndent = getChildIndent(childType, insideBraces, insideParens, insideBrackets, braceDepth);
 
                     blocks.add(new KiteBlock(
-                        child,
-                        null,
-                        null,
-                        childIndent,
-                        spacingBuilder
+                            child,
+                            null,
+                            null,
+                            childIndent,
+                            spacingBuilder
                     ));
                 }
 
@@ -782,12 +783,12 @@ public class KiteBlock extends AbstractBlock {
                     }
 
                     blocks.add(new KiteBlock(
-                        child,
-                        null,
-                        null,
-                        childIndent,
-                        spacingBuilder,
-                        padding
+                            child,
+                            null,
+                            null,
+                            childIndent,
+                            spacingBuilder,
+                            padding
                     ));
                 }
 
@@ -827,10 +828,10 @@ public class KiteBlock extends AbstractBlock {
      * This ensures proper indent stacking when literals are nested.
      */
     private void buildLiteralBlocks(ASTNode literalElement,
-                                   List<Block> blocks,
-                                   boolean parentInsideBraces,
-                                   boolean parentInsideParens,
-                                   boolean parentInsideBrackets) {
+                                    List<Block> blocks,
+                                    boolean parentInsideBraces,
+                                    boolean parentInsideParens,
+                                    boolean parentInsideBrackets) {
         IElementType literalType = literalElement.getElementType();
         boolean isObjectLiteral = literalType == KiteElementTypes.OBJECT_LITERAL;
 
@@ -847,7 +848,7 @@ public class KiteBlock extends AbstractBlock {
 
             if (!shouldSkipToken(childType) && child.getTextLength() > 0) {
                 // Recursively inline nested object/array literals
-                if (childType == KiteElementTypes.OBJECT_LITERAL || childType == KiteElementTypes.ARRAY_LITERAL) {
+                if (isObjectOrArray(childType)) {
                     buildLiteralBlocks(child, blocks, insideBraces, insideParens, insideBrackets);
                 } else {
                     // Note: buildLiteralBlocks doesn't track braceDepth, so we pass 0
@@ -869,12 +870,12 @@ public class KiteBlock extends AbstractBlock {
                     }
 
                     blocks.add(new KiteBlock(
-                        child,
-                        null,
-                        null,
-                        childIndent,
-                        spacingBuilder,
-                        padding
+                            child,
+                            null,
+                            null,
+                            childIndent,
+                            spacingBuilder,
+                            padding
                     ));
                 }
 
@@ -902,30 +903,6 @@ public class KiteBlock extends AbstractBlock {
 
             child = child.getTreeNext();
         }
-    }
-
-    /**
-     * Represents a group of consecutive declarations that should align together.
-     */
-    private static class AlignmentGroup {
-        IElementType keywordType; // INPUT, OUTPUT, VAR, etc.
-        int maxKeyLength;
-        List<ASTNode> identifiers = new ArrayList<>();
-    }
-
-    /**
-     * For schema properties, we need to track both type and property name for two-stage alignment.
-     */
-    private static class SchemaPropertyInfo {
-        ASTNode typeIdentifier;
-        ASTNode propertyIdentifier;
-        boolean hasDefaultValue;
-    }
-
-    private static class SchemaAlignmentInfo {
-        int maxTypeLength = 0;
-        int maxPropertyLength = 0;
-        List<SchemaPropertyInfo> properties = new ArrayList<>();
     }
 
     /**
@@ -997,7 +974,7 @@ public class KiteBlock extends AbstractBlock {
                 if (identifier != null) {
                     currentGroup.identifiers.add(identifier);
                     // Calculate full declaration width: keyword + type + identifier
-                    int declarationWidth = calculateDeclarationWidth(child, identifier, childType);
+                    int declarationWidth = calculateDeclarationWidth(child, identifier);
                     currentGroup.maxKeyLength = Math.max(currentGroup.maxKeyLength, declarationWidth);
                 }
             }
@@ -1046,9 +1023,6 @@ public class KiteBlock extends AbstractBlock {
 
         return groups;
     }
-
-    // Store schema alignment info at instance level for use during block building
-    private SchemaAlignmentInfo schemaAlignmentInfo = null;
 
     /**
      * Collects schema alignment info with both type and property name lengths.
@@ -1272,8 +1246,7 @@ public class KiteBlock extends AbstractBlock {
      * Calculates the full width of a declaration from keyword to property identifier.
      * For INPUT/OUTPUT/VAR: keyword + type + property identifier (with spaces)
      */
-    private int calculateDeclarationWidth(ASTNode declarationElement, ASTNode propertyIdentifier,
-                                         IElementType declarationType) {
+    private int calculateDeclarationWidth(ASTNode declarationElement, ASTNode propertyIdentifier) {
         int width = 0;
         ASTNode child = declarationElement.getFirstChildNode();
 
@@ -1397,8 +1370,8 @@ public class KiteBlock extends AbstractBlock {
     /**
      * Finds the next occurrence of a specific token after a node (skipping whitespace).
      *
-     * @param node       The starting node
-     * @param tokenType  The token type to find (COLON or ASSIGN)
+     * @param node      The starting node
+     * @param tokenType The token type to find (COLON or ASSIGN)
      */
     private ASTNode findNextToken(ASTNode node, IElementType tokenType) {
         ASTNode next = node.getTreeNext();
@@ -1464,7 +1437,7 @@ public class KiteBlock extends AbstractBlock {
                 return Indent.getNoneIndent();
             }
             // Nested object/array literals get normal indent for proper nesting levels
-            if (childType == KiteElementTypes.OBJECT_LITERAL || childType == KiteElementTypes.ARRAY_LITERAL) {
+            if (isObjectOrArray(childType)) {
                 return Indent.getNormalIndent();
             }
             // Other content gets +2 spaces (normal indent, not +4 continuation)
@@ -1475,7 +1448,7 @@ public class KiteBlock extends AbstractBlock {
         // Note: LBRACK/RBRACK cases are already handled at the top of this method
         if (parentType == KiteElementTypes.ARRAY_LITERAL) {
             // Nested object/array literals get normal indent for proper nesting
-            if (childType == KiteElementTypes.OBJECT_LITERAL || childType == KiteElementTypes.ARRAY_LITERAL) {
+            if (isObjectOrArray(childType)) {
                 return Indent.getNormalIndent();
             }
             // All content (elements, object literals, etc.) gets normal indent
@@ -1487,7 +1460,7 @@ public class KiteBlock extends AbstractBlock {
         // The literal's position is determined by spacing (e.g., "tag = {" - the { follows on the same line).
         // The literal's CONTENT should be indented relative to the parent's baseline, not the literal's position.
         // Using NONE indent here means the literal's baseline = parent's baseline, so children get +2 from there.
-        if (childType == KiteElementTypes.OBJECT_LITERAL || childType == KiteElementTypes.ARRAY_LITERAL) {
+        if (isObjectOrArray(childType)) {
             return Indent.getNoneIndent();
         }
 
@@ -1546,6 +1519,9 @@ public class KiteBlock extends AbstractBlock {
         return Indent.getNoneIndent();
     }
 
+    private static boolean isObjectOrArray(IElementType childType) {
+        return childType == KiteElementTypes.OBJECT_LITERAL || childType == KiteElementTypes.ARRAY_LITERAL;
+    }
 
     /**
      * Checks if the element type is a block structure that should indent its children.
@@ -1584,7 +1560,7 @@ public class KiteBlock extends AbstractBlock {
 
         // Special handling for multi-line object and array literals to ensure proper indentation
         // Only force line breaks for multi-line literals; single-line literals stay inline
-        if (parentType == KiteElementTypes.OBJECT_LITERAL || parentType == KiteElementTypes.ARRAY_LITERAL) {
+        if (isObjectOrArray(parentType)) {
             if (isMultiLine(myNode) && child1 instanceof KiteBlock && child2 instanceof KiteBlock) {
                 IElementType type1 = ((KiteBlock) child1).myNode.getElementType();
                 IElementType type2 = ((KiteBlock) child2).myNode.getElementType();
@@ -1664,5 +1640,29 @@ public class KiteBlock extends AbstractBlock {
         }
 
         return new ChildAttributes(Indent.getNoneIndent(), null);
+    }
+
+    /**
+     * Represents a group of consecutive declarations that should align together.
+     */
+    private static class AlignmentGroup {
+        IElementType keywordType; // INPUT, OUTPUT, VAR, etc.
+        int maxKeyLength;
+        List<ASTNode> identifiers = new ArrayList<>();
+    }
+
+    /**
+     * For schema properties, we need to track both type and property name for two-stage alignment.
+     */
+    private static class SchemaPropertyInfo {
+        ASTNode typeIdentifier;
+        ASTNode propertyIdentifier;
+        boolean hasDefaultValue;
+    }
+
+    private static class SchemaAlignmentInfo {
+        int maxTypeLength = 0;
+        int maxPropertyLength = 0;
+        List<SchemaPropertyInfo> properties = new ArrayList<>();
     }
 }

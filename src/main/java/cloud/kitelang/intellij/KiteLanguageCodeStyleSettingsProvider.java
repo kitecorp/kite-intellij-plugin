@@ -68,13 +68,13 @@ public class KiteLanguageCodeStyleSettingsProvider extends LanguageCodeStyleSett
                     name = "my-server"
                     port = 8080
                 }
-
+                
                 component Database db {
                     input string host = "localhost"
                     input number port = 5432
-
+                
                     var string connString = host + ":" + port
-
+                
                     output string endpoint = connString
                 }
                 """;

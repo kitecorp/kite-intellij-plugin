@@ -318,18 +318,18 @@ public class KiteFormatterTest extends KiteTestBase {
     public void testCompleteFileFormats() {
         String code = """
                 import * from "common.kite"
-
+                
                 schema Config {
                     string host
                     number port
                 }
-
+                
                 @description("Main config")
                 resource Config db {
                     host = "localhost"
                     port = 5432
                 }
-
+                
                 fun getEndpoint() string {
                     return "http://" + db.host
                 }

@@ -20,7 +20,7 @@ import java.util.Set;
 /**
  * Reference implementation for Kite identifiers.
  * Resolves identifier usages to their declarations using pure PSI traversal.
- *
+ * <p>
  * Handles three types of references:
  * 1. Simple identifiers (e.g., "server") - resolved to declarations in scope
  * 2. Property access (e.g., "size" in "server.size") - resolved within the object's declaration
@@ -129,10 +129,10 @@ public class KiteReference extends PsiReferenceBase<PsiElement> implements PsiPo
      * Resolve property access chain: navigate through nested object literals.
      * For "server.tag.Name", chain = ["server", "tag"], name = "Name"
      * Steps:
-     *   1. Find declaration of "server" (the resource)
-     *   2. Find "tag" property inside server's block → get its OBJECT_LITERAL value
-     *   3. Find "Name" property inside that object literal
-     *
+     * 1. Find declaration of "server" (the resource)
+     * 2. Find "tag" property inside server's block → get its OBJECT_LITERAL value
+     * 3. Find "Name" property inside that object literal
+     * <p>
      * Special case: For component instances (e.g., "serviceA.endpoint" where serviceA is
      * "component WebServer serviceA {...}"), we need to find the property in the component
      * TYPE definition (the "component WebServer {...}" that defines inputs/outputs).

@@ -4,16 +4,16 @@ import com.intellij.codeInspection.LocalInspectionTool;
 
 /**
  * Tests for KiteCircularImportInspection.
- *
+ * <p>
  * Note: Tests for circular imports (including self-imports) are disabled because
  * IntelliJ's built-in reference resolution causes stack overflow when processing
  * any circular import in the test framework. The inspection detection works
  * correctly in production - it uses java.nio.file to bypass IntelliJ's VFS.
- *
+ * <p>
  * Manual testing can be done by:
  * 1. Self-import: Create test.kite with: import * from "test.kite"
  * 2. Two-file cycle: Create fileA.kite with: import * from "fileB.kite"
- *                    Create fileB.kite with: import * from "fileA.kite"
+ * Create fileB.kite with: import * from "fileA.kite"
  * 3. Open the file and verify the warning appears on the import line
  */
 public class KiteCircularImportInspectionTest extends KiteInspectionTestBase {

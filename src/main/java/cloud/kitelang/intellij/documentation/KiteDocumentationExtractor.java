@@ -4,7 +4,9 @@ import cloud.kitelang.intellij.psi.KiteElementTypes;
 import cloud.kitelang.intellij.psi.KiteTokenTypes;
 import cloud.kitelang.intellij.util.KiteDeclarationHelper;
 import cloud.kitelang.intellij.util.KitePsiUtil;
-import com.intellij.psi.*;
+import com.intellij.psi.PsiComment;
+import com.intellij.psi.PsiElement;
+import com.intellij.psi.PsiFile;
 import com.intellij.psi.tree.IElementType;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -415,7 +417,7 @@ public final class KiteDocumentationExtractor {
                 foundResource = true;
             } else if (foundResource) {
                 if (childType == KiteTokenTypes.IDENTIFIER) {
-                    if (typeBuilder.length() > 0 && !lastWasDot) {
+                    if (!typeBuilder.isEmpty() && !lastWasDot) {
                         break;
                     }
                     typeBuilder.append(child.getText());
@@ -425,7 +427,7 @@ public final class KiteDocumentationExtractor {
                     lastWasDot = true;
                 } else if (childType == KiteTokenTypes.WHITESPACE ||
                            childType == com.intellij.psi.TokenType.WHITE_SPACE) {
-                    if (typeBuilder.length() > 0 && !lastWasDot) {
+                    if (!typeBuilder.isEmpty() && !lastWasDot) {
                         PsiElement next = child.getNextSibling();
                         while (next != null && (next.getNode().getElementType() == KiteTokenTypes.WHITESPACE ||
                                                 next.getNode().getElementType() == com.intellij.psi.TokenType.WHITE_SPACE)) {
@@ -443,7 +445,7 @@ public final class KiteDocumentationExtractor {
             child = child.getNextSibling();
         }
 
-        return typeBuilder.length() > 0 ? typeBuilder.toString() : null;
+        return !typeBuilder.isEmpty() ? typeBuilder.toString() : null;
     }
 
     /**
@@ -534,11 +536,11 @@ public final class KiteDocumentationExtractor {
                     if (!text.isEmpty()) {
                         boolean isQuote = text.equals("\"") || text.equals("'");
                         boolean isDot = text.equals(".");
-                        boolean lastWasQuote = value.length() > 0 &&
-                            (value.charAt(value.length() - 1) == '"' || value.charAt(value.length() - 1) == '\'');
-                        boolean lastWasDot = value.length() > 0 && value.charAt(value.length() - 1) == '.';
+                        boolean lastWasQuote = !value.isEmpty() &&
+                                               (value.charAt(value.length() - 1) == '"' || value.charAt(value.length() - 1) == '\'');
+                        boolean lastWasDot = !value.isEmpty() && value.charAt(value.length() - 1) == '.';
 
-                        if (value.length() > 0 && !isQuote && !lastWasQuote && !isDot && !lastWasDot) {
+                        if (!value.isEmpty() && !isQuote && !lastWasQuote && !isDot && !lastWasDot) {
                             value.append(" ");
                         }
                         value.append(text);
@@ -660,7 +662,7 @@ public final class KiteDocumentationExtractor {
             } else if (defaultValue.length() > 30) {
                 defaultValue = defaultValue.substring(0, 27) + "...";
             }
-            return new String[] { varType, varName, defaultValue };
+            return new String[]{varType, varName, defaultValue};
         }
 
         return null;

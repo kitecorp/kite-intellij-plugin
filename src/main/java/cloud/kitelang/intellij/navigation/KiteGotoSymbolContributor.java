@@ -51,9 +51,9 @@ public class KiteGotoSymbolContributor implements ChooseByNameContributor {
     @Override
     @NotNull
     public NavigationItem[] getItemsByName(@NotNull String name,
-                                            @NotNull String pattern,
-                                            @NotNull Project project,
-                                            boolean includeNonProjectItems) {
+                                           @NotNull String pattern,
+                                           @NotNull Project project,
+                                           boolean includeNonProjectItems) {
         List<NavigationItem> items = new ArrayList<>();
 
         var scope = includeNonProjectItems

@@ -14,11 +14,11 @@ import java.util.List;
 /**
  * Adapter to use ANTLR-generated KiteLexer with IntelliJ Platform.
  * This lexer ensures all characters are covered by tokens (no gaps).
- *
+ * <p>
  * State encoding for incremental lexing:
  * - Bits 0-7: current mode (0=DEFAULT_MODE, 1=STRING_MODE)
  * - Bits 8-15: interpolation depth (0-255)
- *
+ * <p>
  * This allows IntelliJ to properly resume lexing from any point in the file,
  * especially important for string interpolation where the lexer needs to know
  * whether it's inside a string and how deeply nested in interpolations.
@@ -37,12 +37,6 @@ public class KiteLexerAdapter extends LexerBase {
     private int endOffset;
     private List<TokenInfo> tokens;
     private int currentTokenIndex;
-
-    /**
-     * @param state Lexer state at the END of this token
-     */
-    private record TokenInfo(IElementType type, int start, int end, int state) {
-    }
 
     @Override
     public void start(@NotNull CharSequence buffer, int startOffset, int endOffset, int initialState) {
@@ -125,10 +119,10 @@ public class KiteLexerAdapter extends LexerBase {
 
             // Add the actual token
             tokens.add(new TokenInfo(
-                convertTokenType(antlrType),
-                tokenStart,
-                tokenEnd,
-                tokenState
+                    convertTokenType(antlrType),
+                    tokenStart,
+                    tokenEnd,
+                    tokenState
             ));
 
             currentPos = tokenEnd;
@@ -177,18 +171,7 @@ public class KiteLexerAdapter extends LexerBase {
             // Check for block comment: /* ... */
             if (pos + 1 < gapEnd && text.charAt(pos) == '/' && text.charAt(pos + 1) == '*') {
                 // Find end of block comment
-                int commentEnd = pos + 2;
-                while (commentEnd + 1 < gapEnd) {
-                    if (text.charAt(commentEnd) == '*' && text.charAt(commentEnd + 1) == '/') {
-                        commentEnd += 2;
-                        break;
-                    }
-                    commentEnd++;
-                }
-                // If we didn't find closing */, include the rest of the gap
-                if (commentEnd >= gapEnd - 1) {
-                    commentEnd = gapEnd;
-                }
+                int commentEnd = getCommentEnd(text, gapEnd, pos);
                 tokens.add(new TokenInfo(KiteTokenTypes.BLOCK_COMMENT, pos, commentEnd, state));
                 pos = commentEnd;
                 continue;
@@ -211,6 +194,22 @@ public class KiteLexerAdapter extends LexerBase {
                 tokens.add(new TokenInfo(KiteTokenTypes.WHITESPACE, wsStart, pos, state));
             }
         }
+    }
+
+    private static int getCommentEnd(String text, int gapEnd, int pos) {
+        int commentEnd = pos + 2;
+        while (commentEnd + 1 < gapEnd) {
+            if (text.charAt(commentEnd) == '*' && text.charAt(commentEnd + 1) == '/') {
+                commentEnd += 2;
+                break;
+            }
+            commentEnd++;
+        }
+        // If we didn't find closing */, include the rest of the gap
+        if (commentEnd >= gapEnd - 1) {
+            commentEnd = gapEnd;
+        }
+        return commentEnd;
     }
 
     @Override
@@ -373,5 +372,11 @@ public class KiteLexerAdapter extends LexerBase {
 
             default -> KiteTokenTypes.BAD_CHARACTER;
         };
+    }
+
+    /**
+     * @param state Lexer state at the END of this token
+     */
+    private record TokenInfo(IElementType type, int start, int end, int state) {
     }
 }

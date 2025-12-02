@@ -21,22 +21,6 @@ public final class KiteDeclarationHelper {
     }
 
     /**
-     * Visitor interface for iterating over declarations.
-     */
-    @FunctionalInterface
-    public interface DeclarationVisitor {
-        void visit(String name, IElementType declarationType, PsiElement element);
-    }
-
-    /**
-     * Visitor interface for iterating over for-loop variables.
-     */
-    @FunctionalInterface
-    public interface ForLoopVariableVisitor {
-        void visit(String name, PsiElement element);
-    }
-
-    /**
      * Collect all declarations from the file.
      */
     public static void collectDeclarations(PsiFile file, DeclarationVisitor visitor) {
@@ -269,5 +253,21 @@ public final class KiteDeclarationHelper {
         if (type == KiteElementTypes.FUNCTION_DECLARATION) return KiteStructureViewIcons.FUNCTION;
         if (type == KiteElementTypes.TYPE_DECLARATION) return KiteStructureViewIcons.TYPE;
         return null;
+    }
+
+    /**
+     * Visitor interface for iterating over declarations.
+     */
+    @FunctionalInterface
+    public interface DeclarationVisitor {
+        void visit(String name, IElementType declarationType, PsiElement element);
+    }
+
+    /**
+     * Visitor interface for iterating over for-loop variables.
+     */
+    @FunctionalInterface
+    public interface ForLoopVariableVisitor {
+        void visit(String name, PsiElement element);
     }
 }

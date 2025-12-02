@@ -383,6 +383,6 @@ public class KiteImportHelperTest extends KiteTestBase {
         List<PsiFile> imported = KiteImportHelper.getImportedFiles(myFixture.getFile());
 
         // Should find at least middle.kite
-        assertTrue("Should find imported files", imported.size() >= 1);
+        assertTrue("Should find imported files", !imported.isEmpty());
     }
 }

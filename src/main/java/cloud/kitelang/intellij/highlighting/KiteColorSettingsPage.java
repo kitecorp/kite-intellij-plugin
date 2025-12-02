@@ -49,37 +49,37 @@ public class KiteColorSettingsPage implements ColorSettingsPage {
         return """
                 // Kite Infrastructure as Code
                 import * from "common.kite"
-
+                
                 type Environment = "dev" | "staging" | "prod"
-
+                
                 schema DatabaseConfig {
                   string host
                   number port = 5432
                   boolean ssl = true
                 }
-
+                
                 @provisionOn(["aws"])
                 @tags({Environment: "production"})
                 resource S3.Bucket photos {
                   name = "my-photos-bucket"
                   region = "us-east-1"
                 }
-
+                
                 component WebServer api {
                   input number port = 8080
-
+                
                   resource VM.Instance server {
                     size = "t2.micro"
                   }
-
+                
                   output string endpoint = server.publicIp
                 }
-
+                
                 fun calculateCost(number instances) number {
                   var baseCost = 0.10
                   return instances * baseCost
                 }
-
+                
                 /* Multi-line comment
                    for documentation */
                 for env in ["dev", "prod"] {

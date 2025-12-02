@@ -7,14 +7,14 @@ import com.intellij.patterns.PlatformPatterns;
 
 /**
  * Orchestrates code completion for the Kite language.
- *
+ * <p>
  * This contributor registers specialized completion providers for different contexts:
  * - KiteImportPathCompletionProvider: File path completion in import statements
  * - KiteDecoratorCompletionProvider: Decorator names and arguments
  * - KiteResourceCompletionProvider: Property names and values inside resource blocks
  * - KiteComponentDefinitionCompletionProvider: input/output in component definitions
  * - KiteGeneralCompletionProvider: Keywords, identifiers, property access, types
- *
+ * <p>
  * Each provider handles its own context detection and filtering.
  */
 public class KiteCompletionContributor extends CompletionContributor {

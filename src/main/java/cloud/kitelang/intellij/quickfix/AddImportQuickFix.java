@@ -33,12 +33,278 @@ import java.util.*;
  */
 public class AddImportQuickFix extends BaseIntentionAction implements HighPriorityAction {
 
+    // Pattern for named imports: import X from "path" or import X, Y, Z from "path"
+    // Group 1: symbols (e.g., "formatName" or "a, b, c")
+    // Group 2: path (e.g., "common.kite")
+    private static final java.util.regex.Pattern NAMED_IMPORT_PATTERN = java.util.regex.Pattern.compile(
+            "^(\\s*import\\s+)([\\w,\\s]+)(\\s+from\\s+[\"'])([^\"']+)([\"'])",
+            java.util.regex.Pattern.MULTILINE
+    );
     private final String symbolName;
     private final String importPath;
 
     public AddImportQuickFix(@NotNull String symbolName, @NotNull String importPath) {
         this.symbolName = symbolName;
         this.importPath = importPath;
+    }
+
+    /**
+     * Search for files in the project that declare the given symbol.
+     * Returns a list of import paths (relative to the current file).
+     * Only returns files that are NOT already fully imported (wildcard imports).
+     * Files with named imports can still be suggested if the symbol isn't already imported.
+     */
+    @NotNull
+    public static List<ImportCandidate> findImportCandidates(@NotNull String symbolName, @NotNull PsiFile currentFile) {
+        List<ImportCandidate> candidates = new ArrayList<>();
+        Project project = currentFile.getProject();
+        VirtualFile currentVFile = currentFile.getVirtualFile();
+        if (currentVFile == null) return candidates;
+
+        Set<String> visitedPaths = new HashSet<>();
+        String currentPath = currentVFile.getPath();
+        visitedPaths.add(currentPath);
+
+        // Get files with wildcard imports (import * from "file") - these are fully imported
+        Set<String> wildcardImportedPaths = new HashSet<>();
+        // Get named imports mapping: file path -> set of imported symbol names
+        java.util.Map<String, Set<String>> namedImports = new java.util.HashMap<>();
+        collectImportInfo(currentFile, wildcardImportedPaths, namedImports);
+
+        // Search all .kite files in the project
+        Collection<VirtualFile> kiteFiles = FileTypeIndex.getFiles(
+                KiteFileType.INSTANCE,
+                GlobalSearchScope.projectScope(project)
+        );
+
+        for (VirtualFile vFile : kiteFiles) {
+            String filePath = vFile.getPath();
+
+            // Skip current file
+            if (visitedPaths.contains(filePath)) continue;
+
+            // Skip files with wildcard imports - all symbols are already available
+            if (wildcardImportedPaths.contains(filePath)) continue;
+
+            PsiFile psiFile = PsiManager.getInstance(project).findFile(vFile);
+            if (psiFile == null) continue;
+
+            // Check if this file declares the symbol
+            if (fileDeclaresSymbol(psiFile, symbolName)) {
+                String relativePath = calculateRelativePath(currentVFile, vFile);
+                if (relativePath != null) {
+                    // Check if this symbol is already named-imported from this file
+                    // Check both by relative path and absolute path
+                    Set<String> importedSymbols = namedImports.get(relativePath);
+                    if (importedSymbols == null) {
+                        importedSymbols = namedImports.get(filePath); // Try absolute path
+                    }
+                    if (importedSymbols != null && importedSymbols.contains(symbolName)) {
+                        continue; // Symbol already imported from this file
+                    }
+                    candidates.add(new ImportCandidate(symbolName, relativePath, vFile.getPath()));
+                }
+            }
+        }
+
+        return candidates;
+    }
+
+    /**
+     * Collect import information: wildcard imports and named imports.
+     *
+     * @param file                  The file to analyze
+     * @param wildcardImportedPaths Output: set of file paths that have wildcard imports
+     * @param namedImports          Output: map of import path -> set of imported symbol names
+     */
+    private static void collectImportInfo(@NotNull PsiFile file,
+                                          @NotNull Set<String> wildcardImportedPaths,
+                                          @NotNull java.util.Map<String, Set<String>> namedImports) {
+        for (PsiElement child = file.getFirstChild(); child != null; child = child.getNextSibling()) {
+            if (child.getNode() == null) continue;
+            IElementType type = child.getNode().getElementType();
+
+            if (type == KiteElementTypes.IMPORT_STATEMENT) {
+                analyzeImportForInfo(child, wildcardImportedPaths, namedImports, file);
+            }
+        }
+    }
+
+    /**
+     * Analyze an import statement to determine if it's wildcard or named.
+     */
+    private static void analyzeImportForInfo(@NotNull PsiElement importStatement,
+                                             @NotNull Set<String> wildcardImportedPaths,
+                                             @NotNull java.util.Map<String, Set<String>> namedImports,
+                                             @NotNull PsiFile containingFile) {
+        boolean isWildcard = false;
+        Set<String> symbols = new HashSet<>();
+        String importPath = null;
+        boolean foundImport = false;
+        boolean foundFrom = false;
+
+        for (PsiElement child = importStatement.getFirstChild(); child != null; child = child.getNextSibling()) {
+            if (child.getNode() == null) continue;
+            IElementType childType = child.getNode().getElementType();
+
+            if (childType == KiteTokenTypes.IMPORT) {
+                foundImport = true;
+            } else if (foundImport && childType == KiteTokenTypes.MULTIPLY) {
+                isWildcard = true;
+            } else if (foundImport && !foundFrom && childType == KiteTokenTypes.IDENTIFIER) {
+                symbols.add(child.getText());
+            } else if (childType == KiteTokenTypes.FROM) {
+                foundFrom = true;
+            } else if (foundFrom) {
+                // Extract path
+                String text = child.getText();
+                if (text.length() >= 2 &&
+                    ((text.startsWith("\"") && text.endsWith("\"")) ||
+                     (text.startsWith("'") && text.endsWith("'")))) {
+                    importPath = text.substring(1, text.length() - 1);
+                    break;
+                }
+            }
+        }
+
+        if (importPath == null) return;
+
+        // Resolve the import path to an absolute path
+        PsiFile resolvedFile = KiteImportHelper.resolveFilePath(importPath, containingFile);
+        String absolutePath = null;
+        if (resolvedFile != null && resolvedFile.getVirtualFile() != null) {
+            absolutePath = resolvedFile.getVirtualFile().getPath();
+        }
+
+        if (isWildcard) {
+            if (absolutePath != null) {
+                wildcardImportedPaths.add(absolutePath);
+            }
+        } else if (!symbols.isEmpty()) {
+            // Store both by import path and absolute path for lookup
+            namedImports.put(importPath, symbols);
+            if (absolutePath != null) {
+                namedImports.put(absolutePath, symbols);
+            }
+        }
+    }
+
+    /**
+     * Recursively collect all imported file paths (including transitive imports).
+     */
+    private static void collectImportedFilePaths(@NotNull PsiFile file, @NotNull Set<String> importedPaths, @NotNull Set<String> visited) {
+        if (file.getVirtualFile() == null) return;
+
+        String filePath = file.getVirtualFile().getPath();
+        if (visited.contains(filePath)) return;
+        visited.add(filePath);
+
+        List<PsiFile> importedFiles = KiteImportHelper.getImportedFiles(file);
+        for (PsiFile importedFile : importedFiles) {
+            if (importedFile != null && importedFile.getVirtualFile() != null) {
+                importedPaths.add(importedFile.getVirtualFile().getPath());
+                // Recursively collect transitive imports
+                collectImportedFilePaths(importedFile, importedPaths, visited);
+            }
+        }
+    }
+
+    /**
+     * Check if a file declares a symbol with the given name.
+     */
+    private static boolean fileDeclaresSymbol(@NotNull PsiFile file, @NotNull String symbolName) {
+        return fileDeclaresSymbolRecursive(file, symbolName);
+    }
+
+    private static boolean fileDeclaresSymbolRecursive(@NotNull PsiElement element, @NotNull String symbolName) {
+        if (element.getNode() == null) return false;
+
+        IElementType type = element.getNode().getElementType();
+
+        // Check if this is a declaration
+        if (KiteDeclarationHelper.isDeclarationType(type)) {
+            String name = KitePsiUtil.findDeclarationName(element, type);
+            if (symbolName.equals(name)) {
+                return true;
+            }
+        }
+
+        // Recurse into children
+        for (PsiElement child = element.getFirstChild(); child != null; child = child.getNextSibling()) {
+            if (fileDeclaresSymbolRecursive(child, symbolName)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Calculate the relative path from the current file to the target file.
+     */
+    @Nullable
+    private static String calculateRelativePath(@NotNull VirtualFile currentFile, @NotNull VirtualFile targetFile) {
+        VirtualFile currentDir = currentFile.getParent();
+        if (currentDir == null) return null;
+
+        String currentDirPath = currentDir.getPath();
+        String targetPath = targetFile.getPath();
+
+        // If target is in the same directory, just use the filename
+        VirtualFile targetDir = targetFile.getParent();
+        if (targetDir != null && targetDir.getPath().equals(currentDirPath)) {
+            return targetFile.getName();
+        }
+
+        // Calculate relative path
+        String result = calculateRelativePath(currentDirPath, targetPath);
+
+        // If the path doesn't start with ../ or /, add ./
+        if (!result.startsWith("../") && !result.startsWith("/")) {
+            // If it's just a filename, keep it as is (IntelliJ convention)
+            if (!result.contains("/")) {
+                return result;
+            }
+        }
+
+        return result;
+    }
+
+    private static @NotNull String calculateRelativePath(String currentDirPath, String targetPath) {
+        String[] currentParts = currentDirPath.split("/");
+        String[] targetParts = targetPath.split("/");
+
+        // Find common prefix
+        int commonLength = 0;
+        int minLength = Math.min(currentParts.length, targetParts.length - 1); // -1 because target includes filename
+        for (int i = 0; i < minLength; i++) {
+            if (currentParts[i].equals(targetParts[i])) {
+                commonLength++;
+            } else {
+                break;
+            }
+        }
+
+        // Build relative path
+        return buildRelativePath(currentParts, commonLength, targetParts);
+    }
+
+    private static @NotNull String buildRelativePath(String[] currentParts, int commonLength, String[] targetParts) {
+
+        // Go up from current directory
+        int stepsUp = currentParts.length - commonLength;
+        var relativePath = new StringBuilder();
+        relativePath.append("../".repeat(Math.max(0, stepsUp)));
+
+        // Go down to target
+        for (int i = commonLength; i < targetParts.length; i++) {
+            if (i > commonLength) {
+                relativePath.append("/");
+            }
+            relativePath.append(targetParts[i]);
+        }
+
+        return relativePath.toString();
     }
 
     @Override
@@ -94,27 +360,6 @@ public class AddImportQuickFix extends BaseIntentionAction implements HighPriori
             com.intellij.psi.PsiDocumentManager.getInstance(project).commitDocument(document);
         }
     }
-
-    /**
-     * Information about an existing import statement.
-     *
-     * @param startOffset      Start of the import statement
-     * @param endOffset        End of the import statement
-     * @param symbolsEndOffset End of the symbols list (before "from")
-     * @param isWildcard       True if "import *"
-     * @param symbols          List of imported symbols (empty if wildcard)
-     */
-        private record ExistingImportInfo(int startOffset, int endOffset, int symbolsEndOffset, boolean isWildcard,
-                                          List<String> symbols) {
-    }
-
-    // Pattern for named imports: import X from "path" or import X, Y, Z from "path"
-    // Group 1: symbols (e.g., "formatName" or "a, b, c")
-    // Group 2: path (e.g., "common.kite")
-    private static final java.util.regex.Pattern NAMED_IMPORT_PATTERN = java.util.regex.Pattern.compile(
-            "^(\\s*import\\s+)([\\w,\\s]+)(\\s+from\\s+[\"'])([^\"']+)([\"'])",
-            java.util.regex.Pattern.MULTILINE
-    );
 
     /**
      * Find ALL existing import statements for the given path using text-based parsing.
@@ -408,266 +653,26 @@ public class AddImportQuickFix extends BaseIntentionAction implements HighPriori
     }
 
     /**
-     * Search for files in the project that declare the given symbol.
-     * Returns a list of import paths (relative to the current file).
-     * Only returns files that are NOT already fully imported (wildcard imports).
-     * Files with named imports can still be suggested if the symbol isn't already imported.
-     */
-    @NotNull
-    public static List<ImportCandidate> findImportCandidates(@NotNull String symbolName, @NotNull PsiFile currentFile) {
-        List<ImportCandidate> candidates = new ArrayList<>();
-        Project project = currentFile.getProject();
-        VirtualFile currentVFile = currentFile.getVirtualFile();
-        if (currentVFile == null) return candidates;
-
-        Set<String> visitedPaths = new HashSet<>();
-        String currentPath = currentVFile.getPath();
-        visitedPaths.add(currentPath);
-
-        // Get files with wildcard imports (import * from "file") - these are fully imported
-        Set<String> wildcardImportedPaths = new HashSet<>();
-        // Get named imports mapping: file path -> set of imported symbol names
-        java.util.Map<String, Set<String>> namedImports = new java.util.HashMap<>();
-        collectImportInfo(currentFile, wildcardImportedPaths, namedImports);
-
-        // Search all .kite files in the project
-        Collection<VirtualFile> kiteFiles = FileTypeIndex.getFiles(
-                KiteFileType.INSTANCE,
-                GlobalSearchScope.projectScope(project)
-        );
-
-        for (VirtualFile vFile : kiteFiles) {
-            String filePath = vFile.getPath();
-
-            // Skip current file
-            if (visitedPaths.contains(filePath)) continue;
-
-            // Skip files with wildcard imports - all symbols are already available
-            if (wildcardImportedPaths.contains(filePath)) continue;
-
-            PsiFile psiFile = PsiManager.getInstance(project).findFile(vFile);
-            if (psiFile == null) continue;
-
-            // Check if this file declares the symbol
-            if (fileDeclaresSymbol(psiFile, symbolName)) {
-                String relativePath = calculateRelativePath(currentVFile, vFile);
-                if (relativePath != null) {
-                    // Check if this symbol is already named-imported from this file
-                    // Check both by relative path and absolute path
-                    Set<String> importedSymbols = namedImports.get(relativePath);
-                    if (importedSymbols == null) {
-                        importedSymbols = namedImports.get(filePath); // Try absolute path
-                    }
-                    if (importedSymbols != null && importedSymbols.contains(symbolName)) {
-                        continue; // Symbol already imported from this file
-                    }
-                    candidates.add(new ImportCandidate(symbolName, relativePath, vFile.getPath()));
-                }
-            }
-        }
-
-        return candidates;
-    }
-
-    /**
-     * Collect import information: wildcard imports and named imports.
+     * Information about an existing import statement.
      *
-     * @param file                  The file to analyze
-     * @param wildcardImportedPaths Output: set of file paths that have wildcard imports
-     * @param namedImports          Output: map of import path -> set of imported symbol names
+     * @param startOffset      Start of the import statement
+     * @param endOffset        End of the import statement
+     * @param symbolsEndOffset End of the symbols list (before "from")
+     * @param isWildcard       True if "import *"
+     * @param symbols          List of imported symbols (empty if wildcard)
      */
-    private static void collectImportInfo(@NotNull PsiFile file,
-                                          @NotNull Set<String> wildcardImportedPaths,
-                                          @NotNull java.util.Map<String, Set<String>> namedImports) {
-        for (PsiElement child = file.getFirstChild(); child != null; child = child.getNextSibling()) {
-            if (child.getNode() == null) continue;
-            IElementType type = child.getNode().getElementType();
-
-            if (type == KiteElementTypes.IMPORT_STATEMENT) {
-                analyzeImportForInfo(child, wildcardImportedPaths, namedImports, file);
-            }
-        }
+    private record ExistingImportInfo(int startOffset, int endOffset, int symbolsEndOffset, boolean isWildcard,
+                                      List<String> symbols) {
     }
 
     /**
-     * Analyze an import statement to determine if it's wildcard or named.
+     * Represents a candidate import that can resolve an undefined symbol.
      */
-    private static void analyzeImportForInfo(@NotNull PsiElement importStatement,
-                                             @NotNull Set<String> wildcardImportedPaths,
-                                             @NotNull java.util.Map<String, Set<String>> namedImports,
-                                             @NotNull PsiFile containingFile) {
-        boolean isWildcard = false;
-        Set<String> symbols = new HashSet<>();
-        String importPath = null;
-        boolean foundImport = false;
-        boolean foundFrom = false;
-
-        for (PsiElement child = importStatement.getFirstChild(); child != null; child = child.getNextSibling()) {
-            if (child.getNode() == null) continue;
-            IElementType childType = child.getNode().getElementType();
-
-            if (childType == KiteTokenTypes.IMPORT) {
-                foundImport = true;
-            } else if (foundImport && childType == KiteTokenTypes.MULTIPLY) {
-                isWildcard = true;
-            } else if (foundImport && !foundFrom && childType == KiteTokenTypes.IDENTIFIER) {
-                symbols.add(child.getText());
-            } else if (childType == KiteTokenTypes.FROM) {
-                foundFrom = true;
-            } else if (foundFrom) {
-                // Extract path
-                String text = child.getText();
-                if (text.length() >= 2 &&
-                    ((text.startsWith("\"") && text.endsWith("\"")) ||
-                     (text.startsWith("'") && text.endsWith("'")))) {
-                    importPath = text.substring(1, text.length() - 1);
-                    break;
-                }
-            }
-        }
-
-        if (importPath == null) return;
-
-        // Resolve the import path to an absolute path
-        PsiFile resolvedFile = KiteImportHelper.resolveFilePath(importPath, containingFile);
-        String absolutePath = null;
-        if (resolvedFile != null && resolvedFile.getVirtualFile() != null) {
-            absolutePath = resolvedFile.getVirtualFile().getPath();
-        }
-
-        if (isWildcard) {
-            if (absolutePath != null) {
-                wildcardImportedPaths.add(absolutePath);
-            }
-        } else if (!symbols.isEmpty()) {
-            // Store both by import path and absolute path for lookup
-            namedImports.put(importPath, symbols);
-            if (absolutePath != null) {
-                namedImports.put(absolutePath, symbols);
-            }
+    public record ImportCandidate(String symbolName, String importPath, String fullPath) {
+        public ImportCandidate(@NotNull String symbolName, @NotNull String importPath, @NotNull String fullPath) {
+            this.symbolName = symbolName;
+            this.importPath = importPath;
+            this.fullPath = fullPath;
         }
     }
-
-    /**
-     * Recursively collect all imported file paths (including transitive imports).
-     */
-    private static void collectImportedFilePaths(@NotNull PsiFile file, @NotNull Set<String> importedPaths, @NotNull Set<String> visited) {
-        if (file.getVirtualFile() == null) return;
-
-        String filePath = file.getVirtualFile().getPath();
-        if (visited.contains(filePath)) return;
-        visited.add(filePath);
-
-        List<PsiFile> importedFiles = KiteImportHelper.getImportedFiles(file);
-        for (PsiFile importedFile : importedFiles) {
-            if (importedFile != null && importedFile.getVirtualFile() != null) {
-                importedPaths.add(importedFile.getVirtualFile().getPath());
-                // Recursively collect transitive imports
-                collectImportedFilePaths(importedFile, importedPaths, visited);
-            }
-        }
-    }
-
-    /**
-     * Check if a file declares a symbol with the given name.
-     */
-    private static boolean fileDeclaresSymbol(@NotNull PsiFile file, @NotNull String symbolName) {
-        return fileDeclaresSymbolRecursive(file, symbolName);
-    }
-
-    private static boolean fileDeclaresSymbolRecursive(@NotNull PsiElement element, @NotNull String symbolName) {
-        if (element.getNode() == null) return false;
-
-        IElementType type = element.getNode().getElementType();
-
-        // Check if this is a declaration
-        if (KiteDeclarationHelper.isDeclarationType(type)) {
-            String name = KitePsiUtil.findDeclarationName(element, type);
-            if (symbolName.equals(name)) {
-                return true;
-            }
-        }
-
-        // Recurse into children
-        for (PsiElement child = element.getFirstChild(); child != null; child = child.getNextSibling()) {
-            if (fileDeclaresSymbolRecursive(child, symbolName)) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /**
-     * Calculate the relative path from the current file to the target file.
-     */
-    @Nullable
-    private static String calculateRelativePath(@NotNull VirtualFile currentFile, @NotNull VirtualFile targetFile) {
-        VirtualFile currentDir = currentFile.getParent();
-        if (currentDir == null) return null;
-
-        String currentDirPath = currentDir.getPath();
-        String targetPath = targetFile.getPath();
-
-        // If target is in the same directory, just use the filename
-        VirtualFile targetDir = targetFile.getParent();
-        if (targetDir != null && targetDir.getPath().equals(currentDirPath)) {
-            return targetFile.getName();
-        }
-
-        // Calculate relative path
-        String[] currentParts = currentDirPath.split("/");
-        String[] targetParts = targetPath.split("/");
-
-        // Find common prefix
-        int commonLength = 0;
-        int minLength = Math.min(currentParts.length, targetParts.length - 1); // -1 because target includes filename
-        for (int i = 0; i < minLength; i++) {
-            if (currentParts[i].equals(targetParts[i])) {
-                commonLength++;
-            } else {
-                break;
-            }
-        }
-
-        // Build relative path
-        StringBuilder relativePath = new StringBuilder();
-
-        // Go up from current directory
-        int stepsUp = currentParts.length - commonLength;
-        for (int i = 0; i < stepsUp; i++) {
-            relativePath.append("../");
-        }
-
-        // Go down to target
-        for (int i = commonLength; i < targetParts.length; i++) {
-            if (i > commonLength) {
-                relativePath.append("/");
-            }
-            relativePath.append(targetParts[i]);
-        }
-
-        String result = relativePath.toString();
-
-        // If the path doesn't start with ../ or /, add ./
-        if (!result.startsWith("../") && !result.startsWith("/")) {
-            // If it's just a filename, keep it as is (IntelliJ convention)
-            if (!result.contains("/")) {
-                return result;
-            }
-        }
-
-        return result;
-    }
-
-    /**
-         * Represents a candidate import that can resolve an undefined symbol.
-         */
-        public record ImportCandidate(String symbolName, String importPath, String fullPath) {
-            public ImportCandidate(@NotNull String symbolName, @NotNull String importPath, @NotNull String fullPath) {
-                this.symbolName = symbolName;
-                this.importPath = importPath;
-                this.fullPath = fullPath;
-            }
-        }
 }

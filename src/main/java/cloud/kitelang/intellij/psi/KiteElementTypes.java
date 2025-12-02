@@ -9,12 +9,6 @@ import org.jetbrains.annotations.NotNull;
  */
 public class KiteElementTypes {
 
-    public static class KiteElementType extends IElementType {
-        public KiteElementType(@NotNull String debugName) {
-            super(debugName, KiteLanguage.INSTANCE);
-        }
-    }
-
     public static final IElementType FILE = new KiteElementType("FILE");
     public static final IElementType RESOURCE_DECLARATION = new KiteElementType("RESOURCE_DECLARATION");
     public static final IElementType COMPONENT_DECLARATION = new KiteElementType("COMPONENT_DECLARATION");
@@ -29,4 +23,10 @@ public class KiteElementTypes {
     public static final IElementType WHILE_STATEMENT = new KiteElementType("WHILE_STATEMENT");
     public static final IElementType OBJECT_LITERAL = new KiteElementType("OBJECT_LITERAL");
     public static final IElementType ARRAY_LITERAL = new KiteElementType("ARRAY_LITERAL");
+
+    public static class KiteElementType extends IElementType {
+        public KiteElementType(@NotNull String debugName) {
+            super(debugName, KiteLanguage.INSTANCE);
+        }
+    }
 }

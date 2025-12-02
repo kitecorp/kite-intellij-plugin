@@ -29,90 +29,11 @@ public class KiteReferenceContributor extends PsiReferenceContributor {
     // Patterns for string interpolation
     private static final Pattern BRACE_INTERPOLATION_PATTERN = Pattern.compile("\\$\\{([^}]+)\\}");
     private static final Pattern SIMPLE_INTERPOLATION_PATTERN = Pattern.compile("\\$([a-zA-Z_][a-zA-Z0-9_]*)");
-
-    @Override
-    public void registerReferenceProviders(@NotNull PsiReferenceRegistrar registrar) {
-        LOG.info("[KiteRefContrib] Registering reference providers");
-
-        // Register reference provider for ANY PsiElement, then filter inside
-        registrar.registerReferenceProvider(
-                PlatformPatterns.psiElement(),
-                new PsiReferenceProvider() {
-                    @Override
-                    public PsiReference @NotNull [] getReferencesByElement(
-                            @NotNull PsiElement element,
-                            @NotNull ProcessingContext context) {
-
-                        // Only handle Kite files
-                        PsiFile file = element.getContainingFile();
-                        if (file == null || file.getLanguage() != KiteLanguage.INSTANCE) {
-                            return PsiReference.EMPTY_ARRAY;
-                        }
-
-                        if (element.getNode() == null) {
-                            return PsiReference.EMPTY_ARRAY;
-                        }
-
-                        IElementType elementType = element.getNode().getElementType();
-
-                        // Handle legacy STRING tokens with interpolations (for backwards compatibility)
-                        if (elementType == KiteTokenTypes.STRING) {
-                            return getStringInterpolationReferences(element);
-                        }
-
-                        // Handle INTERP_IDENTIFIER (the identifier inside ${...})
-                        // e.g., in "${port}", the INTERP_IDENTIFIER token is "port"
-                        if (elementType == KiteTokenTypes.INTERP_IDENTIFIER) {
-                            String varName = element.getText();
-                            LOG.info("[KiteRefContrib] Creating reference for INTERP_IDENTIFIER: " + varName);
-                            TextRange range = new TextRange(0, varName.length());
-                            return new PsiReference[]{new KiteStringInterpolationReference(element, range, varName)};
-                        }
-
-                        // Handle INTERP_SIMPLE (the $identifier token for simple interpolation)
-                        // e.g., "$port" - the whole token includes the $
-                        if (elementType == KiteTokenTypes.INTERP_SIMPLE) {
-                            String text = element.getText();
-                            // Extract variable name by removing the leading $
-                            if (text.startsWith("$") && text.length() > 1) {
-                                String varName = text.substring(1);
-                                LOG.info("[KiteRefContrib] Creating reference for INTERP_SIMPLE: " + varName);
-                                // Reference range is just the identifier part (after the $)
-                                TextRange range = new TextRange(1, text.length());
-                                return new PsiReference[]{new KiteStringInterpolationReference(element, range, varName)};
-                            }
-                            return PsiReference.EMPTY_ARRAY;
-                        }
-
-                        // Only provide references for IDENTIFIER tokens
-                        if (elementType != KiteTokenTypes.IDENTIFIER) {
-                            return PsiReference.EMPTY_ARRAY;
-                        }
-
-                        // Check if this is an import symbol (identifier in an import statement)
-                        String importPath = getImportPathForSymbol(element);
-                        if (importPath != null) {
-                            LOG.info("[KiteRefContrib] Creating import symbol reference for: " + element.getText() + " from " + importPath);
-                            TextRange range = new TextRange(0, element.getTextLength());
-                            return new PsiReference[]{new KiteImportSymbolReference(element, range, element.getText(), importPath)};
-                        }
-
-                        // Don't provide references for declaration names (the name being declared)
-                        // e.g., in "input number port = 8080", "port" is a declaration name, not a reference
-                        if (isDeclarationName(element)) {
-                            LOG.info("[KiteRefContrib] Skipping declaration name: " + element.getText());
-                            return PsiReference.EMPTY_ARRAY;
-                        }
-
-                        LOG.info("[KiteRefContrib] Creating reference for: " + element.getText());
-
-                        // Create a reference for this identifier
-                        TextRange range = new TextRange(0, element.getTextLength());
-                        return new PsiReference[]{new KiteReference(element, range)};
-                    }
-                }
-        );
-    }
+    // Pattern to extract import path from import statement line
+    // Matches: import symbol1, symbol2 from "path" OR import * from "path"
+    private static final Pattern IMPORT_LINE_PATTERN = Pattern.compile(
+            "^\\s*import\\s+(?:\\*|[\\w,\\s]+)\\s+from\\s+[\"']([^\"']+)[\"']"
+    );
 
     /**
      * Get references for string interpolation expressions like ${var} or $var.
@@ -190,7 +111,7 @@ public class KiteReferenceContributor extends PsiReferenceContributor {
             }
         }
 
-        return sb.length() > 0 ? sb.toString() : null;
+        return !sb.isEmpty() ? sb.toString() : null;
     }
 
     /**
@@ -200,7 +121,7 @@ public class KiteReferenceContributor extends PsiReferenceContributor {
      * - The identifier after "for" keyword in for loops
      * - Property names in object literals (identifier before : or =)
      * - Property names inside schema bodies (identifier after a type)
-     *
+     * <p>
      * NOTE: Identifiers that come AFTER = are VALUES (references), not declaration names.
      * Example: in "instanceType = instanceTypes", instanceType is a property name (not navigable),
      * but instanceTypes is a value/reference (should be navigable).
@@ -487,12 +408,6 @@ public class KiteReferenceContributor extends PsiReferenceContributor {
                type == KiteTokenTypes.RBRACK;
     }
 
-    // Pattern to extract import path from import statement line
-    // Matches: import symbol1, symbol2 from "path" OR import * from "path"
-    private static final Pattern IMPORT_LINE_PATTERN = Pattern.compile(
-            "^\\s*import\\s+(?:\\*|[\\w,\\s]+)\\s+from\\s+[\"']([^\"']+)[\"']"
-    );
-
     /**
      * Check if an identifier is inside an import statement and return the import path.
      * For "import appName from "common.kite"", returns "common.kite" if element is appName.
@@ -538,5 +453,89 @@ public class KiteReferenceContributor extends PsiReferenceContributor {
         }
 
         return null;
+    }
+
+    @Override
+    public void registerReferenceProviders(@NotNull PsiReferenceRegistrar registrar) {
+        LOG.info("[KiteRefContrib] Registering reference providers");
+
+        // Register reference provider for ANY PsiElement, then filter inside
+        registrar.registerReferenceProvider(
+                PlatformPatterns.psiElement(),
+                new PsiReferenceProvider() {
+                    @Override
+                    public PsiReference @NotNull [] getReferencesByElement(
+                            @NotNull PsiElement element,
+                            @NotNull ProcessingContext context) {
+
+                        // Only handle Kite files
+                        PsiFile file = element.getContainingFile();
+                        if (file == null || file.getLanguage() != KiteLanguage.INSTANCE) {
+                            return PsiReference.EMPTY_ARRAY;
+                        }
+
+                        if (element.getNode() == null) {
+                            return PsiReference.EMPTY_ARRAY;
+                        }
+
+                        IElementType elementType = element.getNode().getElementType();
+
+                        // Handle legacy STRING tokens with interpolations (for backwards compatibility)
+                        if (elementType == KiteTokenTypes.STRING) {
+                            return getStringInterpolationReferences(element);
+                        }
+
+                        // Handle INTERP_IDENTIFIER (the identifier inside ${...})
+                        // e.g., in "${port}", the INTERP_IDENTIFIER token is "port"
+                        if (elementType == KiteTokenTypes.INTERP_IDENTIFIER) {
+                            String varName = element.getText();
+                            LOG.info("[KiteRefContrib] Creating reference for INTERP_IDENTIFIER: " + varName);
+                            TextRange range = new TextRange(0, varName.length());
+                            return new PsiReference[]{new KiteStringInterpolationReference(element, range, varName)};
+                        }
+
+                        // Handle INTERP_SIMPLE (the $identifier token for simple interpolation)
+                        // e.g., "$port" - the whole token includes the $
+                        if (elementType == KiteTokenTypes.INTERP_SIMPLE) {
+                            String text = element.getText();
+                            // Extract variable name by removing the leading $
+                            if (text.startsWith("$") && text.length() > 1) {
+                                String varName = text.substring(1);
+                                LOG.info("[KiteRefContrib] Creating reference for INTERP_SIMPLE: " + varName);
+                                // Reference range is just the identifier part (after the $)
+                                TextRange range = new TextRange(1, text.length());
+                                return new PsiReference[]{new KiteStringInterpolationReference(element, range, varName)};
+                            }
+                            return PsiReference.EMPTY_ARRAY;
+                        }
+
+                        // Only provide references for IDENTIFIER tokens
+                        if (elementType != KiteTokenTypes.IDENTIFIER) {
+                            return PsiReference.EMPTY_ARRAY;
+                        }
+
+                        // Check if this is an import symbol (identifier in an import statement)
+                        String importPath = getImportPathForSymbol(element);
+                        if (importPath != null) {
+                            LOG.info("[KiteRefContrib] Creating import symbol reference for: " + element.getText() + " from " + importPath);
+                            TextRange range = new TextRange(0, element.getTextLength());
+                            return new PsiReference[]{new KiteImportSymbolReference(element, range, element.getText(), importPath)};
+                        }
+
+                        // Don't provide references for declaration names (the name being declared)
+                        // e.g., in "input number port = 8080", "port" is a declaration name, not a reference
+                        if (isDeclarationName(element)) {
+                            LOG.info("[KiteRefContrib] Skipping declaration name: " + element.getText());
+                            return PsiReference.EMPTY_ARRAY;
+                        }
+
+                        LOG.info("[KiteRefContrib] Creating reference for: " + element.getText());
+
+                        // Create a reference for this identifier
+                        TextRange range = new TextRange(0, element.getTextLength());
+                        return new PsiReference[]{new KiteReference(element, range)};
+                    }
+                }
+        );
     }
 }

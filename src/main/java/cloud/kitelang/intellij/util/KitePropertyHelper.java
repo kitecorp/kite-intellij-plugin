@@ -22,22 +22,6 @@ public final class KitePropertyHelper {
     }
 
     /**
-     * Visitor interface for iterating over properties.
-     */
-    @FunctionalInterface
-    public interface PropertyVisitor {
-        void visit(String name, PsiElement element);
-    }
-
-    /**
-     * Visitor interface for iterating over properties with their value elements.
-     */
-    @FunctionalInterface
-    public interface PropertyValueVisitor {
-        void visit(String name, PsiElement valueElement);
-    }
-
-    /**
      * Collect the names of properties already defined in a resource block.
      */
     public static Set<String> collectExistingPropertyNames(PsiElement resourceDecl) {
@@ -100,7 +84,7 @@ public final class KitePropertyHelper {
                 }
                 // For non-components: collect INPUT_DECLARATION and OUTPUT_DECLARATION
                 else if (!isComponent && (childType == KiteElementTypes.INPUT_DECLARATION ||
-                    childType == KiteElementTypes.OUTPUT_DECLARATION)) {
+                                          childType == KiteElementTypes.OUTPUT_DECLARATION)) {
                     String name = KiteDeclarationHelper.findNameInDeclaration(child, childType);
                     if (name != null && !name.isEmpty()) {
                         visitor.visit(name, child);
@@ -316,5 +300,21 @@ public final class KitePropertyHelper {
         });
 
         return result[0];
+    }
+
+    /**
+     * Visitor interface for iterating over properties.
+     */
+    @FunctionalInterface
+    public interface PropertyVisitor {
+        void visit(String name, PsiElement element);
+    }
+
+    /**
+     * Visitor interface for iterating over properties with their value elements.
+     */
+    @FunctionalInterface
+    public interface PropertyValueVisitor {
+        void visit(String name, PsiElement valueElement);
     }
 }

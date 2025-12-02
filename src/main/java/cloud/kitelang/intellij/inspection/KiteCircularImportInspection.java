@@ -18,7 +18,7 @@ import java.util.regex.Pattern;
 /**
  * Inspection that detects circular import dependencies.
  * Detects both direct self-imports and transitive cycles (A→B→C→A).
- *
+ * <p>
  * Uses java.nio.file for file access to avoid triggering IntelliJ's
  * VFS recursive resolution which can cause stack overflow on circular imports.
  */
@@ -56,9 +56,9 @@ public class KiteCircularImportInspection extends KiteInspectionBase {
     }
 
     private void checkImportsRecursive(PsiElement element,
-                                        ProblemsHolder holder,
-                                        String currentFilePath,
-                                        Set<String> warnedImports) {
+                                       ProblemsHolder holder,
+                                       String currentFilePath,
+                                       Set<String> warnedImports) {
         if (element == null || element.getNode() == null) return;
 
         var type = element.getNode().getElementType();
@@ -75,9 +75,9 @@ public class KiteCircularImportInspection extends KiteInspectionBase {
     }
 
     private void checkSingleImport(PsiElement importKeyword,
-                                    ProblemsHolder holder,
-                                    String currentFilePath,
-                                    Set<String> warnedImports) {
+                                   ProblemsHolder holder,
+                                   String currentFilePath,
+                                   Set<String> warnedImports) {
         var importInfo = findImportPathInfo(importKeyword);
         if (importInfo == null) {
             return;
@@ -214,12 +214,6 @@ public class KiteCircularImportInspection extends KiteInspectionBase {
     }
 
     /**
-         * Helper class to hold import path info including the element to highlight.
-         */
-        private record ImportPathInfo(String path, PsiElement elementToHighlight) {
-    }
-
-    /**
      * Find the import path and proper element to highlight after the IMPORT keyword.
      * Returns both the path string and the STRING_TEXT element to highlight (not just the opening quote).
      */
@@ -285,5 +279,11 @@ public class KiteCircularImportInspection extends KiteInspectionBase {
         if (path == null) return "";
         int lastSlash = Math.max(path.lastIndexOf('/'), path.lastIndexOf('\\'));
         return lastSlash >= 0 ? path.substring(lastSlash + 1) : path;
+    }
+
+    /**
+     * Helper class to hold import path info including the element to highlight.
+     */
+    private record ImportPathInfo(String path, PsiElement elementToHighlight) {
     }
 }

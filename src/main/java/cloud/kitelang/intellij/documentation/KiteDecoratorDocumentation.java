@@ -5,7 +5,10 @@ import com.intellij.psi.impl.FakePsiElement;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.*;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Set;
 
 import static cloud.kitelang.intellij.documentation.KiteDocumentationHtmlHelper.*;
 
@@ -30,10 +33,6 @@ import static cloud.kitelang.intellij.documentation.KiteDocumentationHtmlHelper.
  * @see KiteDocumentationHtmlHelper for HTML formatting utilities
  */
 public final class KiteDecoratorDocumentation {
-
-    private KiteDecoratorDocumentation() {
-        // Utility class
-    }
 
     // Decorator documentation registry
     private static final Map<String, DecoratorDoc> DECORATOR_DOCS = new HashMap<>();
@@ -198,6 +197,10 @@ public final class KiteDecoratorDocumentation {
                 null,
                 "schema Instance {\n  string id\n  @cloud\n  string publicIp\n}"
         ));
+    }
+
+    private KiteDecoratorDocumentation() {
+        // Utility class
     }
 
     /**
@@ -421,21 +424,21 @@ public final class KiteDecoratorDocumentation {
      * @param targets      What declarations it can apply to
      * @param appliesTo    What value types it applies to (null if N/A)
      */
-        public record DecoratorDoc(String name, String category, String description, String syntax, String argumentType,
-                                   String targets, String appliesTo, String example) {
+    public record DecoratorDoc(String name, String category, String description, String syntax, String argumentType,
+                               String targets, String appliesTo, String example) {
     }
 
     /**
-         * Wrapper class to identify decorator lookup items.
-         * Used to enable documentation popup for decorators in autocomplete.
-         */
-        public record DecoratorLookupItem(String name) {
+     * Wrapper class to identify decorator lookup items.
+     * Used to enable documentation popup for decorators in autocomplete.
+     */
+    public record DecoratorLookupItem(String name) {
 
         @Override
-            public String toString() {
-                return name;
-            }
+        public String toString() {
+            return name;
         }
+    }
 
     /**
      * Fake PSI element that holds decorator name for documentation lookup.

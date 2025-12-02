@@ -150,7 +150,7 @@ public class KiteUnusedImportAnnotatorTest extends KiteTestBase {
 
         List<HighlightInfo> warnings = getUnusedImportWarnings();
         // Should get one warning for the whole import, not three individual warnings
-        assertTrue("Expected warning(s) for unused imports", warnings.size() >= 1);
+        assertTrue("Expected warning(s) for unused imports", !warnings.isEmpty());
     }
 
     /**

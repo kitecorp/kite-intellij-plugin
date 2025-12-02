@@ -22,7 +22,7 @@ public class KiteBrokenImportAnnotatorTest extends KiteTestBase {
 
         configureByText("""
                 import defaultRegion from "common.kite"
-
+                
                 var x = defaultRegion
                 """);
 
@@ -37,7 +37,7 @@ public class KiteBrokenImportAnnotatorTest extends KiteTestBase {
     public void testNonExistentFileImportProducesError() {
         configureByText("""
                 import something from "nonexistent.kite"
-
+                
                 var x = "hello"
                 """);
 
@@ -54,7 +54,7 @@ public class KiteBrokenImportAnnotatorTest extends KiteTestBase {
     public void testWildcardImportNonExistentFileProducesError() {
         configureByText("""
                 import * from "missing.kite"
-
+                
                 var x = "hello"
                 """);
 
@@ -71,7 +71,7 @@ public class KiteBrokenImportAnnotatorTest extends KiteTestBase {
     public void testMultiSymbolImportNonExistentFileProducesError() {
         configureByText("""
                 import a, b, c from "notfound.kite"
-
+                
                 var x = "hello"
                 """);
 
@@ -89,7 +89,7 @@ public class KiteBrokenImportAnnotatorTest extends KiteTestBase {
         configureByText("""
                 import a from "missing1.kite"
                 import b from "missing2.kite"
-
+                
                 var x = "hello"
                 """);
 
@@ -113,7 +113,7 @@ public class KiteBrokenImportAnnotatorTest extends KiteTestBase {
         configureByText("""
                 import validVar from "valid.kite"
                 import broken from "broken.kite"
-
+                
                 var x = validVar
                 """);
 
@@ -153,7 +153,7 @@ public class KiteBrokenImportAnnotatorTest extends KiteTestBase {
 
         configureByText("""
                 import myVar from "wrong/file.kite"
-
+                
                 var x = myVar
                 """);
 
@@ -170,7 +170,7 @@ public class KiteBrokenImportAnnotatorTest extends KiteTestBase {
     public void testEmptyImportPathProducesError() {
         configureByText("""
                 import something from ""
-
+                
                 var x = "hello"
                 """);
 

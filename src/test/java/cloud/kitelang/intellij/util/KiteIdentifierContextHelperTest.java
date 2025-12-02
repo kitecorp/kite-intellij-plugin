@@ -1,7 +1,6 @@
 package cloud.kitelang.intellij.util;
 
 import cloud.kitelang.intellij.KiteTestBase;
-import cloud.kitelang.intellij.psi.KiteElementTypes;
 import cloud.kitelang.intellij.psi.KiteTokenTypes;
 import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiFile;
@@ -24,7 +23,7 @@ public class KiteIdentifierContextHelperTest extends KiteTestBase {
         assertNotNull("Should find identifier 'name'", identifier);
 
         assertTrue("'name' followed by = should be a declaration",
-                   KiteIdentifierContextHelper.isDeclarationName(identifier));
+                KiteIdentifierContextHelper.isDeclarationName(identifier));
     }
 
     public void testIsDeclarationNameWithLbrace() {
@@ -39,7 +38,7 @@ public class KiteIdentifierContextHelperTest extends KiteTestBase {
         assertNotNull("Should find identifier 'Config'", identifier);
 
         assertTrue("'Config' followed by { should be a declaration",
-                   KiteIdentifierContextHelper.isDeclarationName(identifier));
+                KiteIdentifierContextHelper.isDeclarationName(identifier));
     }
 
     public void testIsDeclarationNameAfterKeyword() {
@@ -52,7 +51,7 @@ public class KiteIdentifierContextHelperTest extends KiteTestBase {
         assertNotNull("Should find identifier 'port'", identifier);
 
         assertTrue("'port' after keyword should be a declaration",
-                   KiteIdentifierContextHelper.isDeclarationName(identifier));
+                KiteIdentifierContextHelper.isDeclarationName(identifier));
     }
 
     public void testIsDeclarationNameReference() {
@@ -68,7 +67,7 @@ public class KiteIdentifierContextHelperTest extends KiteTestBase {
 
         assertNotNull("Should find reference to 'name'", nameRef);
         assertFalse("Reference 'name' should not be a declaration",
-                    KiteIdentifierContextHelper.isDeclarationName(nameRef));
+                KiteIdentifierContextHelper.isDeclarationName(nameRef));
     }
 
     // ========== isPropertyAccess tests ==========
@@ -83,7 +82,7 @@ public class KiteIdentifierContextHelperTest extends KiteTestBase {
         assertNotNull("Should find identifier 'host'", identifier);
 
         assertTrue("'host' after . should be a property access",
-                   KiteIdentifierContextHelper.isPropertyAccess(identifier));
+                KiteIdentifierContextHelper.isPropertyAccess(identifier));
     }
 
     public void testIsPropertyAccessNotAfterDot() {
@@ -96,7 +95,7 @@ public class KiteIdentifierContextHelperTest extends KiteTestBase {
         assertNotNull("Should find identifier 'host'", identifier);
 
         assertFalse("'host' not after . should not be a property access",
-                    KiteIdentifierContextHelper.isPropertyAccess(identifier));
+                KiteIdentifierContextHelper.isPropertyAccess(identifier));
     }
 
     // ========== isDecoratorName tests ==========
@@ -113,7 +112,7 @@ public class KiteIdentifierContextHelperTest extends KiteTestBase {
         assertNotNull("Should find identifier 'cloud'", identifier);
 
         assertTrue("'cloud' after @ should be a decorator name",
-                   KiteIdentifierContextHelper.isDecoratorName(identifier));
+                KiteIdentifierContextHelper.isDecoratorName(identifier));
     }
 
     public void testIsDecoratorNameNotAfterAt() {
@@ -126,7 +125,7 @@ public class KiteIdentifierContextHelperTest extends KiteTestBase {
         assertNotNull("Should find identifier 'cloud'", identifier);
 
         assertFalse("'cloud' not after @ should not be a decorator name",
-                    KiteIdentifierContextHelper.isDecoratorName(identifier));
+                KiteIdentifierContextHelper.isDecoratorName(identifier));
     }
 
     // ========== isInsideImportStatement tests ==========
@@ -141,7 +140,7 @@ public class KiteIdentifierContextHelperTest extends KiteTestBase {
         assertNotNull("Should find identifier 'Config'", identifier);
 
         assertTrue("'Config' in import statement should be inside import",
-                   KiteIdentifierContextHelper.isInsideImportStatement(identifier));
+                KiteIdentifierContextHelper.isInsideImportStatement(identifier));
     }
 
     public void testIsInsideImportStatementNotImport() {
@@ -154,7 +153,7 @@ public class KiteIdentifierContextHelperTest extends KiteTestBase {
         assertNotNull("Should find identifier 'Config'", identifier);
 
         assertFalse("'Config' in var statement should not be inside import",
-                    KiteIdentifierContextHelper.isInsideImportStatement(identifier));
+                KiteIdentifierContextHelper.isInsideImportStatement(identifier));
     }
 
     // ========== isTypeAnnotation tests ==========
@@ -171,7 +170,7 @@ public class KiteIdentifierContextHelperTest extends KiteTestBase {
         if (typeAnnotation != null) {
             // If string is parsed as identifier, check if it's a type annotation
             assertTrue("'string' after var should be a type annotation",
-                       KiteIdentifierContextHelper.isTypeAnnotation(typeAnnotation));
+                    KiteIdentifierContextHelper.isTypeAnnotation(typeAnnotation));
         }
     }
 
@@ -190,7 +189,7 @@ public class KiteIdentifierContextHelperTest extends KiteTestBase {
         assertNotNull("Should find identifier 'host'", hostIdentifier);
 
         assertTrue("'host' in schema body should be a property definition",
-                   KiteIdentifierContextHelper.isPropertyDefinition(hostIdentifier));
+                KiteIdentifierContextHelper.isPropertyDefinition(hostIdentifier));
     }
 
     public void testIsPropertyDefinitionWithArrayType() {
@@ -205,7 +204,7 @@ public class KiteIdentifierContextHelperTest extends KiteTestBase {
         assertNotNull("Should find identifier 'tags'", tagsIdentifier);
 
         assertTrue("'tags' after string[] should be a property definition",
-                   KiteIdentifierContextHelper.isPropertyDefinition(tagsIdentifier));
+                KiteIdentifierContextHelper.isPropertyDefinition(tagsIdentifier));
     }
 
     public void testIsPropertyDefinitionNotInSchema() {
@@ -218,7 +217,7 @@ public class KiteIdentifierContextHelperTest extends KiteTestBase {
         assertNotNull("Should find identifier 'host'", identifier);
 
         assertFalse("'host' outside schema should not be a property definition",
-                    KiteIdentifierContextHelper.isPropertyDefinition(identifier));
+                KiteIdentifierContextHelper.isPropertyDefinition(identifier));
     }
 
     // ========== isInsideDeclarationBody tests ==========
@@ -235,7 +234,7 @@ public class KiteIdentifierContextHelperTest extends KiteTestBase {
         assertNotNull("Should find identifier 'host'", hostIdentifier);
 
         assertTrue("'host' inside schema body should return true",
-                   KiteIdentifierContextHelper.isInsideDeclarationBody(hostIdentifier));
+                KiteIdentifierContextHelper.isInsideDeclarationBody(hostIdentifier));
     }
 
     public void testIsInsideDeclarationBodyResource() {
@@ -250,7 +249,7 @@ public class KiteIdentifierContextHelperTest extends KiteTestBase {
         assertNotNull("Should find identifier 'name'", nameIdentifier);
 
         assertTrue("'name' inside resource body should return true",
-                   KiteIdentifierContextHelper.isInsideDeclarationBody(nameIdentifier));
+                KiteIdentifierContextHelper.isInsideDeclarationBody(nameIdentifier));
     }
 
     public void testIsInsideDeclarationBodyOutside() {
@@ -263,7 +262,7 @@ public class KiteIdentifierContextHelperTest extends KiteTestBase {
         assertNotNull("Should find identifier 'name'", identifier);
 
         assertFalse("'name' at file level should return false",
-                    KiteIdentifierContextHelper.isInsideDeclarationBody(identifier));
+                KiteIdentifierContextHelper.isInsideDeclarationBody(identifier));
     }
 
     // ========== Helper methods ==========

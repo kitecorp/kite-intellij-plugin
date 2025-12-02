@@ -2,7 +2,6 @@ package cloud.kitelang.intellij.documentation;
 
 import cloud.kitelang.intellij.KiteTestBase;
 import com.intellij.psi.PsiElement;
-import com.intellij.psi.PsiFile;
 
 /**
  * Tests for KiteDocumentationProvider - verifies quick documentation (Ctrl+Q / F1).

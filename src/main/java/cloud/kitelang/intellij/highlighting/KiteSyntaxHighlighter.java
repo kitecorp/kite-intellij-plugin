@@ -93,16 +93,16 @@ public class KiteSyntaxHighlighter extends SyntaxHighlighterBase {
     public TextAttributesKey[] getTokenHighlights(IElementType tokenType) {
         // Keywords
         if (tokenType == KiteTokenTypes.RESOURCE || tokenType == KiteTokenTypes.COMPONENT ||
-                tokenType == KiteTokenTypes.SCHEMA || tokenType == KiteTokenTypes.INPUT ||
-                tokenType == KiteTokenTypes.OUTPUT || tokenType == KiteTokenTypes.IF ||
-                tokenType == KiteTokenTypes.ELSE || tokenType == KiteTokenTypes.WHILE ||
-                tokenType == KiteTokenTypes.FOR || tokenType == KiteTokenTypes.IN ||
-                tokenType == KiteTokenTypes.RETURN || tokenType == KiteTokenTypes.IMPORT ||
-                tokenType == KiteTokenTypes.FROM || tokenType == KiteTokenTypes.FUN ||
-                tokenType == KiteTokenTypes.VAR || tokenType == KiteTokenTypes.TYPE ||
-                tokenType == KiteTokenTypes.INIT || tokenType == KiteTokenTypes.THIS ||
+            tokenType == KiteTokenTypes.SCHEMA || tokenType == KiteTokenTypes.INPUT ||
+            tokenType == KiteTokenTypes.OUTPUT || tokenType == KiteTokenTypes.IF ||
+            tokenType == KiteTokenTypes.ELSE || tokenType == KiteTokenTypes.WHILE ||
+            tokenType == KiteTokenTypes.FOR || tokenType == KiteTokenTypes.IN ||
+            tokenType == KiteTokenTypes.RETURN || tokenType == KiteTokenTypes.IMPORT ||
+            tokenType == KiteTokenTypes.FROM || tokenType == KiteTokenTypes.FUN ||
+            tokenType == KiteTokenTypes.VAR || tokenType == KiteTokenTypes.TYPE ||
+            tokenType == KiteTokenTypes.INIT || tokenType == KiteTokenTypes.THIS ||
             tokenType == KiteTokenTypes.OBJECT ||
-                tokenType == KiteTokenTypes.NULL) {
+            tokenType == KiteTokenTypes.NULL) {
             return KEYWORD_KEYS;
         }
 
@@ -120,12 +120,12 @@ public class KiteSyntaxHighlighter extends SyntaxHighlighterBase {
         // Strings (single-quoted and double-quoted content)
         // With split grammar, string tokens are: DQUOTE, STRING_DQUOTE, STRING_TEXT, STRING_ESCAPE, STRING_DOLLAR
         if (tokenType == KiteTokenTypes.STRING ||
-                tokenType == KiteTokenTypes.SINGLE_STRING ||
-                tokenType == KiteTokenTypes.DQUOTE ||
-                tokenType == KiteTokenTypes.STRING_DQUOTE ||
-                tokenType == KiteTokenTypes.STRING_TEXT ||
-                tokenType == KiteTokenTypes.STRING_ESCAPE ||
-                tokenType == KiteTokenTypes.STRING_DOLLAR) {
+            tokenType == KiteTokenTypes.SINGLE_STRING ||
+            tokenType == KiteTokenTypes.DQUOTE ||
+            tokenType == KiteTokenTypes.STRING_DQUOTE ||
+            tokenType == KiteTokenTypes.STRING_TEXT ||
+            tokenType == KiteTokenTypes.STRING_ESCAPE ||
+            tokenType == KiteTokenTypes.STRING_DOLLAR) {
             return STRING_KEYS;
         }
 
@@ -166,7 +166,7 @@ public class KiteSyntaxHighlighter extends SyntaxHighlighterBase {
 
         // Operators
         if (tokenType == KiteTokenTypes.DOT || tokenType == KiteTokenTypes.ARROW ||
-                tokenType == KiteTokenTypes.RANGE) {
+            tokenType == KiteTokenTypes.RANGE) {
             return OPERATOR_KEYS;
         }
 

@@ -125,16 +125,16 @@ public class KiteUnknownDecoratorInspectionTest extends KiteInspectionTestBase {
                     @minValue(0)
                     @maxValue(100)
                     number amount
-
+                
                     @minLength(1)
                     @maxLength(255)
                     @nonEmpty
                     string name
-
+                
                     @allowed(["a", "b"])
                     @unique
                     string[] tags
-
+                
                     @validate("custom")
                     string custom
                 }

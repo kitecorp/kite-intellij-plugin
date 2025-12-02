@@ -1,10 +1,7 @@
 package cloud.kitelang.intellij.refactoring;
 
 import cloud.kitelang.intellij.psi.KiteElementTypes;
-import cloud.kitelang.intellij.psi.KiteTokenTypes;
-import cloud.kitelang.intellij.util.KiteTypeInferenceHelper;
 import com.intellij.openapi.actionSystem.DataContext;
-import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.command.WriteCommandAction;
 import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.editor.SelectionModel;
@@ -14,7 +11,6 @@ import com.intellij.psi.PsiDocumentManager;
 import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiFile;
 import com.intellij.psi.tree.IElementType;
-import com.intellij.psi.util.PsiTreeUtil;
 import com.intellij.refactoring.RefactoringActionHandler;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -212,12 +208,12 @@ public class KiteIntroduceVariableHandler implements RefactoringActionHandler {
             // Check that this is a valid occurrence (not part of a larger identifier)
             boolean validStart = index == 0 || !Character.isLetterOrDigit(fileText.charAt(index - 1));
             boolean validEnd = index + expression.length() >= fileText.length() ||
-                    !Character.isLetterOrDigit(fileText.charAt(index + expression.length()));
+                               !Character.isLetterOrDigit(fileText.charAt(index + expression.length()));
 
             // For expressions with operators, we don't need the boundary check
             boolean hasOperator = expression.contains("+") || expression.contains("-") ||
-                    expression.contains("*") || expression.contains("/") ||
-                    expression.contains("(") || expression.contains(".");
+                                  expression.contains("*") || expression.contains("/") ||
+                                  expression.contains("(") || expression.contains(".");
 
             if (hasOperator || (validStart && validEnd)) {
                 occurrences.add(new TextRange(index, index + expression.length()));

@@ -32,74 +32,6 @@ public class KiteNavigatablePsiElement extends FakePsiElement implements Navigat
         this.myIcon = getIconForContext(element);
     }
 
-    @Override
-    public PsiElement getParent() {
-        return myElement.getParent();
-    }
-
-    @Override
-    public @NotNull PsiElement getNavigationElement() {
-        return myElement;
-    }
-
-    @Override
-    public PsiFile getContainingFile() {
-        return myElement.getContainingFile();
-    }
-
-    @Override
-    public boolean isValid() {
-        return myElement.isValid();
-    }
-
-    @Override
-    public int getTextOffset() {
-        return myElement.getTextOffset();
-    }
-
-    @Override
-    public @Nullable String getName() {
-        return myLineText;
-    }
-
-    @Override
-    public void navigate(boolean requestFocus) {
-        Navigatable navigatable = PsiNavigationSupport.getInstance().getDescriptor(myElement);
-        if (navigatable != null) {
-            navigatable.navigate(requestFocus);
-        }
-    }
-
-    @Override
-    public boolean canNavigate() {
-        return PsiNavigationSupport.getInstance().canNavigate(myElement);
-    }
-
-    @Override
-    public boolean canNavigateToSource() {
-        return canNavigate();
-    }
-
-    @Override
-    public ItemPresentation getPresentation() {
-        return new ItemPresentation() {
-            @Override
-            public @Nullable String getPresentableText() {
-                return myLineText;
-            }
-
-            @Override
-            public @Nullable String getLocationString() {
-                return myLocationString;
-            }
-
-            @Override
-            public @Nullable Icon getIcon(boolean unused) {
-                return myIcon;
-            }
-        };
-    }
-
     /**
      * Get the full line of code containing this element.
      */
@@ -229,5 +161,73 @@ public class KiteNavigatablePsiElement extends FakePsiElement implements Navigat
             parent = parent.getParent();
         }
         return KiteStructureViewIcons.VARIABLE;
+    }
+
+    @Override
+    public PsiElement getParent() {
+        return myElement.getParent();
+    }
+
+    @Override
+    public @NotNull PsiElement getNavigationElement() {
+        return myElement;
+    }
+
+    @Override
+    public PsiFile getContainingFile() {
+        return myElement.getContainingFile();
+    }
+
+    @Override
+    public boolean isValid() {
+        return myElement.isValid();
+    }
+
+    @Override
+    public int getTextOffset() {
+        return myElement.getTextOffset();
+    }
+
+    @Override
+    public @Nullable String getName() {
+        return myLineText;
+    }
+
+    @Override
+    public void navigate(boolean requestFocus) {
+        Navigatable navigatable = PsiNavigationSupport.getInstance().getDescriptor(myElement);
+        if (navigatable != null) {
+            navigatable.navigate(requestFocus);
+        }
+    }
+
+    @Override
+    public boolean canNavigate() {
+        return PsiNavigationSupport.getInstance().canNavigate(myElement);
+    }
+
+    @Override
+    public boolean canNavigateToSource() {
+        return canNavigate();
+    }
+
+    @Override
+    public ItemPresentation getPresentation() {
+        return new ItemPresentation() {
+            @Override
+            public @Nullable String getPresentableText() {
+                return myLineText;
+            }
+
+            @Override
+            public @Nullable String getLocationString() {
+                return myLocationString;
+            }
+
+            @Override
+            public @Nullable Icon getIcon(boolean unused) {
+                return myIcon;
+            }
+        };
     }
 }

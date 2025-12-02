@@ -418,9 +418,9 @@ public class KiteLineMarkerProvider implements LineMarkerProvider {
     }
 
     /**
-         * Information about a declaration.
-         */
-        private record DeclarationInfo(String type, Icon icon) {
+     * Information about a declaration.
+     */
+    private record DeclarationInfo(String type, Icon icon) {
     }
 
     /**

@@ -37,7 +37,7 @@ public class AddImportQuickFixTest extends KiteTestBase {
 
         configureByText("""
                 import defaultRegion from "common.kite"
-
+                
                 var x = defaultRegion
                 """);
 
@@ -57,7 +57,7 @@ public class AddImportQuickFixTest extends KiteTestBase {
 
         configureByText("""
                 import * from "common.kite"
-
+                
                 var x = defaultRegion
                 """);
 
@@ -81,7 +81,7 @@ public class AddImportQuickFixTest extends KiteTestBase {
         configureByText("""
                 import alpha, beta from "common.kite"
                 import gamma from "other.kite"
-
+                
                 var result = alpha + beta + gamma
                 """);
 
@@ -102,7 +102,7 @@ public class AddImportQuickFixTest extends KiteTestBase {
 
         configureByText("""
                 import formatName from "common.kite"
-
+                
                 var x = formatName("app", "server")
                 """);
 
@@ -146,7 +146,7 @@ public class AddImportQuickFixTest extends KiteTestBase {
 
         configureByText("""
                 import importedVar from "common.kite"
-
+                
                 var localVar = "local"
                 var x = importedVar
                 """);
@@ -173,7 +173,7 @@ public class AddImportQuickFixTest extends KiteTestBase {
 
         configureByText("""
                 import WebServer from "components.kite"
-
+                
                 component WebServer myServer {
                     port = "3000"
                 }

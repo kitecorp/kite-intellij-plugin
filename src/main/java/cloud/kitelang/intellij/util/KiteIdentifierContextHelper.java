@@ -196,7 +196,7 @@ public final class KiteIdentifierContextHelper {
     /**
      * Check if the identifier is a type annotation in a declaration.
      * Pattern: var string name = value
-     *              ^^^^^^ type annotation
+     * ^^^^^^ type annotation
      *
      * @param identifier The identifier element to check
      * @return true if this is a type annotation

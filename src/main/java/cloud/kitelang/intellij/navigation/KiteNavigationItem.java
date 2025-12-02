@@ -20,9 +20,9 @@ public class KiteNavigationItem implements NavigationItem {
     private final Icon icon;
 
     public KiteNavigationItem(@NotNull PsiElement element,
-                               @NotNull String name,
-                               @NotNull String type,
-                               @Nullable Icon icon) {
+                              @NotNull String name,
+                              @NotNull String type,
+                              @Nullable Icon icon) {
         this.element = element;
         this.name = name;
         this.type = type;

@@ -63,8 +63,7 @@ public class KiteNamingConventionInspection extends KiteInspectionBase {
         // Check input/output declarations (should be camelCase)
         else if (type == KiteElementTypes.INPUT_DECLARATION) {
             checkCamelCase(element, type, "Input", holder);
-        }
-        else if (type == KiteElementTypes.OUTPUT_DECLARATION) {
+        } else if (type == KiteElementTypes.OUTPUT_DECLARATION) {
             checkCamelCase(element, type, "Output", holder);
         }
 

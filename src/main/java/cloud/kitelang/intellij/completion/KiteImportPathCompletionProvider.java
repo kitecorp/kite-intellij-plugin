@@ -33,6 +33,109 @@ import java.util.Collection;
  */
 public class KiteImportPathCompletionProvider extends CompletionProvider<CompletionParameters> {
 
+    /**
+     * Check if the position is inside an import path string.
+     * Uses PSI structure to detect if we're inside an IMPORT_STATEMENT
+     * and in a string context (after "from" keyword).
+     * <p>
+     * This is a public static method so other completion providers can check
+     * and skip when we're in import path context.
+     */
+    public static boolean isInsideImportPathString(@NotNull PsiElement position) {
+        // First, check if we're inside an IMPORT_STATEMENT by walking up the tree
+        PsiElement importStatement = findParentImportStatement(position);
+        if (importStatement == null) {
+            return false;
+        }
+
+        // Check if the position is in a string token type or inside a string literal context
+        IElementType elementType = getElementType(position);
+
+        // Check for string-related token types
+        if (isStringToken(elementType)) {
+            return true;
+        }
+
+        // Also check if we're at a dummy identifier position inside a string
+        // IntelliJ replaces <caret> with "IntellijIdeaRulezzz"
+        String text = position.getText();
+        if (text != null && text.contains("IntellijIdeaRulezzz")) {
+            return true;
+        }
+
+        // Check if parent or surrounding elements indicate string context
+        PsiElement parent = position.getParent();
+        if (parent != null) {
+            IElementType parentType = getElementType(parent);
+            if (isStringToken(parentType)) {
+                return true;
+            }
+        }
+
+        // Check siblings for quote tokens to detect string context
+        return hasQuoteSiblings(position);
+    }
+
+    /**
+     * Walk up the PSI tree to find an IMPORT_STATEMENT ancestor.
+     */
+    @Nullable
+    private static PsiElement findParentImportStatement(@NotNull PsiElement element) {
+        PsiElement current = element;
+        while (current != null && !(current instanceof PsiFile)) {
+            if (current.getNode() != null) {
+                IElementType type = current.getNode().getElementType();
+                if (type == KiteElementTypes.IMPORT_STATEMENT) {
+                    return current;
+                }
+            }
+            current = current.getParent();
+        }
+        return null;
+    }
+
+    /**
+     * Get the element type of a PSI element.
+     */
+    @Nullable
+    private static IElementType getElementType(@NotNull PsiElement element) {
+        if (element.getNode() != null) {
+            return element.getNode().getElementType();
+        }
+        return null;
+    }
+
+    /**
+     * Check if the element type is a string-related token.
+     */
+    private static boolean isStringToken(@Nullable IElementType type) {
+        if (type == null) return false;
+        return type == KiteTokenTypes.STRING ||
+               type == KiteTokenTypes.STRING_TEXT ||
+               type == KiteTokenTypes.SINGLE_STRING ||
+               type == KiteTokenTypes.DQUOTE ||
+               type == KiteTokenTypes.STRING_DQUOTE;
+    }
+
+    /**
+     * Check if siblings include quote tokens (indicating we're inside a string).
+     */
+    private static boolean hasQuoteSiblings(@NotNull PsiElement element) {
+        PsiElement prev = element.getPrevSibling();
+        while (prev != null) {
+            IElementType type = getElementType(prev);
+            if (type == KiteTokenTypes.DQUOTE) {
+                return true;
+            }
+            // Also check for single string as a whole token
+            if (type == KiteTokenTypes.SINGLE_STRING) {
+                return true;
+            }
+            prev = prev.getPrevSibling();
+        }
+        return false;
+    }
+
     @Override
     protected void addCompletions(@NotNull CompletionParameters parameters,
                                   @NotNull ProcessingContext context,
@@ -149,108 +252,5 @@ public class KiteImportPathCompletionProvider extends CompletionProvider<Complet
             }
         }
         return -1;
-    }
-
-    /**
-     * Check if the position is inside an import path string.
-     * Uses PSI structure to detect if we're inside an IMPORT_STATEMENT
-     * and in a string context (after "from" keyword).
-     *
-     * This is a public static method so other completion providers can check
-     * and skip when we're in import path context.
-     */
-    public static boolean isInsideImportPathString(@NotNull PsiElement position) {
-        // First, check if we're inside an IMPORT_STATEMENT by walking up the tree
-        PsiElement importStatement = findParentImportStatement(position);
-        if (importStatement == null) {
-            return false;
-        }
-
-        // Check if the position is in a string token type or inside a string literal context
-        IElementType elementType = getElementType(position);
-
-        // Check for string-related token types
-        if (isStringToken(elementType)) {
-            return true;
-        }
-
-        // Also check if we're at a dummy identifier position inside a string
-        // IntelliJ replaces <caret> with "IntellijIdeaRulezzz"
-        String text = position.getText();
-        if (text != null && text.contains("IntellijIdeaRulezzz")) {
-            return true;
-        }
-
-        // Check if parent or surrounding elements indicate string context
-        PsiElement parent = position.getParent();
-        if (parent != null) {
-            IElementType parentType = getElementType(parent);
-            if (isStringToken(parentType)) {
-                return true;
-            }
-        }
-
-        // Check siblings for quote tokens to detect string context
-        return hasQuoteSiblings(position);
-    }
-
-    /**
-     * Walk up the PSI tree to find an IMPORT_STATEMENT ancestor.
-     */
-    @Nullable
-    private static PsiElement findParentImportStatement(@NotNull PsiElement element) {
-        PsiElement current = element;
-        while (current != null && !(current instanceof PsiFile)) {
-            if (current.getNode() != null) {
-                IElementType type = current.getNode().getElementType();
-                if (type == KiteElementTypes.IMPORT_STATEMENT) {
-                    return current;
-                }
-            }
-            current = current.getParent();
-        }
-        return null;
-    }
-
-    /**
-     * Get the element type of a PSI element.
-     */
-    @Nullable
-    private static IElementType getElementType(@NotNull PsiElement element) {
-        if (element.getNode() != null) {
-            return element.getNode().getElementType();
-        }
-        return null;
-    }
-
-    /**
-     * Check if the element type is a string-related token.
-     */
-    private static boolean isStringToken(@Nullable IElementType type) {
-        if (type == null) return false;
-        return type == KiteTokenTypes.STRING ||
-               type == KiteTokenTypes.STRING_TEXT ||
-               type == KiteTokenTypes.SINGLE_STRING ||
-               type == KiteTokenTypes.DQUOTE ||
-               type == KiteTokenTypes.STRING_DQUOTE;
-    }
-
-    /**
-     * Check if siblings include quote tokens (indicating we're inside a string).
-     */
-    private static boolean hasQuoteSiblings(@NotNull PsiElement element) {
-        PsiElement prev = element.getPrevSibling();
-        while (prev != null) {
-            IElementType type = getElementType(prev);
-            if (type == KiteTokenTypes.DQUOTE) {
-                return true;
-            }
-            // Also check for single string as a whole token
-            if (type == KiteTokenTypes.SINGLE_STRING) {
-                return true;
-            }
-            prev = prev.getPrevSibling();
-        }
-        return false;
     }
 }

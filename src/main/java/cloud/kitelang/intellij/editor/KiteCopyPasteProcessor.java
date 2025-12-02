@@ -27,33 +27,6 @@ public class KiteCopyPasteProcessor extends CopyPastePostProcessor<TextBlockTran
 
     private static final Logger LOG = Logger.getInstance(KiteCopyPasteProcessor.class);
 
-    /**
-     * Marker class to identify our transferable data.
-     */
-    private static class KitePasteMarker implements TextBlockTransferableData {
-        private static final DataFlavor FLAVOR = new DataFlavor(KitePasteMarker.class, "Kite paste marker");
-
-        @Override
-        public DataFlavor getFlavor() {
-            return FLAVOR;
-        }
-
-        @Override
-        public int getOffsetCount() {
-            return 0;
-        }
-
-        @Override
-        public int getOffsets(int[] offsets, int index) {
-            return index;
-        }
-
-        @Override
-        public int setOffsets(int[] offsets, int index) {
-            return index;
-        }
-    }
-
     @Override
     public @NotNull List<TextBlockTransferableData> collectTransferableData(
             @NotNull PsiFile file,
@@ -106,5 +79,32 @@ public class KiteCopyPasteProcessor extends CopyPastePostProcessor<TextBlockTran
                 })
                 .inSmartMode(project)
                 .submit(NonUrgentExecutor.getInstance());
+    }
+
+    /**
+     * Marker class to identify our transferable data.
+     */
+    private static class KitePasteMarker implements TextBlockTransferableData {
+        private static final DataFlavor FLAVOR = new DataFlavor(KitePasteMarker.class, "Kite paste marker");
+
+        @Override
+        public DataFlavor getFlavor() {
+            return FLAVOR;
+        }
+
+        @Override
+        public int getOffsetCount() {
+            return 0;
+        }
+
+        @Override
+        public int getOffsets(int[] offsets, int index) {
+            return index;
+        }
+
+        @Override
+        public int setOffsets(int[] offsets, int index) {
+            return index;
+        }
     }
 }

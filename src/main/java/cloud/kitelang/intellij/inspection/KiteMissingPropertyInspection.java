@@ -209,7 +209,7 @@ public class KiteMissingPropertyInspection extends KiteInspectionBase {
     }
 
     private void findComponentAndExtractRequiredInputs(PsiElement element, String componentTypeName,
-                                                        Set<String> required, boolean[] foundComponent) {
+                                                       Set<String> required, boolean[] foundComponent) {
         if (element == null || element.getNode() == null || foundComponent[0]) return;
 
         var type = element.getNode().getElementType();

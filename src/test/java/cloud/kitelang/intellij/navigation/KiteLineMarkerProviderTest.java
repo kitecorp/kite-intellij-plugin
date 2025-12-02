@@ -3,7 +3,6 @@ package cloud.kitelang.intellij.navigation;
 import cloud.kitelang.intellij.KiteTestBase;
 import com.intellij.codeInsight.daemon.LineMarkerInfo;
 import com.intellij.codeInsight.daemon.impl.DaemonCodeAnalyzerImpl;
-import com.intellij.psi.PsiElement;
 
 import java.util.List;
 
@@ -25,7 +24,7 @@ public class KiteLineMarkerProviderTest extends KiteTestBase {
         List<LineMarkerInfo<?>> markers = getLineMarkers();
 
         // Should have a line marker for the schema
-        assertTrue("Schema should have line marker", markers.size() >= 1);
+        assertTrue("Schema should have line marker", !markers.isEmpty());
     }
 
     public void testMultipleSchemasHaveLineMarkers() {
@@ -54,7 +53,7 @@ public class KiteLineMarkerProviderTest extends KiteTestBase {
 
         List<LineMarkerInfo<?>> markers = getLineMarkers();
 
-        assertTrue("Component definition should have line marker", markers.size() >= 1);
+        assertTrue("Component definition should have line marker", !markers.isEmpty());
     }
 
     public void testComponentInstantiationNoLineMarker() {
@@ -71,7 +70,7 @@ public class KiteLineMarkerProviderTest extends KiteTestBase {
 
         // Only the component definition should have a marker, not the instantiation
         // The instantiation has two identifiers before brace
-        assertTrue("Should have markers for definition", markers.size() >= 1);
+        assertTrue("Should have markers for definition", !markers.isEmpty());
     }
 
     // ========== Other Declaration Types (No Line Markers) ==========
@@ -209,33 +208,33 @@ public class KiteLineMarkerProviderTest extends KiteTestBase {
     public void testComplexFile() {
         configureByText("""
                 import * from "common.kite"
-
+                
                 schema DatabaseConfig {
                     string host
                     number port
                 }
-
+                
                 schema CacheConfig {
                     string url
                 }
-
+                
                 component WebServer {
                     input string port = "8080"
                 }
-
+                
                 component Worker {
                     input string queue = "default"
                 }
-
+                
                 resource DatabaseConfig db {
                     host = "localhost"
                     port = 5432
                 }
-
+                
                 fun helper() string {
                     return "test"
                 }
-
+                
                 var config = {}
                 """);
 

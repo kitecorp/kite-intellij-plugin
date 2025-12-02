@@ -21,7 +21,7 @@ import java.util.Map;
 /**
  * Annotator that detects duplicate declarations in the same scope.
  * Shows an error with red underline when a name is already declared.
- *
+ * <p>
  * Checks for duplicates among:
  * - input declarations
  * - output declarations
@@ -165,17 +165,17 @@ public class KiteDuplicateDeclarationAnnotator implements Annotator {
                 for (int i = 1; i < infos.size(); i++) {
                     DeclarationInfo duplicate = infos.get(i);
                     holder.newAnnotation(HighlightSeverity.ERROR,
-                            "'" + duplicate.name + "' is already declared")
-                        .range(duplicate.nameElement)
-                        .create();
+                                    "'" + duplicate.name + "' is already declared")
+                            .range(duplicate.nameElement)
+                            .create();
                 }
             }
         }
     }
 
     /**
-         * Information about a declaration
-         */
-        private record DeclarationInfo(String name, PsiElement nameElement, IElementType declarationType) {
+     * Information about a declaration
+     */
+    private record DeclarationInfo(String name, PsiElement nameElement, IElementType declarationType) {
     }
 }

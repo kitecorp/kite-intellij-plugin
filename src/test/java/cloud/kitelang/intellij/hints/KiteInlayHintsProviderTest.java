@@ -1,14 +1,14 @@
 package cloud.kitelang.intellij.hints;
 
 import cloud.kitelang.intellij.KiteTestBase;
-import com.intellij.codeInsight.hints.InlayInfo;
 import com.intellij.psi.PsiFile;
-import java.util.List;
+
+import static org.junit.Assert.assertNotEquals;
 
 /**
  * Tests for KiteInlayHintsProvider.
  * Verifies that inlay hints are generated for the correct elements.
- *
+ * <p>
  * Note: IntelliJ inlay hints testing has limitations - these tests verify
  * that the provider is properly configured and doesn't crash, rather than
  * verifying exact hint content which requires more complex setup.
@@ -263,7 +263,7 @@ public class KiteInlayHintsProviderTest extends KiteTestBase {
         assertEquals("Hash codes should be equal", settings1.hashCode(), settings2.hashCode());
 
         settings2.showTypeHints = false;
-        assertFalse("Modified settings should not be equal", settings1.equals(settings2));
+        assertNotEquals("Modified settings should not be equal", settings1, settings2);
     }
 
     public void testSettingsWithDifferentValues() {

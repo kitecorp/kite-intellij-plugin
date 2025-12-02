@@ -162,9 +162,9 @@ public class KiteRenameHandler implements RenameHandler {
         // Show confirmation with occurrence count
         int occurrenceCount = occurrences.size();
         String message = "Rename '" + oldName + "' to '" + newName + "'?\n\n" +
-                "This will update " + occurrenceCount + " occurrence" + (occurrenceCount != 1 ? "s" : "") +
-                " in this file.\n\n" +
-                "Note: This rename only affects the current file.";
+                         "This will update " + occurrenceCount + " occurrence" + (occurrenceCount != 1 ? "s" : "") +
+                         " in this file.\n\n" +
+                         "Note: This rename only affects the current file.";
         int confirm = Messages.showOkCancelDialog(
                 project,
                 message,
@@ -237,8 +237,8 @@ public class KiteRenameHandler implements RenameHandler {
      * Collect all occurrences of the identifier to rename.
      */
     private List<PsiElement> collectAllOccurrences(@NotNull PsiElement declaration,
-                                                    @NotNull PsiElement original,
-                                                    @NotNull PsiFile psiFile) {
+                                                   @NotNull PsiElement original,
+                                                   @NotNull PsiFile psiFile) {
         String name = getIdentifierName(declaration);
         List<PsiElement> occurrences = new ArrayList<>();
 
@@ -256,7 +256,7 @@ public class KiteRenameHandler implements RenameHandler {
     }
 
     private void collectOccurrencesRecursive(@NotNull PsiElement element, @NotNull String name,
-                                              @NotNull PsiElement declaration, @NotNull List<PsiElement> occurrences) {
+                                             @NotNull PsiElement declaration, @NotNull List<PsiElement> occurrences) {
         if (element.getNode() == null) {
             return;
         }
@@ -285,6 +285,7 @@ public class KiteRenameHandler implements RenameHandler {
 
     /**
      * Rename all occurrences.
+     *
      * @return int array with [successCount, failCount]
      */
     private int[] renameOccurrences(@NotNull List<PsiElement> occurrences, @NotNull String newName, @NotNull Project project) {
@@ -325,7 +326,7 @@ public class KiteRenameHandler implements RenameHandler {
             }
         }
 
-        return new int[] { successCount, failCount };
+        return new int[]{successCount, failCount};
     }
 
     /**

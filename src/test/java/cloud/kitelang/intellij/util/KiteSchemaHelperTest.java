@@ -95,7 +95,7 @@ public class KiteSchemaHelperTest extends KiteTestBase {
 
         configureByText("""
                 import * from "schemas.kite"
-
+                
                 resource ImportedSchema myResource {
                     importedProp = "value"
                 }

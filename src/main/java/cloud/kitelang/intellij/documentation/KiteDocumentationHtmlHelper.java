@@ -4,8 +4,8 @@ import com.intellij.ui.JBColor;
 import org.jetbrains.annotations.NotNull;
 
 import java.awt.*;
-import java.util.*;
 import java.util.List;
+import java.util.Set;
 
 /**
  * HTML rendering utilities for Kite documentation popups.
@@ -32,28 +32,26 @@ import java.util.List;
  */
 public final class KiteDocumentationHtmlHelper {
 
-    private KiteDocumentationHtmlHelper() {
-        // Utility class
-    }
-
     // CSS colors for syntax highlighting in documentation (matching editor colors)
     public static final String COLOR_KEYWORD = "#AB5FDB";   // Purple - keywords (matches KiteSyntaxHighlighter.KEYWORD)
     public static final String COLOR_TYPE = "#498BF6";      // Blue - type names (matches KiteAnnotator.TYPE_NAME)
     public static final String COLOR_STRING = "#6A9955";    // Green - string literals (matches KiteSyntaxHighlighter.STRING)
     public static final String COLOR_NUMBER = "#6897BB";    // Blue - number literals (matches IntelliJ Darcula)
     public static final String COLOR_DECORATOR = "#CC7832"; // Orange - decorators
-
     // Keywords that should be colored
     public static final Set<String> KEYWORDS = Set.of(
             "resource", "component", "schema", "fun", "var", "input", "output", "type",
             "if", "else", "for", "while", "in", "return", "import", "from", "init", "this",
             "true", "false", "null"
     );
-
     // Built-in type names
     public static final Set<String> TYPE_NAMES = Set.of(
             "string", "number", "boolean", "object", "any", "void", "list", "map"
     );
+
+    private KiteDocumentationHtmlHelper() {
+        // Utility class
+    }
 
     /**
      * Escape HTML special characters.
@@ -423,7 +421,7 @@ public final class KiteDocumentationHtmlHelper {
                 line = line.substring(1).trim();
             }
             if (!line.isEmpty()) {
-                if (result.length() > 0) {
+                if (!result.isEmpty()) {
                     result.append("\n");
                 }
                 result.append(line);

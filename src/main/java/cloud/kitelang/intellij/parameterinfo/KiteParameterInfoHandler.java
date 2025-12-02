@@ -27,47 +27,6 @@ import java.util.List;
  */
 public class KiteParameterInfoHandler implements ParameterInfoHandler<PsiElement, KiteParameterInfoHandler.KiteFunctionInfo> {
 
-    /**
-         * Represents function parameter information to display.
-         */
-        public record KiteFunctionInfo(String functionName, List<KiteParameter> parameters, String returnType) {
-            public KiteFunctionInfo(String functionName, List<KiteParameter> parameters, @Nullable String returnType) {
-                this.functionName = functionName;
-                this.parameters = parameters;
-                this.returnType = returnType;
-            }
-
-            @Override
-            @Nullable
-            public String returnType() {
-                return returnType;
-            }
-
-            /**
-             * Get the presentation text for parameters.
-             */
-            public String getParametersText() {
-                if (parameters.isEmpty()) {
-                    return "<no parameters>";
-                }
-                StringBuilder sb = new StringBuilder();
-                for (int i = 0; i < parameters.size(); i++) {
-                    if (i > 0) {
-                        sb.append(", ");
-                    }
-                    KiteParameter param = parameters.get(i);
-                    sb.append(param.type).append(" ").append(param.name);
-                }
-                return sb.toString();
-            }
-        }
-
-    /**
-         * Represents a single parameter with type and name.
-         */
-        public record KiteParameter(String type, String name, int startOffset, int endOffset) {
-    }
-
     @Override
     public @Nullable PsiElement findElementForParameterInfo(@NotNull CreateParameterInfoContext context) {
         PsiFile file = context.getFile();
@@ -449,5 +408,46 @@ public class KiteParameterInfoHandler implements ParameterInfoHandler<PsiElement
         }
 
         return commaCount;
+    }
+
+    /**
+     * Represents function parameter information to display.
+     */
+    public record KiteFunctionInfo(String functionName, List<KiteParameter> parameters, String returnType) {
+        public KiteFunctionInfo(String functionName, List<KiteParameter> parameters, @Nullable String returnType) {
+            this.functionName = functionName;
+            this.parameters = parameters;
+            this.returnType = returnType;
+        }
+
+        @Override
+        @Nullable
+        public String returnType() {
+            return returnType;
+        }
+
+        /**
+         * Get the presentation text for parameters.
+         */
+        public String getParametersText() {
+            if (parameters.isEmpty()) {
+                return "<no parameters>";
+            }
+            StringBuilder sb = new StringBuilder();
+            for (int i = 0; i < parameters.size(); i++) {
+                if (i > 0) {
+                    sb.append(", ");
+                }
+                KiteParameter param = parameters.get(i);
+                sb.append(param.type).append(" ").append(param.name);
+            }
+            return sb.toString();
+        }
+    }
+
+    /**
+     * Represents a single parameter with type and name.
+     */
+    public record KiteParameter(String type, String name, int startOffset, int endOffset) {
     }
 }
