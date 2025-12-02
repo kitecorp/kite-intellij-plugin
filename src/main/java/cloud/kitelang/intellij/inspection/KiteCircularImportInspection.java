@@ -2,9 +2,9 @@ package cloud.kitelang.intellij.inspection;
 
 import cloud.kitelang.intellij.psi.KiteFile;
 import cloud.kitelang.intellij.psi.KiteTokenTypes;
-import com.intellij.codeInspection.InspectionManager;
-import com.intellij.codeInspection.ProblemDescriptor;
+import com.intellij.codeInspection.ProblemsHolder;
 import com.intellij.psi.PsiElement;
+import com.intellij.psi.PsiFile;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -36,10 +36,13 @@ public class KiteCircularImportInspection extends KiteInspectionBase {
     }
 
     @Override
-    protected void checkKiteFile(@NotNull KiteFile file,
-                                  @NotNull InspectionManager manager,
-                                  boolean isOnTheFly,
-                                  @NotNull List<ProblemDescriptor> problems) {
+    protected void checkElement(@NotNull PsiElement element, @NotNull ProblemsHolder holder) {
+        // Only run analysis once at the file level
+        if (!(element instanceof PsiFile)) {
+            return;
+        }
+
+        var file = (KiteFile) element;
         var currentVFile = file.getVirtualFile();
         if (currentVFile == null) return;
 
@@ -49,13 +52,11 @@ public class KiteCircularImportInspection extends KiteInspectionBase {
         var warnedImports = new HashSet<String>();
 
         // Find all import statements and check each one
-        checkImportsRecursive(file, manager, isOnTheFly, problems, currentFilePath, warnedImports);
+        checkImportsRecursive(file, holder, currentFilePath, warnedImports);
     }
 
     private void checkImportsRecursive(PsiElement element,
-                                        InspectionManager manager,
-                                        boolean isOnTheFly,
-                                        List<ProblemDescriptor> problems,
+                                        ProblemsHolder holder,
                                         String currentFilePath,
                                         Set<String> warnedImports) {
         if (element == null || element.getNode() == null) return;
@@ -63,20 +64,18 @@ public class KiteCircularImportInspection extends KiteInspectionBase {
         var type = element.getNode().getElementType();
 
         if (type == KiteTokenTypes.IMPORT) {
-            checkSingleImport(element, manager, isOnTheFly, problems, currentFilePath, warnedImports);
+            checkSingleImport(element, holder, currentFilePath, warnedImports);
         }
 
         var child = element.getFirstChild();
         while (child != null) {
-            checkImportsRecursive(child, manager, isOnTheFly, problems, currentFilePath, warnedImports);
+            checkImportsRecursive(child, holder, currentFilePath, warnedImports);
             child = child.getNextSibling();
         }
     }
 
     private void checkSingleImport(PsiElement importKeyword,
-                                    InspectionManager manager,
-                                    boolean isOnTheFly,
-                                    List<ProblemDescriptor> problems,
+                                    ProblemsHolder holder,
                                     String currentFilePath,
                                     Set<String> warnedImports) {
         var importInfo = findImportPathInfo(importKeyword);
@@ -99,13 +98,7 @@ public class KiteCircularImportInspection extends KiteInspectionBase {
         // Check for direct self-import
         if (currentFilePath.equals(importedFilePath)) {
             warnedImports.add(importPath);
-            var problem = createWarning(
-                    manager,
-                    elementToHighlight,
-                    "Circular import: file imports itself",
-                    isOnTheFly
-            );
-            problems.add(problem);
+            registerWarning(holder, elementToHighlight, "Circular import: file imports itself");
             return;
         }
 
@@ -114,13 +107,7 @@ public class KiteCircularImportInspection extends KiteInspectionBase {
         if (cyclePath != null) {
             warnedImports.add(importPath);
             var cycleDescription = buildCycleDescription(getFileNameFromPath(currentFilePath), cyclePath);
-            var problem = createWarning(
-                    manager,
-                    elementToHighlight,
-                    "Circular import detected: " + cycleDescription,
-                    isOnTheFly
-            );
-            problems.add(problem);
+            registerWarning(holder, elementToHighlight, "Circular import detected: " + cycleDescription);
         }
     }
 

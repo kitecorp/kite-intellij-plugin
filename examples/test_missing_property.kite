@@ -1,0 +1,20 @@
+// Test file for missing required property inspection
+// The resource below is missing the required 'requiredField' property
+
+schema TestSchema {
+    string requiredField   // Required - no default
+    string optionalField = "default"  // Optional - has default
+}
+
+// This resource should show a warning:
+// "Missing required property 'requiredField'"
+resource TestSchema testResource {
+    optionalField = "something"
+  
+}
+
+// This resource is complete - no warning expected
+resource TestSchema completeResource {
+    requiredField = "provided"
+    optionalField = "also provided"
+}

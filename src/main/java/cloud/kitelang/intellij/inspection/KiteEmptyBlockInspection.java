@@ -1,17 +1,13 @@
 package cloud.kitelang.intellij.inspection;
 
 import cloud.kitelang.intellij.psi.KiteElementTypes;
-import cloud.kitelang.intellij.psi.KiteFile;
 import cloud.kitelang.intellij.psi.KiteTokenTypes;
 import cloud.kitelang.intellij.util.KitePsiUtil;
-import com.intellij.codeInspection.InspectionManager;
-import com.intellij.codeInspection.ProblemDescriptor;
+import com.intellij.codeInspection.ProblemsHolder;
 import com.intellij.psi.PsiElement;
 import com.intellij.psi.tree.IElementType;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-
-import java.util.List;
 
 /**
  * Inspection that detects empty blocks that may indicate incomplete code.
@@ -25,45 +21,29 @@ public class KiteEmptyBlockInspection extends KiteInspectionBase {
     }
 
     @Override
-    protected void checkKiteFile(@NotNull KiteFile file,
-                                  @NotNull InspectionManager manager,
-                                  boolean isOnTheFly,
-                                  @NotNull List<ProblemDescriptor> problems) {
-        checkBlocksRecursive(file, manager, isOnTheFly, problems);
-    }
-
-    private void checkBlocksRecursive(PsiElement element,
-                                       InspectionManager manager,
-                                       boolean isOnTheFly,
-                                       List<ProblemDescriptor> problems) {
-        if (element == null || element.getNode() == null) return;
+    protected void checkElement(@NotNull PsiElement element, @NotNull ProblemsHolder holder) {
+        if (element.getNode() == null) return;
 
         var type = element.getNode().getElementType();
 
         // Check for empty blocks in various declarations
+        String blockType = null;
         if (type == KiteElementTypes.SCHEMA_DECLARATION) {
-            checkEmptyBlock(element, "schema", manager, isOnTheFly, problems);
+            blockType = "schema";
         } else if (type == KiteElementTypes.COMPONENT_DECLARATION) {
-            checkEmptyBlock(element, "component", manager, isOnTheFly, problems);
+            blockType = "component";
         } else if (type == KiteElementTypes.RESOURCE_DECLARATION) {
-            checkEmptyBlock(element, "resource", manager, isOnTheFly, problems);
+            blockType = "resource";
         } else if (type == KiteElementTypes.FUNCTION_DECLARATION) {
-            checkEmptyBlock(element, "function", manager, isOnTheFly, problems);
+            blockType = "function";
         }
 
-        // Recurse into children
-        var child = element.getFirstChild();
-        while (child != null) {
-            checkBlocksRecursive(child, manager, isOnTheFly, problems);
-            child = child.getNextSibling();
+        if (blockType != null) {
+            checkEmptyBlock(element, blockType, holder);
         }
     }
 
-    private void checkEmptyBlock(PsiElement declaration,
-                                  String blockType,
-                                  InspectionManager manager,
-                                  boolean isOnTheFly,
-                                  List<ProblemDescriptor> problems) {
+    private void checkEmptyBlock(PsiElement declaration, String blockType, ProblemsHolder holder) {
         // Find the braces and check if there's any meaningful content between them
         PsiElement openBrace = null;
         PsiElement closeBrace = null;
@@ -86,13 +66,7 @@ public class KiteEmptyBlockInspection extends KiteInspectionBase {
             if (isBlockEmpty(openBrace, closeBrace)) {
                 var nameElement = findDeclarationName(declaration, blockType);
                 var targetElement = nameElement != null ? nameElement : declaration;
-                var problem = createWeakWarning(
-                        manager,
-                        targetElement,
-                        "Empty " + blockType + " body",
-                        isOnTheFly
-                );
-                problems.add(problem);
+                registerWeakWarning(holder, targetElement, "Empty " + blockType + " body");
             }
         }
     }

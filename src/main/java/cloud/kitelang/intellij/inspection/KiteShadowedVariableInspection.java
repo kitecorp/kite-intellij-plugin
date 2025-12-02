@@ -5,10 +5,9 @@ import cloud.kitelang.intellij.psi.KiteFile;
 import cloud.kitelang.intellij.psi.KiteTokenTypes;
 import cloud.kitelang.intellij.util.KiteDeclarationHelper;
 import cloud.kitelang.intellij.util.KitePsiUtil;
-import com.intellij.codeInspection.InspectionManager;
-import com.intellij.codeInspection.ProblemDescriptor;
+import com.intellij.codeInspection.ProblemsHolder;
 import com.intellij.psi.PsiElement;
-import com.intellij.psi.tree.IElementType;
+import com.intellij.psi.PsiFile;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.*;
@@ -26,16 +25,20 @@ public class KiteShadowedVariableInspection extends KiteInspectionBase {
     }
 
     @Override
-    protected void checkKiteFile(@NotNull KiteFile file,
-                                  @NotNull InspectionManager manager,
-                                  boolean isOnTheFly,
-                                  @NotNull List<ProblemDescriptor> problems) {
+    protected void checkElement(@NotNull PsiElement element, @NotNull ProblemsHolder holder) {
+        // Only run analysis once at the file level
+        if (!(element instanceof PsiFile)) {
+            return;
+        }
+
+        var file = (KiteFile) element;
+
         // Collect top-level declarations
         var globalScope = new HashSet<String>();
         collectTopLevelDeclarations(file, globalScope);
 
         // Check for shadowing in nested scopes
-        checkForShadowing(file, globalScope, manager, isOnTheFly, problems);
+        checkForShadowing(file, globalScope, holder);
     }
 
     /**
@@ -58,31 +61,27 @@ public class KiteShadowedVariableInspection extends KiteInspectionBase {
         }
     }
 
-    private void checkForShadowing(PsiElement element,
-                                    Set<String> outerScope,
-                                    InspectionManager manager,
-                                    boolean isOnTheFly,
-                                    List<ProblemDescriptor> problems) {
+    private void checkForShadowing(PsiElement element, Set<String> outerScope, ProblemsHolder holder) {
         if (element == null || element.getNode() == null) return;
 
         var type = element.getNode().getElementType();
 
         // Check component declarations for shadowed inputs
         if (type == KiteElementTypes.COMPONENT_DECLARATION) {
-            checkComponentForShadowing(element, outerScope, manager, isOnTheFly, problems);
+            checkComponentForShadowing(element, outerScope, holder);
             return;
         }
 
         // Check function declarations for shadowed parameters/locals
         if (type == KiteElementTypes.FUNCTION_DECLARATION) {
-            checkFunctionForShadowing(element, outerScope, manager, isOnTheFly, problems);
+            checkFunctionForShadowing(element, outerScope, holder);
             return;
         }
 
         // Recurse into children
         var child = element.getFirstChild();
         while (child != null) {
-            checkForShadowing(child, outerScope, manager, isOnTheFly, problems);
+            checkForShadowing(child, outerScope, holder);
             child = child.getNextSibling();
         }
     }
@@ -90,15 +89,11 @@ public class KiteShadowedVariableInspection extends KiteInspectionBase {
     /**
      * Check component body for variables that shadow outer scope.
      */
-    private void checkComponentForShadowing(PsiElement componentDecl,
-                                             Set<String> outerScope,
-                                             InspectionManager manager,
-                                             boolean isOnTheFly,
-                                             List<ProblemDescriptor> problems) {
+    private void checkComponentForShadowing(PsiElement componentDecl, Set<String> outerScope, ProblemsHolder holder) {
         // Recursively check all declarations inside the component's children
         var child = componentDecl.getFirstChild();
         while (child != null) {
-            checkDeclarationsRecursive(child, outerScope, manager, isOnTheFly, problems, true);
+            checkDeclarationsRecursive(child, outerScope, holder, true);
             child = child.getNextSibling();
         }
     }
@@ -106,18 +101,14 @@ public class KiteShadowedVariableInspection extends KiteInspectionBase {
     /**
      * Check function body for parameters/variables that shadow outer scope.
      */
-    private void checkFunctionForShadowing(PsiElement functionDecl,
-                                            Set<String> outerScope,
-                                            InspectionManager manager,
-                                            boolean isOnTheFly,
-                                            List<ProblemDescriptor> problems) {
+    private void checkFunctionForShadowing(PsiElement functionDecl, Set<String> outerScope, ProblemsHolder holder) {
         // Check parameters first
-        checkFunctionParameters(functionDecl, outerScope, manager, isOnTheFly, problems);
+        checkFunctionParameters(functionDecl, outerScope, holder);
 
         // Then check local variables in the function's children
         var child = functionDecl.getFirstChild();
         while (child != null) {
-            checkDeclarationsRecursive(child, outerScope, manager, isOnTheFly, problems, false);
+            checkDeclarationsRecursive(child, outerScope, holder, false);
             child = child.getNextSibling();
         }
     }
@@ -125,11 +116,7 @@ public class KiteShadowedVariableInspection extends KiteInspectionBase {
     /**
      * Check function parameters for shadowing.
      */
-    private void checkFunctionParameters(PsiElement functionDecl,
-                                          Set<String> outerScope,
-                                          InspectionManager manager,
-                                          boolean isOnTheFly,
-                                          List<ProblemDescriptor> problems) {
+    private void checkFunctionParameters(PsiElement functionDecl, Set<String> outerScope, ProblemsHolder holder) {
         boolean insideParams = false;
         String prevIdentifier = null;
         PsiElement prevElement = null;
@@ -145,13 +132,8 @@ public class KiteShadowedVariableInspection extends KiteInspectionBase {
                     // Check last parameter
                     if (insideParams && prevIdentifier != null && prevElement != null) {
                         if (outerScope.contains(prevIdentifier)) {
-                            var problem = createWeakWarning(
-                                    manager,
-                                    prevElement,
-                                    "Parameter '" + prevIdentifier + "' shadows a variable in outer scope",
-                                    isOnTheFly
-                            );
-                            problems.add(problem);
+                            registerWeakWarning(holder, prevElement,
+                                    "Parameter '" + prevIdentifier + "' shadows a variable in outer scope");
                         }
                     }
                     break;
@@ -169,13 +151,8 @@ public class KiteShadowedVariableInspection extends KiteInspectionBase {
                         // Previous identifier was the parameter name
                         if (prevIdentifier != null && prevElement != null) {
                             if (outerScope.contains(prevIdentifier)) {
-                                var problem = createWeakWarning(
-                                        manager,
-                                        prevElement,
-                                        "Parameter '" + prevIdentifier + "' shadows a variable in outer scope",
-                                        isOnTheFly
-                                );
-                                problems.add(problem);
+                                registerWeakWarning(holder, prevElement,
+                                        "Parameter '" + prevIdentifier + "' shadows a variable in outer scope");
                             }
                         }
                         prevIdentifier = null;
@@ -196,9 +173,7 @@ public class KiteShadowedVariableInspection extends KiteInspectionBase {
      */
     private void checkDeclarationsRecursive(PsiElement element,
                                              Set<String> outerScope,
-                                             InspectionManager manager,
-                                             boolean isOnTheFly,
-                                             List<ProblemDescriptor> problems,
+                                             ProblemsHolder holder,
                                              boolean checkInputs) {
         if (element == null || element.getNode() == null) return;
 
@@ -210,13 +185,8 @@ public class KiteShadowedVariableInspection extends KiteInspectionBase {
             if (nameElement != null) {
                 var varName = nameElement.getText();
                 if (outerScope.contains(varName)) {
-                    var problem = createWeakWarning(
-                            manager,
-                            nameElement,
-                            "Variable '" + varName + "' shadows a variable in outer scope",
-                            isOnTheFly
-                    );
-                    problems.add(problem);
+                    registerWeakWarning(holder, nameElement,
+                            "Variable '" + varName + "' shadows a variable in outer scope");
                 }
             }
         }
@@ -227,13 +197,8 @@ public class KiteShadowedVariableInspection extends KiteInspectionBase {
             if (nameElement != null) {
                 var inputName = nameElement.getText();
                 if (outerScope.contains(inputName)) {
-                    var problem = createWeakWarning(
-                            manager,
-                            nameElement,
-                            "Input '" + inputName + "' shadows a variable in outer scope",
-                            isOnTheFly
-                    );
-                    problems.add(problem);
+                    registerWeakWarning(holder, nameElement,
+                            "Input '" + inputName + "' shadows a variable in outer scope");
                 }
             }
         }
@@ -246,7 +211,7 @@ public class KiteShadowedVariableInspection extends KiteInspectionBase {
         // Recurse into children
         var child = element.getFirstChild();
         while (child != null) {
-            checkDeclarationsRecursive(child, outerScope, manager, isOnTheFly, problems, checkInputs);
+            checkDeclarationsRecursive(child, outerScope, holder, checkInputs);
             child = child.getNextSibling();
         }
     }

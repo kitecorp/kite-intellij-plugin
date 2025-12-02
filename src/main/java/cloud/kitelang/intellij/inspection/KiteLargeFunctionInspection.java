@@ -1,14 +1,10 @@
 package cloud.kitelang.intellij.inspection;
 
 import cloud.kitelang.intellij.psi.KiteElementTypes;
-import cloud.kitelang.intellij.psi.KiteFile;
 import cloud.kitelang.intellij.psi.KiteTokenTypes;
-import com.intellij.codeInspection.InspectionManager;
-import com.intellij.codeInspection.ProblemDescriptor;
+import com.intellij.codeInspection.ProblemsHolder;
 import com.intellij.psi.PsiElement;
 import org.jetbrains.annotations.NotNull;
-
-import java.util.List;
 
 /**
  * Inspection that detects functions that are too large.
@@ -25,54 +21,28 @@ public class KiteLargeFunctionInspection extends KiteInspectionBase {
     }
 
     @Override
-    protected void checkKiteFile(@NotNull KiteFile file,
-                                  @NotNull InspectionManager manager,
-                                  boolean isOnTheFly,
-                                  @NotNull List<ProblemDescriptor> problems) {
-        checkFunctionsRecursive(file, manager, isOnTheFly, problems);
-    }
-
-    private void checkFunctionsRecursive(PsiElement element,
-                                          InspectionManager manager,
-                                          boolean isOnTheFly,
-                                          List<ProblemDescriptor> problems) {
-        if (element == null || element.getNode() == null) return;
+    protected void checkElement(@NotNull PsiElement element, @NotNull ProblemsHolder holder) {
+        if (element.getNode() == null) return;
 
         var type = element.getNode().getElementType();
 
-        if (type == KiteElementTypes.FUNCTION_DECLARATION) {
-            checkFunctionSize(element, manager, isOnTheFly, problems);
+        // Only check FUNCTION_DECLARATION elements
+        if (type != KiteElementTypes.FUNCTION_DECLARATION) {
+            return;
         }
 
-        // Recurse into children
-        var child = element.getFirstChild();
-        while (child != null) {
-            checkFunctionsRecursive(child, manager, isOnTheFly, problems);
-            child = child.getNextSibling();
-        }
-    }
-
-    private void checkFunctionSize(PsiElement functionDecl,
-                                    InspectionManager manager,
-                                    boolean isOnTheFly,
-                                    List<ProblemDescriptor> problems) {
         // Find function name for reporting
-        var functionName = findFunctionName(functionDecl);
-        var nameElement = findFunctionNameElement(functionDecl);
+        var functionName = findFunctionName(element);
+        var nameElement = findFunctionNameElement(element);
 
         // Count lines in function body
-        int lineCount = countBodyLines(functionDecl);
+        int lineCount = countBodyLines(element);
 
         if (lineCount > DEFAULT_MAX_LINES) {
-            var targetElement = nameElement != null ? nameElement : functionDecl;
+            var targetElement = nameElement != null ? nameElement : element;
             var name = functionName != null ? functionName : "Function";
-            var problem = createWeakWarning(
-                    manager,
-                    targetElement,
-                    name + " has " + lineCount + " lines (exceeds " + DEFAULT_MAX_LINES + " line limit)",
-                    isOnTheFly
-            );
-            problems.add(problem);
+            registerWeakWarning(holder, targetElement,
+                    name + " has " + lineCount + " lines (exceeds " + DEFAULT_MAX_LINES + " line limit)");
         }
     }
 

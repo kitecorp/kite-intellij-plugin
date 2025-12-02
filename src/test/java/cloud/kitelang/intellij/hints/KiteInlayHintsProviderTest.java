@@ -263,7 +263,7 @@ public class KiteInlayHintsProviderTest extends KiteTestBase {
         assertEquals("Hash codes should be equal", settings1.hashCode(), settings2.hashCode());
 
         settings2.showTypeHints = false;
-        assertNotEquals("Modified settings should not be equal", settings1, settings2);
+        assertFalse("Modified settings should not be equal", settings1.equals(settings2));
     }
 
     public void testSettingsWithDifferentValues() {

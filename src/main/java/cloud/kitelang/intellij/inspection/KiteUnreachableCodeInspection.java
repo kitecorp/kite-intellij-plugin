@@ -1,15 +1,11 @@
 package cloud.kitelang.intellij.inspection;
 
 import cloud.kitelang.intellij.psi.KiteElementTypes;
-import cloud.kitelang.intellij.psi.KiteFile;
 import cloud.kitelang.intellij.psi.KiteTokenTypes;
 import cloud.kitelang.intellij.util.KitePsiUtil;
-import com.intellij.codeInspection.InspectionManager;
-import com.intellij.codeInspection.ProblemDescriptor;
+import com.intellij.codeInspection.ProblemsHolder;
 import com.intellij.psi.PsiElement;
 import org.jetbrains.annotations.NotNull;
-
-import java.util.List;
 
 /**
  * Inspection that detects unreachable code in Kite functions.
@@ -28,66 +24,44 @@ public class KiteUnreachableCodeInspection extends KiteInspectionBase {
     }
 
     @Override
-    protected void checkKiteFile(@NotNull KiteFile file,
-                                  @NotNull InspectionManager manager,
-                                  boolean isOnTheFly,
-                                  @NotNull List<ProblemDescriptor> problems) {
-        // Find all function declarations and check for unreachable code
-        checkFunctionsRecursive(file, manager, isOnTheFly, problems);
-    }
-
-    private void checkFunctionsRecursive(PsiElement element,
-                                          InspectionManager manager,
-                                          boolean isOnTheFly,
-                                          List<ProblemDescriptor> problems) {
-        if (element == null || element.getNode() == null) return;
+    protected void checkElement(@NotNull PsiElement element, @NotNull ProblemsHolder holder) {
+        if (element.getNode() == null) return;
 
         var type = element.getNode().getElementType();
 
-        if (type == KiteElementTypes.FUNCTION_DECLARATION) {
-            checkFunctionBody(element, manager, isOnTheFly, problems);
+        // Only check FUNCTION_DECLARATION elements
+        if (type != KiteElementTypes.FUNCTION_DECLARATION) {
+            return;
         }
 
-        // Recurse into children
-        var child = element.getFirstChild();
-        while (child != null) {
-            checkFunctionsRecursive(child, manager, isOnTheFly, problems);
-            child = child.getNextSibling();
-        }
-    }
-
-    private void checkFunctionBody(PsiElement functionDecl,
-                                    InspectionManager manager,
-                                    boolean isOnTheFly,
-                                    List<ProblemDescriptor> problems) {
         // Find the function body (content between { and })
         boolean insideBody = false;
         boolean foundReturn = false;
 
-        var child = functionDecl.getFirstChild();
+        var child = element.getFirstChild();
         while (child != null) {
             if (child.getNode() == null) {
                 child = child.getNextSibling();
                 continue;
             }
 
-            var type = child.getNode().getElementType();
+            var childType = child.getNode().getElementType();
 
             // Enter function body
-            if (type == KiteTokenTypes.LBRACE) {
+            if (childType == KiteTokenTypes.LBRACE) {
                 insideBody = true;
                 child = child.getNextSibling();
                 continue;
             }
 
             // Exit function body
-            if (type == KiteTokenTypes.RBRACE) {
+            if (childType == KiteTokenTypes.RBRACE) {
                 break;
             }
 
             if (insideBody) {
                 // Check for RETURN token
-                if (type == KiteTokenTypes.RETURN) {
+                if (childType == KiteTokenTypes.RETURN) {
                     foundReturn = true;
                     // Skip to end of line (the return statement continues until newline)
                     child = skipToEndOfStatement(child);
@@ -96,13 +70,7 @@ public class KiteUnreachableCodeInspection extends KiteInspectionBase {
 
                 // If we've seen a return and this is a statement, flag it
                 if (foundReturn && isStatementStart(child)) {
-                    var problem = createWarning(
-                            manager,
-                            child,
-                            "Unreachable code",
-                            isOnTheFly
-                    );
-                    problems.add(problem);
+                    registerWarning(holder, child, "Unreachable code");
                 }
             }
 

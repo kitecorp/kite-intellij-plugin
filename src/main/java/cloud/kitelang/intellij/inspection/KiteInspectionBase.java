@@ -1,121 +1,90 @@
 package cloud.kitelang.intellij.inspection;
 
-import cloud.kitelang.intellij.KiteLanguage;
 import cloud.kitelang.intellij.psi.KiteFile;
 import com.intellij.codeInspection.*;
 import com.intellij.psi.PsiElement;
+import com.intellij.psi.PsiElementVisitor;
 import com.intellij.psi.PsiFile;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
-
-import java.util.ArrayList;
-import java.util.List;
 
 /**
  * Abstract base class for Kite language inspections.
- * Provides common infrastructure for all Kite inspections including:
- * - File type checking
- * - Problem descriptor creation helpers
- * - Standard inspection interface
+ * Uses the standard buildVisitor() pattern recommended by IntelliJ Platform SDK.
+ * See: https://plugins.jetbrains.com/docs/intellij/code-inspections.html
+ *
+ * Note: IntelliJ's inspection engine handles PSI traversal automatically.
+ * The visitor returned from buildVisitor() must NOT be recursive.
  */
 public abstract class KiteInspectionBase extends LocalInspectionTool {
 
     /**
-     * Main entry point for file-level inspection.
-     * Delegates to checkKiteFile for Kite files.
+     * Build a visitor for the inspection.
+     * Returns a non-recursive visitor - IntelliJ handles PSI traversal.
      */
     @Override
-    public ProblemDescriptor @Nullable [] checkFile(@NotNull PsiFile file,
-                                                     @NotNull InspectionManager manager,
-                                                     boolean isOnTheFly) {
+    public @NotNull PsiElementVisitor buildVisitor(@NotNull ProblemsHolder holder, boolean isOnTheFly) {
+        PsiFile file = holder.getFile();
         if (!(file instanceof KiteFile)) {
-            return ProblemDescriptor.EMPTY_ARRAY;
+            return PsiElementVisitor.EMPTY_VISITOR;
         }
 
-        List<ProblemDescriptor> problems = new ArrayList<>();
-        checkKiteFile((KiteFile) file, manager, isOnTheFly, problems);
-        return problems.toArray(ProblemDescriptor.EMPTY_ARRAY);
+        // Return non-recursive visitor - IntelliJ calls visitElement for each PSI element
+        return new PsiElementVisitor() {
+            @Override
+            public void visitElement(@NotNull PsiElement element) {
+                checkElement(element, holder);
+            }
+        };
     }
 
     /**
-     * Override this method to implement the inspection logic.
+     * Override this method to check individual PSI elements.
+     * Called for every element in the file during inspection.
      *
-     * @param file       The Kite file being inspected
-     * @param manager    The inspection manager for creating problem descriptors
-     * @param isOnTheFly True if running in the editor (real-time), false for batch inspection
-     * @param problems   List to add found problems to
+     * @param element The PSI element being inspected
+     * @param holder  The problems holder to register problems with
      */
-    protected abstract void checkKiteFile(@NotNull KiteFile file,
-                                          @NotNull InspectionManager manager,
-                                          boolean isOnTheFly,
-                                          @NotNull List<ProblemDescriptor> problems);
+    protected abstract void checkElement(@NotNull PsiElement element,
+                                         @NotNull ProblemsHolder holder);
 
     /**
-     * Helper to create a problem descriptor with WARNING severity.
+     * Register a WARNING problem.
      */
-    protected ProblemDescriptor createWarning(@NotNull InspectionManager manager,
-                                               @NotNull PsiElement element,
-                                               @NotNull String message,
-                                               boolean isOnTheFly,
-                                               LocalQuickFix... fixes) {
-        return manager.createProblemDescriptor(
-                element,
-                message,
-                isOnTheFly,
-                fixes,
-                ProblemHighlightType.WARNING
-        );
+    protected void registerWarning(@NotNull ProblemsHolder holder,
+                                   @NotNull PsiElement element,
+                                   @NotNull String message,
+                                   LocalQuickFix... fixes) {
+        holder.registerProblem(element, message, ProblemHighlightType.WARNING, fixes);
     }
 
     /**
-     * Helper to create a problem descriptor with WEAK_WARNING severity.
+     * Register a WEAK_WARNING problem.
      */
-    protected ProblemDescriptor createWeakWarning(@NotNull InspectionManager manager,
-                                                   @NotNull PsiElement element,
-                                                   @NotNull String message,
-                                                   boolean isOnTheFly,
-                                                   LocalQuickFix... fixes) {
-        return manager.createProblemDescriptor(
-                element,
-                message,
-                isOnTheFly,
-                fixes,
-                ProblemHighlightType.WEAK_WARNING
-        );
+    protected void registerWeakWarning(@NotNull ProblemsHolder holder,
+                                       @NotNull PsiElement element,
+                                       @NotNull String message,
+                                       LocalQuickFix... fixes) {
+        holder.registerProblem(element, message, ProblemHighlightType.WEAK_WARNING, fixes);
     }
 
     /**
-     * Helper to create a problem descriptor with ERROR severity.
+     * Register an ERROR problem.
      */
-    protected ProblemDescriptor createError(@NotNull InspectionManager manager,
-                                             @NotNull PsiElement element,
-                                             @NotNull String message,
-                                             boolean isOnTheFly,
-                                             LocalQuickFix... fixes) {
-        return manager.createProblemDescriptor(
-                element,
-                message,
-                isOnTheFly,
-                fixes,
-                ProblemHighlightType.ERROR
-        );
+    protected void registerError(@NotNull ProblemsHolder holder,
+                                 @NotNull PsiElement element,
+                                 @NotNull String message,
+                                 LocalQuickFix... fixes) {
+        holder.registerProblem(element, message, ProblemHighlightType.ERROR, fixes);
     }
 
     /**
-     * Helper to create a problem descriptor with INFO severity (like unused).
+     * Register an INFO problem (like unused symbol).
      */
-    protected ProblemDescriptor createInfo(@NotNull InspectionManager manager,
-                                            @NotNull PsiElement element,
-                                            @NotNull String message,
-                                            boolean isOnTheFly,
-                                            LocalQuickFix... fixes) {
-        return manager.createProblemDescriptor(
-                element,
-                message,
-                isOnTheFly,
-                fixes,
-                ProblemHighlightType.LIKE_UNUSED_SYMBOL
-        );
+    protected void registerInfo(@NotNull ProblemsHolder holder,
+                                @NotNull PsiElement element,
+                                @NotNull String message,
+                                LocalQuickFix... fixes) {
+        holder.registerProblem(element, message, ProblemHighlightType.LIKE_UNUSED_SYMBOL, fixes);
     }
 
     /**

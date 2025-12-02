@@ -1,14 +1,11 @@
 package cloud.kitelang.intellij.inspection;
 
-import cloud.kitelang.intellij.psi.KiteFile;
 import cloud.kitelang.intellij.psi.KiteTokenTypes;
 import cloud.kitelang.intellij.util.KitePsiUtil;
-import com.intellij.codeInspection.InspectionManager;
-import com.intellij.codeInspection.ProblemDescriptor;
+import com.intellij.codeInspection.ProblemsHolder;
 import com.intellij.psi.PsiElement;
 import org.jetbrains.annotations.NotNull;
 
-import java.util.List;
 import java.util.Set;
 
 /**
@@ -43,18 +40,8 @@ public class KiteUnknownDecoratorInspection extends KiteInspectionBase {
     }
 
     @Override
-    protected void checkKiteFile(@NotNull KiteFile file,
-                                  @NotNull InspectionManager manager,
-                                  boolean isOnTheFly,
-                                  @NotNull List<ProblemDescriptor> problems) {
-        checkDecoratorsRecursive(file, manager, isOnTheFly, problems);
-    }
-
-    private void checkDecoratorsRecursive(PsiElement element,
-                                           InspectionManager manager,
-                                           boolean isOnTheFly,
-                                           List<ProblemDescriptor> problems) {
-        if (element == null || element.getNode() == null) return;
+    protected void checkElement(@NotNull PsiElement element, @NotNull ProblemsHolder holder) {
+        if (element.getNode() == null) return;
 
         var type = element.getNode().getElementType();
 
@@ -66,22 +53,9 @@ public class KiteUnknownDecoratorInspection extends KiteInspectionBase {
 
                 var decoratorName = next.getText();
                 if (!VALID_DECORATORS.contains(decoratorName)) {
-                    var problem = createWarning(
-                            manager,
-                            next,
-                            "Unknown decorator '@" + decoratorName + "'",
-                            isOnTheFly
-                    );
-                    problems.add(problem);
+                    registerWarning(holder, next, "Unknown decorator '@" + decoratorName + "'");
                 }
             }
-        }
-
-        // Recurse into children
-        var child = element.getFirstChild();
-        while (child != null) {
-            checkDecoratorsRecursive(child, manager, isOnTheFly, problems);
-            child = child.getNextSibling();
         }
     }
 }

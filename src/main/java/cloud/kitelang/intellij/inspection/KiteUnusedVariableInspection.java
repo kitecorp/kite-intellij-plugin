@@ -5,10 +5,9 @@ import cloud.kitelang.intellij.psi.KiteFile;
 import cloud.kitelang.intellij.psi.KiteTokenTypes;
 import cloud.kitelang.intellij.util.KiteDeclarationHelper;
 import cloud.kitelang.intellij.util.KitePsiUtil;
-import com.intellij.codeInspection.InspectionManager;
-import com.intellij.codeInspection.ProblemDescriptor;
+import com.intellij.codeInspection.ProblemsHolder;
 import com.intellij.psi.PsiElement;
-import com.intellij.psi.tree.IElementType;
+import com.intellij.psi.PsiFile;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.*;
@@ -36,10 +35,13 @@ public class KiteUnusedVariableInspection extends KiteInspectionBase {
     }
 
     @Override
-    protected void checkKiteFile(@NotNull KiteFile file,
-                                  @NotNull InspectionManager manager,
-                                  boolean isOnTheFly,
-                                  @NotNull List<ProblemDescriptor> problems) {
+    protected void checkElement(@NotNull PsiElement element, @NotNull ProblemsHolder holder) {
+        // Only run analysis once at the file level
+        if (!(element instanceof PsiFile)) {
+            return;
+        }
+
+        var file = (KiteFile) element;
 
         // Collect all variable declarations with their name elements
         Map<String, PsiElement> variableDeclarations = new HashMap<>();
@@ -59,13 +61,7 @@ public class KiteUnusedVariableInspection extends KiteInspectionBase {
             var nameElement = entry.getValue();
 
             if (!usedVariables.contains(name)) {
-                var problem = createWarning(
-                        manager,
-                        nameElement,
-                        "Variable '" + name + "' is never used",
-                        isOnTheFly
-                );
-                problems.add(problem);
+                registerWarning(holder, nameElement, "Variable '" + name + "' is never used");
             }
         }
     }

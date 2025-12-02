@@ -1,14 +1,11 @@
 package cloud.kitelang.intellij.inspection;
 
 import cloud.kitelang.intellij.psi.KiteElementTypes;
-import cloud.kitelang.intellij.psi.KiteFile;
 import cloud.kitelang.intellij.psi.KiteTokenTypes;
 import cloud.kitelang.intellij.util.KiteDeclarationHelper;
 import cloud.kitelang.intellij.util.KitePsiUtil;
-import com.intellij.codeInspection.InspectionManager;
-import com.intellij.codeInspection.ProblemDescriptor;
+import com.intellij.codeInspection.ProblemsHolder;
 import com.intellij.psi.PsiElement;
-import com.intellij.psi.tree.IElementType;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.*;
@@ -34,42 +31,19 @@ public class KiteUnusedInputOutputInspection extends KiteInspectionBase {
     }
 
     @Override
-    protected void checkKiteFile(@NotNull KiteFile file,
-                                  @NotNull InspectionManager manager,
-                                  boolean isOnTheFly,
-                                  @NotNull List<ProblemDescriptor> problems) {
-        // Find all component declarations and check their inputs
-        checkComponentsRecursive(file, manager, isOnTheFly, problems);
-    }
-
-    private void checkComponentsRecursive(PsiElement element,
-                                           InspectionManager manager,
-                                           boolean isOnTheFly,
-                                           List<ProblemDescriptor> problems) {
-        if (element == null || element.getNode() == null) return;
+    protected void checkElement(@NotNull PsiElement element, @NotNull ProblemsHolder holder) {
+        if (element.getNode() == null) return;
 
         var type = element.getNode().getElementType();
 
-        if (type == KiteElementTypes.COMPONENT_DECLARATION) {
-            checkComponent(element, manager, isOnTheFly, problems);
+        // Only check COMPONENT_DECLARATION elements
+        if (type != KiteElementTypes.COMPONENT_DECLARATION) {
+            return;
         }
-
-        // Recurse into children (but not into nested component declarations - those are checked separately)
-        var child = element.getFirstChild();
-        while (child != null) {
-            checkComponentsRecursive(child, manager, isOnTheFly, problems);
-            child = child.getNextSibling();
-        }
-    }
-
-    private void checkComponent(PsiElement componentDecl,
-                                 InspectionManager manager,
-                                 boolean isOnTheFly,
-                                 List<ProblemDescriptor> problems) {
 
         // Collect all input declarations in this component
         Map<String, PsiElement> inputDeclarations = new HashMap<>();
-        collectInputDeclarations(componentDecl, inputDeclarations);
+        collectInputDeclarations(element, inputDeclarations);
 
         if (inputDeclarations.isEmpty()) {
             return;
@@ -77,7 +51,7 @@ public class KiteUnusedInputOutputInspection extends KiteInspectionBase {
 
         // Collect all usages within this component
         Set<String> usedNames = new HashSet<>();
-        collectUsagesInComponent(componentDecl, inputDeclarations.keySet(), usedNames);
+        collectUsagesInComponent(element, inputDeclarations.keySet(), usedNames);
 
         // Report unused inputs
         for (var entry : inputDeclarations.entrySet()) {
@@ -85,13 +59,7 @@ public class KiteUnusedInputOutputInspection extends KiteInspectionBase {
             var nameElement = entry.getValue();
 
             if (!usedNames.contains(name)) {
-                var problem = createWarning(
-                        manager,
-                        nameElement,
-                        "Input '" + name + "' is never used",
-                        isOnTheFly
-                );
-                problems.add(problem);
+                registerWarning(holder, nameElement, "Input '" + name + "' is never used");
             }
         }
     }

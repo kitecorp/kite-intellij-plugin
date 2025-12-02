@@ -1,11 +1,9 @@
 package cloud.kitelang.intellij.inspection;
 
 import cloud.kitelang.intellij.psi.KiteElementTypes;
-import cloud.kitelang.intellij.psi.KiteFile;
 import cloud.kitelang.intellij.psi.KiteTokenTypes;
 import cloud.kitelang.intellij.util.KitePsiUtil;
-import com.intellij.codeInspection.InspectionManager;
-import com.intellij.codeInspection.ProblemDescriptor;
+import com.intellij.codeInspection.ProblemsHolder;
 import com.intellij.psi.PsiElement;
 import org.jetbrains.annotations.NotNull;
 
@@ -23,57 +21,30 @@ public class KiteUnusedParameterInspection extends KiteInspectionBase {
     }
 
     @Override
-    protected void checkKiteFile(@NotNull KiteFile file,
-                                  @NotNull InspectionManager manager,
-                                  boolean isOnTheFly,
-                                  @NotNull List<ProblemDescriptor> problems) {
-        checkFunctionsRecursive(file, manager, isOnTheFly, problems);
-    }
-
-    private void checkFunctionsRecursive(PsiElement element,
-                                          InspectionManager manager,
-                                          boolean isOnTheFly,
-                                          List<ProblemDescriptor> problems) {
-        if (element == null || element.getNode() == null) return;
+    protected void checkElement(@NotNull PsiElement element, @NotNull ProblemsHolder holder) {
+        if (element.getNode() == null) return;
 
         var type = element.getNode().getElementType();
 
-        if (type == KiteElementTypes.FUNCTION_DECLARATION) {
-            checkFunctionParameters(element, manager, isOnTheFly, problems);
+        // Only check FUNCTION_DECLARATION elements
+        if (type != KiteElementTypes.FUNCTION_DECLARATION) {
+            return;
         }
 
-        // Recurse into children
-        var child = element.getFirstChild();
-        while (child != null) {
-            checkFunctionsRecursive(child, manager, isOnTheFly, problems);
-            child = child.getNextSibling();
-        }
-    }
-
-    private void checkFunctionParameters(PsiElement functionDecl,
-                                          InspectionManager manager,
-                                          boolean isOnTheFly,
-                                          List<ProblemDescriptor> problems) {
         // Collect all parameters with their elements
         var parameters = new LinkedHashMap<String, PsiElement>();
-        collectParameters(functionDecl, parameters);
+        collectParameters(element, parameters);
 
         if (parameters.isEmpty()) return;
 
         // Find all usages in the function body
         var usedParams = new HashSet<String>();
-        collectUsages(functionDecl, parameters.keySet(), usedParams);
+        collectUsages(element, parameters.keySet(), usedParams);
 
         // Report unused parameters
         for (var entry : parameters.entrySet()) {
             if (!usedParams.contains(entry.getKey())) {
-                var problem = createWeakWarning(
-                        manager,
-                        entry.getValue(),
-                        "Unused parameter '" + entry.getKey() + "'",
-                        isOnTheFly
-                );
-                problems.add(problem);
+                registerWeakWarning(holder, entry.getValue(), "Unused parameter '" + entry.getKey() + "'");
             }
         }
     }

@@ -1,15 +1,13 @@
 package cloud.kitelang.intellij.inspection;
 
 import cloud.kitelang.intellij.psi.KiteElementTypes;
-import cloud.kitelang.intellij.psi.KiteFile;
 import cloud.kitelang.intellij.psi.KiteTokenTypes;
 import cloud.kitelang.intellij.quickfix.AddRequiredPropertyQuickFix;
 import cloud.kitelang.intellij.reference.KiteImportHelper;
 import cloud.kitelang.intellij.util.KitePsiUtil;
 import cloud.kitelang.intellij.util.KiteSchemaHelper;
-import com.intellij.codeInspection.InspectionManager;
 import com.intellij.codeInspection.LocalQuickFix;
-import com.intellij.codeInspection.ProblemDescriptor;
+import com.intellij.codeInspection.ProblemsHolder;
 import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiFile;
 import com.intellij.psi.tree.IElementType;
@@ -30,49 +28,48 @@ public class KiteMissingPropertyInspection extends KiteInspectionBase {
     }
 
     @Override
-    protected void checkKiteFile(@NotNull KiteFile file,
-                                  @NotNull InspectionManager manager,
-                                  boolean isOnTheFly,
-                                  @NotNull List<ProblemDescriptor> problems) {
-        checkResourcesRecursive(file, file, manager, isOnTheFly, problems);
+    protected void checkElement(@NotNull PsiElement element, @NotNull ProblemsHolder holder) {
+        // Only run analysis once at the file level
+        if (!(element instanceof PsiFile)) {
+            return;
+        }
+
+        // Traverse all elements in the file
+        checkElementRecursively(element, holder);
     }
 
-    private void checkResourcesRecursive(PsiElement element,
-                                          PsiFile file,
-                                          InspectionManager manager,
-                                          boolean isOnTheFly,
-                                          List<ProblemDescriptor> problems) {
-        if (element == null || element.getNode() == null) return;
+    /**
+     * Recursively check all elements in the file.
+     */
+    private void checkElementRecursively(@NotNull PsiElement element, @NotNull ProblemsHolder holder) {
+        if (element.getNode() == null) return;
 
         var type = element.getNode().getElementType();
 
         if (type == KiteElementTypes.RESOURCE_DECLARATION) {
-            checkResourceDeclaration(element, file, manager, isOnTheFly, problems);
-        }
-
-        if (type == KiteElementTypes.COMPONENT_DECLARATION) {
+            checkResourceDeclaration(element, holder);
+        } else if (type == KiteElementTypes.COMPONENT_DECLARATION) {
             // Check if this is a component instantiation (not type definition)
             if (KiteSchemaHelper.isComponentInstantiation(element)) {
-                checkComponentInstance(element, file, manager, isOnTheFly, problems);
+                checkComponentInstance(element, holder);
             }
         }
 
         // Recurse into children
         var child = element.getFirstChild();
         while (child != null) {
-            checkResourcesRecursive(child, file, manager, isOnTheFly, problems);
+            checkElementRecursively(child, holder);
             child = child.getNextSibling();
         }
     }
 
-    private void checkResourceDeclaration(PsiElement resourceDecl,
-                                           PsiFile file,
-                                           InspectionManager manager,
-                                           boolean isOnTheFly,
-                                           List<ProblemDescriptor> problems) {
+    private void checkResourceDeclaration(PsiElement resourceDecl, ProblemsHolder holder) {
         // Get schema type name
         var schemaName = KiteSchemaHelper.extractResourceTypeName(resourceDecl);
         if (schemaName == null) return;
+
+        PsiFile file = resourceDecl.getContainingFile();
+        if (file == null) return;
 
         // Find the schema and get required properties with their types
         var requiredPropertiesWithTypes = findRequiredSchemaPropertiesWithTypes(file, schemaName);
@@ -85,30 +82,23 @@ public class KiteMissingPropertyInspection extends KiteInspectionBase {
         var resourceNameElement = findResourceNameElement(resourceDecl);
         for (var entry : requiredPropertiesWithTypes.entrySet()) {
             String required = entry.getKey();
-            String type = entry.getValue();
+            String propertyType = entry.getValue();
             if (!definedProperties.contains(required)) {
                 var targetElement = resourceNameElement != null ? resourceNameElement : resourceDecl;
-                LocalQuickFix quickFix = new AddRequiredPropertyQuickFix(required, type);
-                var problem = createWarning(
-                        manager,
-                        targetElement,
-                        "Missing required property '" + required + "'",
-                        isOnTheFly,
-                        quickFix
-                );
-                problems.add(problem);
+                LocalQuickFix quickFix = new AddRequiredPropertyQuickFix(required, propertyType);
+                registerWarning(holder, targetElement,
+                        "Missing required property '" + required + "'", quickFix);
             }
         }
     }
 
-    private void checkComponentInstance(PsiElement componentDecl,
-                                          PsiFile file,
-                                          InspectionManager manager,
-                                          boolean isOnTheFly,
-                                          List<ProblemDescriptor> problems) {
+    private void checkComponentInstance(PsiElement componentDecl, ProblemsHolder holder) {
         // Get component type name
         var componentTypeName = KiteSchemaHelper.extractComponentTypeName(componentDecl);
         if (componentTypeName == null) return;
+
+        PsiFile file = componentDecl.getContainingFile();
+        if (file == null) return;
 
         // Find the component definition and get required inputs
         var requiredInputs = findRequiredComponentInputs(file, componentTypeName);
@@ -122,13 +112,8 @@ public class KiteMissingPropertyInspection extends KiteInspectionBase {
         for (var required : requiredInputs) {
             if (!definedInputs.contains(required)) {
                 var targetElement = instanceNameElement != null ? instanceNameElement : componentDecl;
-                var problem = createWarning(
-                        manager,
-                        targetElement,
-                        "Missing required property '" + required + "'",
-                        isOnTheFly
-                );
-                problems.add(problem);
+                registerWarning(holder, targetElement,
+                        "Missing required property '" + required + "'");
             }
         }
     }
@@ -231,15 +216,29 @@ public class KiteMissingPropertyInspection extends KiteInspectionBase {
                         continue;
                     }
 
-                    // Handle 'any' keyword as type
+                    // Handle 'any' keyword as a type
                     if (type == KiteTokenTypes.ANY) {
                         currentType = "any";
                         child = child.getNextSibling();
                         continue;
                     }
 
-                    // Skip array literal brackets but mark type as array
-                    if (type == KiteElementTypes.ARRAY_LITERAL) {
+                    // Identifier could be type or property name (including built-in types like string, number, boolean)
+                    if (type == KiteTokenTypes.IDENTIFIER) {
+                        if (currentType == null) {
+                            // This is the type
+                            currentType = child.getText();
+                        } else {
+                            // This is the property name
+                            currentPropertyName = child.getText();
+                        }
+                        child = child.getNextSibling();
+                        continue;
+                    }
+
+                    // Array type marker []
+                    if (type == KiteElementTypes.ARRAY_LITERAL ||
+                        type == KiteTokenTypes.LBRACK) {
                         if (currentType != null) {
                             currentType = currentType + "[]";
                         }
@@ -247,25 +246,11 @@ public class KiteMissingPropertyInspection extends KiteInspectionBase {
                         continue;
                     }
 
-                    // Track type -> name pattern
-                    if (type == KiteTokenTypes.IDENTIFIER) {
-                        var text = child.getText();
-                        // Skip decorator names like "cloud", "minValue", etc.
-                        if (isDecoratorName(text)) {
-                            child = child.getNextSibling();
-                            continue;
-                        }
-
-                        if (currentType == null) {
-                            currentType = text;
-                        } else {
-                            currentPropertyName = text;
-                        }
-                    }
-
-                    // = means property has default
+                    // Assignment means property has default value
                     if (type == KiteTokenTypes.ASSIGN) {
                         hasDefault = true;
+                        child = child.getNextSibling();
+                        continue;
                     }
 
                     // Newline ends property definition
@@ -283,7 +268,8 @@ public class KiteMissingPropertyInspection extends KiteInspectionBase {
         }
     }
 
-    private void findSchemaAndExtractRequired(PsiElement element, String schemaName, Set<String> required, boolean[] foundSchema) {
+    private void findSchemaAndExtractRequired(PsiElement element, String schemaName,
+                                               Set<String> required, boolean[] foundSchema) {
         if (element == null || element.getNode() == null || foundSchema[0]) return;
 
         var type = element.getNode().getElementType();
@@ -307,7 +293,7 @@ public class KiteMissingPropertyInspection extends KiteInspectionBase {
     }
 
     /**
-     * Extract required properties (those without default values) from a schema.
+     * Extract required properties (without default values) from a schema declaration.
      */
     private void extractRequiredSchemaProperties(PsiElement schemaDecl, Set<String> required) {
         boolean insideBraces = false;
@@ -329,53 +315,46 @@ public class KiteMissingPropertyInspection extends KiteInspectionBase {
                     }
                     break;
                 } else if (insideBraces) {
-                    // Skip whitespace
                     if (KitePsiUtil.isWhitespace(type)) {
                         child = child.getNextSibling();
                         continue;
                     }
 
-                    // Skip decorators (@ followed by identifier)
                     if (type == KiteTokenTypes.AT) {
                         child = child.getNextSibling();
                         continue;
                     }
 
-                    // Handle 'any' keyword as type
+                    // Handle 'any' keyword as a type
                     if (type == KiteTokenTypes.ANY) {
                         currentType = "any";
                         child = child.getNextSibling();
                         continue;
                     }
 
-                    // Skip array literal brackets
-                    if (type == KiteElementTypes.ARRAY_LITERAL) {
+                    // Identifier could be type or property name (including built-in types like string, number, boolean)
+                    if (type == KiteTokenTypes.IDENTIFIER) {
+                        if (currentType == null) {
+                            currentType = child.getText();
+                        } else {
+                            currentPropertyName = child.getText();
+                        }
                         child = child.getNextSibling();
                         continue;
                     }
 
-                    // Track type -> name pattern
-                    if (type == KiteTokenTypes.IDENTIFIER) {
-                        var text = child.getText();
-                        // Skip decorator names like "cloud", "minValue", etc.
-                        if (isDecoratorName(text)) {
-                            child = child.getNextSibling();
-                            continue;
-                        }
-
-                        if (currentType == null) {
-                            currentType = text;
-                        } else {
-                            currentPropertyName = text;
-                        }
+                    if (type == KiteElementTypes.ARRAY_LITERAL ||
+                        type == KiteTokenTypes.LBRACK) {
+                        child = child.getNextSibling();
+                        continue;
                     }
 
-                    // = means property has default
                     if (type == KiteTokenTypes.ASSIGN) {
                         hasDefault = true;
+                        child = child.getNextSibling();
+                        continue;
                     }
 
-                    // Newline ends property definition
                     if (type == KiteTokenTypes.NL || type == KiteTokenTypes.NEWLINE) {
                         if (currentPropertyName != null && !hasDefault) {
                             required.add(currentPropertyName);
@@ -390,159 +369,13 @@ public class KiteMissingPropertyInspection extends KiteInspectionBase {
         }
     }
 
-    private boolean isDecoratorName(String name) {
-        return Set.of("cloud", "minValue", "maxValue", "minLength", "maxLength",
-                "nonEmpty", "validate", "allowed", "unique", "existing",
-                "sensitive", "dependsOn", "tags", "provider", "description",
-                "count").contains(name);
-    }
-
     /**
-     * Find required inputs from a component definition (inputs without default values).
-     */
-    private Set<String> findRequiredComponentInputs(PsiFile file, String componentName) {
-        var required = new HashSet<String>();
-        var foundComponent = new boolean[]{false};
-
-        // Search in current file
-        findComponentAndExtractRequired(file, componentName, required, foundComponent);
-
-        // If not found, search in imported files
-        if (!foundComponent[0]) {
-            KiteImportHelper.forEachImport(file, importedFile ->
-                    findComponentAndExtractRequired(importedFile, componentName, required, foundComponent));
-        }
-
-        return required;
-    }
-
-    private void findComponentAndExtractRequired(PsiElement element, String componentName, Set<String> required, boolean[] foundComponent) {
-        if (element == null || element.getNode() == null || foundComponent[0]) return;
-
-        var type = element.getNode().getElementType();
-
-        if (type == KiteElementTypes.COMPONENT_DECLARATION) {
-            // Only check component type definitions, not instances
-            if (!KiteSchemaHelper.isComponentInstantiation(element)) {
-                var name = extractComponentDefinitionName(element);
-                if (componentName.equals(name)) {
-                    foundComponent[0] = true;
-                    extractRequiredComponentInputs(element, required);
-                    return;
-                }
-            }
-        }
-
-        // Recurse into children
-        var child = element.getFirstChild();
-        while (child != null) {
-            findComponentAndExtractRequired(child, componentName, required, foundComponent);
-            if (foundComponent[0]) return;
-            child = child.getNextSibling();
-        }
-    }
-
-    /**
-     * Extract required inputs (those without default values) from a component.
-     */
-    private void extractRequiredComponentInputs(PsiElement componentDecl, Set<String> required) {
-        boolean insideBraces = false;
-        boolean inInput = false;
-        String currentType = null;
-        String currentPropertyName = null;
-        boolean hasDefault = false;
-
-        var child = componentDecl.getFirstChild();
-        while (child != null) {
-            if (child.getNode() != null) {
-                var type = child.getNode().getElementType();
-
-                if (type == KiteTokenTypes.LBRACE) {
-                    insideBraces = true;
-                } else if (type == KiteTokenTypes.RBRACE) {
-                    // End of block - check last property
-                    if (inInput && currentPropertyName != null && !hasDefault) {
-                        required.add(currentPropertyName);
-                    }
-                    break;
-                } else if (insideBraces) {
-                    // Skip whitespace
-                    if (KitePsiUtil.isWhitespace(type)) {
-                        child = child.getNextSibling();
-                        continue;
-                    }
-
-                    // INPUT keyword starts an input declaration
-                    if (type == KiteTokenTypes.INPUT) {
-                        inInput = true;
-                        currentType = null;
-                        currentPropertyName = null;
-                        hasDefault = false;
-                        child = child.getNextSibling();
-                        continue;
-                    }
-
-                    // OUTPUT or other keywords end input tracking
-                    if (type == KiteTokenTypes.OUTPUT || type == KiteTokenTypes.VAR) {
-                        inInput = false;
-                        currentType = null;
-                        currentPropertyName = null;
-                        hasDefault = false;
-                        child = child.getNextSibling();
-                        continue;
-                    }
-
-                    if (inInput) {
-                        // Handle 'any' keyword as type
-                        if (type == KiteTokenTypes.ANY) {
-                            currentType = "any";
-                            child = child.getNextSibling();
-                            continue;
-                        }
-
-                        // Skip array literal brackets
-                        if (type == KiteElementTypes.ARRAY_LITERAL) {
-                            child = child.getNextSibling();
-                            continue;
-                        }
-
-                        // Track type -> name pattern
-                        if (type == KiteTokenTypes.IDENTIFIER) {
-                            if (currentType == null) {
-                                currentType = child.getText();
-                            } else {
-                                currentPropertyName = child.getText();
-                            }
-                        }
-
-                        // = means property has default
-                        if (type == KiteTokenTypes.ASSIGN) {
-                            hasDefault = true;
-                        }
-
-                        // Newline ends property definition
-                        if (type == KiteTokenTypes.NL || type == KiteTokenTypes.NEWLINE) {
-                            if (currentPropertyName != null && !hasDefault) {
-                                required.add(currentPropertyName);
-                            }
-                            currentType = null;
-                            currentPropertyName = null;
-                            hasDefault = false;
-                            inInput = false;
-                        }
-                    }
-                }
-            }
-            child = child.getNextSibling();
-        }
-    }
-
-    /**
-     * Extract properties defined in a resource block.
+     * Extract property names defined in a resource declaration.
      */
     private Set<String> extractResourceProperties(PsiElement resourceDecl) {
         var properties = new HashSet<String>();
         boolean insideBraces = false;
+        String currentPropertyName = null;
 
         var child = resourceDecl.getFirstChild();
         while (child != null) {
@@ -554,13 +387,18 @@ public class KiteMissingPropertyInspection extends KiteInspectionBase {
                 } else if (type == KiteTokenTypes.RBRACE) {
                     break;
                 } else if (insideBraces) {
-                    // Look for identifier followed by =
-                    if (type == KiteTokenTypes.IDENTIFIER) {
-                        var next = KitePsiUtil.skipWhitespace(child.getNextSibling());
-                        if (next != null && next.getNode() != null &&
-                            next.getNode().getElementType() == KiteTokenTypes.ASSIGN) {
-                            properties.add(child.getText());
-                        }
+                    if (KitePsiUtil.isWhitespace(type)) {
+                        child = child.getNextSibling();
+                        continue;
+                    }
+
+                    if (type == KiteTokenTypes.IDENTIFIER && currentPropertyName == null) {
+                        currentPropertyName = child.getText();
+                    } else if (type == KiteTokenTypes.ASSIGN && currentPropertyName != null) {
+                        properties.add(currentPropertyName);
+                        currentPropertyName = null;
+                    } else if (type == KiteTokenTypes.NL || type == KiteTokenTypes.NEWLINE) {
+                        currentPropertyName = null;
                     }
                 }
             }
@@ -571,86 +409,20 @@ public class KiteMissingPropertyInspection extends KiteInspectionBase {
     }
 
     /**
-     * Extract properties defined in a component instance block.
+     * Find the name element of a resource declaration (the identifier after the type).
      */
-    private Set<String> extractComponentInstanceProperties(PsiElement componentDecl) {
-        // Same logic as resource properties
-        return extractResourceProperties(componentDecl);
-    }
-
     @Nullable
     private PsiElement findResourceNameElement(PsiElement resourceDecl) {
         boolean foundType = false;
         var child = resourceDecl.getFirstChild();
-
         while (child != null) {
             if (child.getNode() != null) {
                 var type = child.getNode().getElementType();
-
-                if (type == KiteTokenTypes.RESOURCE) {
-                    child = child.getNextSibling();
-                    continue;
-                }
-
                 if (type == KiteTokenTypes.IDENTIFIER) {
                     if (foundType) {
-                        return child; // Second identifier is the name
+                        return child; // This is the name
                     }
-                    foundType = true;
-                }
-
-                if (type == KiteTokenTypes.LBRACE) {
-                    break;
-                }
-            }
-            child = child.getNextSibling();
-        }
-        return null;
-    }
-
-    @Nullable
-    private PsiElement findComponentInstanceNameElement(PsiElement componentDecl) {
-        boolean foundType = false;
-        var child = componentDecl.getFirstChild();
-
-        while (child != null) {
-            if (child.getNode() != null) {
-                var type = child.getNode().getElementType();
-
-                if (type == KiteTokenTypes.COMPONENT) {
-                    child = child.getNextSibling();
-                    continue;
-                }
-
-                if (type == KiteTokenTypes.IDENTIFIER) {
-                    if (foundType) {
-                        return child; // Second identifier is the instance name
-                    }
-                    foundType = true;
-                }
-
-                if (type == KiteTokenTypes.LBRACE) {
-                    break;
-                }
-            }
-            child = child.getNextSibling();
-        }
-        return null;
-    }
-
-    @Nullable
-    private String extractComponentDefinitionName(PsiElement componentDecl) {
-        boolean foundComponent = false;
-        var child = componentDecl.getFirstChild();
-
-        while (child != null) {
-            if (child.getNode() != null) {
-                var type = child.getNode().getElementType();
-
-                if (type == KiteTokenTypes.COMPONENT) {
-                    foundComponent = true;
-                } else if (foundComponent && type == KiteTokenTypes.IDENTIFIER) {
-                    return child.getText(); // First identifier is the name
+                    foundType = true; // First identifier is the type
                 } else if (type == KiteTokenTypes.LBRACE) {
                     break;
                 }
@@ -658,5 +430,134 @@ public class KiteMissingPropertyInspection extends KiteInspectionBase {
             child = child.getNextSibling();
         }
         return null;
+    }
+
+    // ========== Component Instance Helpers ==========
+
+    /**
+     * Find required inputs from a component definition.
+     */
+    private Set<String> findRequiredComponentInputs(PsiFile file, String componentTypeName) {
+        var required = new HashSet<String>();
+        var foundComponent = new boolean[]{false};
+
+        findComponentAndExtractRequiredInputs(file, componentTypeName, required, foundComponent);
+
+        if (!foundComponent[0]) {
+            KiteImportHelper.forEachImport(file, importedFile ->
+                    findComponentAndExtractRequiredInputs(importedFile, componentTypeName, required, foundComponent));
+        }
+
+        return required;
+    }
+
+    private void findComponentAndExtractRequiredInputs(PsiElement element, String componentTypeName,
+                                                        Set<String> required, boolean[] foundComponent) {
+        if (element == null || element.getNode() == null || foundComponent[0]) return;
+
+        var type = element.getNode().getElementType();
+
+        if (type == KiteElementTypes.COMPONENT_DECLARATION) {
+            // Only match component definitions (not instances)
+            if (!KiteSchemaHelper.isComponentInstantiation(element)) {
+                var name = KiteSchemaHelper.extractComponentTypeName(element);
+                if (componentTypeName.equals(name)) {
+                    foundComponent[0] = true;
+                    extractRequiredComponentInputs(element, required);
+                    return;
+                }
+            }
+        }
+
+        var child = element.getFirstChild();
+        while (child != null) {
+            findComponentAndExtractRequiredInputs(child, componentTypeName, required, foundComponent);
+            if (foundComponent[0]) return;
+            child = child.getNextSibling();
+        }
+    }
+
+    /**
+     * Extract required inputs (without default values) from a component definition.
+     */
+    private void extractRequiredComponentInputs(PsiElement componentDecl, Set<String> required) {
+        boolean insideBraces = false;
+
+        var child = componentDecl.getFirstChild();
+        while (child != null) {
+            if (child.getNode() != null) {
+                var type = child.getNode().getElementType();
+
+                if (type == KiteTokenTypes.LBRACE) {
+                    insideBraces = true;
+                } else if (type == KiteTokenTypes.RBRACE) {
+                    break;
+                } else if (insideBraces && type == KiteElementTypes.INPUT_DECLARATION) {
+                    // Check if input has a default value
+                    if (!hasDefaultValue(child)) {
+                        var name = extractInputName(child);
+                        if (name != null) {
+                            required.add(name);
+                        }
+                    }
+                }
+            }
+            child = child.getNextSibling();
+        }
+    }
+
+    /**
+     * Check if an input declaration has a default value.
+     */
+    private boolean hasDefaultValue(PsiElement inputDecl) {
+        var child = inputDecl.getFirstChild();
+        while (child != null) {
+            if (child.getNode() != null &&
+                child.getNode().getElementType() == KiteTokenTypes.ASSIGN) {
+                return true;
+            }
+            child = child.getNextSibling();
+        }
+        return false;
+    }
+
+    /**
+     * Extract the name from an input declaration.
+     */
+    @Nullable
+    private String extractInputName(PsiElement inputDecl) {
+        boolean foundType = false;
+        var child = inputDecl.getFirstChild();
+        while (child != null) {
+            if (child.getNode() != null) {
+                var type = child.getNode().getElementType();
+                // Type can be 'any' keyword or an IDENTIFIER (including built-in types like string, number, boolean)
+                if (type == KiteTokenTypes.ANY || type == KiteTokenTypes.IDENTIFIER) {
+                    if (foundType) {
+                        return child.getText(); // This is the name
+                    }
+                    foundType = true;
+                } else if (type == KiteTokenTypes.ASSIGN) {
+                    break;
+                }
+            }
+            child = child.getNextSibling();
+        }
+        return null;
+    }
+
+    /**
+     * Extract property names defined in a component instance.
+     */
+    private Set<String> extractComponentInstanceProperties(PsiElement componentDecl) {
+        return extractResourceProperties(componentDecl); // Same logic as resources
+    }
+
+    /**
+     * Find the instance name element of a component instantiation.
+     */
+    @Nullable
+    private PsiElement findComponentInstanceNameElement(PsiElement componentDecl) {
+        return findResourceNameElement(componentDecl); // Same logic as resources
     }
 }

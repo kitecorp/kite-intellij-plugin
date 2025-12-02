@@ -1,15 +1,11 @@
 package cloud.kitelang.intellij.inspection;
 
 import cloud.kitelang.intellij.psi.KiteElementTypes;
-import cloud.kitelang.intellij.psi.KiteFile;
 import cloud.kitelang.intellij.psi.KiteTokenTypes;
-import com.intellij.codeInspection.InspectionManager;
-import com.intellij.codeInspection.ProblemDescriptor;
+import com.intellij.codeInspection.ProblemsHolder;
 import com.intellij.psi.PsiElement;
 import com.intellij.psi.tree.IElementType;
 import org.jetbrains.annotations.NotNull;
-
-import java.util.List;
 
 /**
  * Inspection that detects deeply nested code.
@@ -26,65 +22,38 @@ public class KiteDeepNestingInspection extends KiteInspectionBase {
     }
 
     @Override
-    protected void checkKiteFile(@NotNull KiteFile file,
-                                  @NotNull InspectionManager manager,
-                                  boolean isOnTheFly,
-                                  @NotNull List<ProblemDescriptor> problems) {
-        // Check nesting in all function bodies
-        checkNestingRecursive(file, manager, isOnTheFly, problems);
-    }
-
-    private void checkNestingRecursive(PsiElement element,
-                                        InspectionManager manager,
-                                        boolean isOnTheFly,
-                                        List<ProblemDescriptor> problems) {
-        if (element == null || element.getNode() == null) return;
+    protected void checkElement(@NotNull PsiElement element, @NotNull ProblemsHolder holder) {
+        if (element.getNode() == null) return;
 
         var type = element.getNode().getElementType();
 
-        // Check function declarations for nesting
-        if (type == KiteElementTypes.FUNCTION_DECLARATION) {
-            checkFunctionNesting(element, manager, isOnTheFly, problems);
+        // Only check FUNCTION_DECLARATION elements
+        if (type != KiteElementTypes.FUNCTION_DECLARATION) {
+            return;
         }
 
-        // Recurse into children
-        var child = element.getFirstChild();
-        while (child != null) {
-            checkNestingRecursive(child, manager, isOnTheFly, problems);
-            child = child.getNextSibling();
-        }
-    }
-
-    private void checkFunctionNesting(PsiElement functionDecl,
-                                       InspectionManager manager,
-                                       boolean isOnTheFly,
-                                       List<ProblemDescriptor> problems) {
         // Find function body (between braces)
         boolean insideBody = false;
 
-        var child = functionDecl.getFirstChild();
+        var child = element.getFirstChild();
         while (child != null) {
             if (child.getNode() != null) {
-                var type = child.getNode().getElementType();
+                var childType = child.getNode().getElementType();
 
-                if (type == KiteTokenTypes.LBRACE) {
+                if (childType == KiteTokenTypes.LBRACE) {
                     insideBody = true;
-                } else if (type == KiteTokenTypes.RBRACE) {
+                } else if (childType == KiteTokenTypes.RBRACE) {
                     break;
                 } else if (insideBody) {
                     // Check nesting depth inside the body
-                    checkNestingDepth(child, 0, manager, isOnTheFly, problems);
+                    checkNestingDepth(child, 0, holder);
                 }
             }
             child = child.getNextSibling();
         }
     }
 
-    private void checkNestingDepth(PsiElement element,
-                                    int currentDepth,
-                                    InspectionManager manager,
-                                    boolean isOnTheFly,
-                                    List<ProblemDescriptor> problems) {
+    private void checkNestingDepth(PsiElement element, int currentDepth, ProblemsHolder holder) {
         if (element == null || element.getNode() == null) return;
 
         var type = element.getNode().getElementType();
@@ -98,20 +67,15 @@ public class KiteDeepNestingInspection extends KiteInspectionBase {
             if (newDepth > DEFAULT_MAX_DEPTH) {
                 var keyword = findKeyword(element);
                 var targetElement = keyword != null ? keyword : element;
-                var problem = createWeakWarning(
-                        manager,
-                        targetElement,
-                        "Deeply nested code (depth " + newDepth + " exceeds " + DEFAULT_MAX_DEPTH + ")",
-                        isOnTheFly
-                );
-                problems.add(problem);
+                registerWeakWarning(holder, targetElement,
+                        "Deeply nested code (depth " + newDepth + " exceeds " + DEFAULT_MAX_DEPTH + ")");
             }
         }
 
         // Recurse into children
         var child = element.getFirstChild();
         while (child != null) {
-            checkNestingDepth(child, newDepth, manager, isOnTheFly, problems);
+            checkNestingDepth(child, newDepth, holder);
             child = child.getNextSibling();
         }
     }
