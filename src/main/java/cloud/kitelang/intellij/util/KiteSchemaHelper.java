@@ -110,13 +110,15 @@ public final class KiteSchemaHelper {
 
     /**
      * Extract property definitions from a schema.
-     * Pattern inside schema: type propertyName [= defaultValue]
+     * Pattern inside schema: [@cloud] type propertyName [= defaultValue]
      * Properties with = defaultValue have hasDefaultValue = true.
+     * Properties with @cloud decorator have isCloudProvided = true.
      */
     public static void extractSchemaProperties(PsiElement schemaDecl, Map<String, SchemaPropertyInfo> properties) {
         boolean insideBraces = false;
         String currentType = null;
         String currentPropertyName = null;
+        boolean isCloudProvided = false;
 
         PsiElement child = schemaDecl.getFirstChild();
         while (child != null) {
@@ -128,7 +130,7 @@ public final class KiteSchemaHelper {
                 } else if (type == KiteTokenTypes.RBRACE) {
                     // Save last property if pending (no default value)
                     if (currentPropertyName != null && currentType != null) {
-                        properties.put(currentPropertyName, new SchemaPropertyInfo(currentType, false));
+                        properties.put(currentPropertyName, new SchemaPropertyInfo(currentType, false, isCloudProvided));
                     }
                     break;
                 } else if (insideBraces) {
@@ -138,8 +140,12 @@ public final class KiteSchemaHelper {
                         continue;
                     }
 
-                    // Skip decorators
+                    // Check for @cloud decorator
                     if (type == KiteTokenTypes.AT) {
+                        var nextSibling = child.getNextSibling();
+                        if (nextSibling != null && "cloud".equals(nextSibling.getText())) {
+                            isCloudProvided = true;
+                        }
                         child = child.getNextSibling();
                         continue;
                     }
@@ -155,8 +161,10 @@ public final class KiteSchemaHelper {
                     if (type == KiteTokenTypes.IDENTIFIER) {
                         String text = child.getText();
                         if (currentType == null) {
-                            // First identifier is the type
-                            currentType = text;
+                            // First identifier is the type (unless it's "cloud" after @)
+                            if (!"cloud".equals(text)) {
+                                currentType = text;
+                            }
                         } else {
                             // Second identifier is the property name
                             currentPropertyName = text;
@@ -166,9 +174,10 @@ public final class KiteSchemaHelper {
                     // Assignment means property has a default value
                     if (type == KiteTokenTypes.ASSIGN) {
                         if (currentPropertyName != null && currentType != null) {
-                            properties.put(currentPropertyName, new SchemaPropertyInfo(currentType, true));
+                            properties.put(currentPropertyName, new SchemaPropertyInfo(currentType, true, isCloudProvided));
                             currentType = null;
                             currentPropertyName = null;
+                            isCloudProvided = false;
                         }
                     }
 
@@ -176,10 +185,11 @@ public final class KiteSchemaHelper {
                     if (type == KiteTokenTypes.NL || type == KiteTokenTypes.NEWLINE) {
                         if (currentPropertyName != null && currentType != null) {
                             // Property without default value
-                            properties.put(currentPropertyName, new SchemaPropertyInfo(currentType, false));
+                            properties.put(currentPropertyName, new SchemaPropertyInfo(currentType, false, isCloudProvided));
                         }
                         currentType = null;
                         currentPropertyName = null;
+                        isCloudProvided = false;
                     }
                 }
             }
@@ -274,14 +284,19 @@ public final class KiteSchemaHelper {
 
     /**
      * Information about a schema property.
+     *
+     * @param type             The type of the property (e.g., "string", "number")
+     * @param hasDefaultValue  Whether the property has a default value
+     * @param isCloudProvided  Whether the property is marked with @cloud decorator (set by cloud provider)
      */
-    public record SchemaPropertyInfo(String type, boolean hasDefaultValue) {
+    public record SchemaPropertyInfo(String type, boolean hasDefaultValue, boolean isCloudProvided) {
 
         /**
-         * A property is required if it has no default value.
+         * A property is required if it has no default value and is not cloud-provided.
+         * Cloud-provided properties are set by the cloud provider, so users don't need to provide them.
          */
         public boolean isRequired() {
-            return !hasDefaultValue;
+            return !hasDefaultValue && !isCloudProvided;
         }
     }
 

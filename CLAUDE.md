@@ -99,12 +99,34 @@ Imports are resolved in this order (see `KiteImportHelper.resolveFilePath()`):
 4. User-global providers: `~/.kite/providers/`
 5. Package-style paths: `"aws.DatabaseConfig"` → `aws/DatabaseConfig.kite`
 
+### Schema Properties and @cloud Decorator
+
+Schema properties can be marked with `@cloud` to indicate they are set by the cloud provider:
+
+```kite
+schema AWSResource {
+  string name              // User provides (required)
+  number port = 5432       // Has default (optional)
+  @cloud string arn        // Cloud provider sets this
+  @cloud string id         // Cloud provider sets this
+}
+```
+
+**Property requirement rules:**
+- A property is **required** if it has no default value AND is not `@cloud`
+- Properties with `@cloud` are never required (set by cloud provider)
+- Properties with default values are optional
+
+**Implementation in `KiteSchemaHelper.java`:**
+- `SchemaPropertyInfo` record has three fields: `type`, `hasDefaultValue`, `isCloudProvided`
+- `isRequired()` method returns `!hasDefaultValue && !isCloudProvided`
+
 ### Type Checking Exclusions
 
 The annotator skips validation for:
 
 - **Decorator names**: identifiers after `@` (decorators are global/built-in)
-- **Schema property definitions**: `type propertyName` pattern inside schema/resource bodies
+- **Schema property definitions**: `[@cloud] type propertyName` pattern inside schema bodies
 - **Array-typed property definitions**: `type[] propertyName` pattern (e.g., `string[] tags`)
 - **Type annotations**: built-in types and capitalized type names
 - **Property access**: handled by reference resolution
@@ -297,9 +319,9 @@ type Region = "us-east-1" | "us-west-2"
 
 // Schema definition
 schema DatabaseConfig {
-  string host
-  number port = 5432
-  boolean ssl = true
+  string host              // User provides this (required)
+  number port = 5432       // Has default (optional)
+  @cloud string endpoint   // Cloud provider sets this
 }
 
 // Resource using schema

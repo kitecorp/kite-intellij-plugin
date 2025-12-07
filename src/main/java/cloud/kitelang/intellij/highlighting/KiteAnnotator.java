@@ -147,9 +147,12 @@ public class KiteAnnotator implements Annotator {
                 isType = true;
             }
         }
-        // Schema property type: line starts with whitespace, identifier is followed by another identifier
+        // Schema property type: line starts with whitespace (or after decorator like @cloud),
+        // identifier is followed by another identifier
         // Also handles array types in schemas: string[] names
-        else if (beforeElement.matches("^\\s*$") || beforeElement.matches(".*[\\{\\n]\\s*$")) {
+        // Patterns: "  string name" or "@cloud string name"
+        else if (beforeElement.matches("^\\s*$") || beforeElement.matches(".*[\\{\\n]\\s*$") ||
+                 beforeElement.matches(".*@[a-zA-Z_][a-zA-Z0-9_]*\\s+$")) {
             // It's a type if followed by optional [] and another identifier (the property name)
             if (afterElement.matches("^(\\[\\d*\\])*\\s+[a-zA-Z_][a-zA-Z0-9_]*.*")) {
                 isType = true;

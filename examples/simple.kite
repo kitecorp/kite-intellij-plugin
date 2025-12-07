@@ -21,10 +21,10 @@ var myRegions = myRegion
 var formattedName  = formatName("app", appName)
 var formattedNames = formatName("apps", appName)
 schema DatabaseConfig {
-  string host
-  number port  = 5432
-  boolean ssl  = true
-  boolean sslu = false
+  string host              // Required - user must provide
+  number port  = 5432      // Optional - has default
+  boolean ssl  = true      // Optional - has default
+  @cloud string endpoint   // Optional - set by cloud provider
 }
 
 component SharedLogger logger {

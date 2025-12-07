@@ -2,18 +2,29 @@
 // The resource below is missing the required 'requiredField' property
 
 schema TestSchema {
-    string requiredField   // Required - no default
+    string requiredField            // Required - no default, not @cloud
     string optionalField = "default"  // Optional - has default
+    @cloud string cloudField        // Optional - cloud provider sets this
 }
 
 // This resource should show a warning:
 // "Missing required property 'requiredField'"
 resource TestSchema testResource {
     optionalField = "something"
+    // requiredField is missing - should trigger warning
+    // cloudField is not needed - set by cloud provider
 }
 
 // This resource is complete - no warning expected
 resource TestSchema completeResource {
     requiredField = "provided"
     optionalField = "also provided"
+    // cloudField not needed - it's @cloud
+}
+// This resource is complete - no warning expected
+resource TestSchema cloudResource {
+//    requiredField = "provided"
+//    optionalField = "also provided"
+
+  
 }

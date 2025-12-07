@@ -150,6 +150,11 @@ public class KiteResourceCompletionProvider extends CompletionProvider<Completio
                 continue;
             }
 
+            // Skip @cloud properties - they are set by the cloud provider
+            if (propInfo.isCloudProvided()) {
+                continue;
+            }
+
             LookupElementBuilder element = LookupElementBuilder.create(propertyName)
                     .withTypeText(propInfo.type())
                     .withIcon(KiteStructureViewIcons.PROPERTY)

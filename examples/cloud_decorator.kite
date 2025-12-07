@@ -1,0 +1,42 @@
+// Example: @cloud decorator for cloud-provided properties
+// Properties marked with @cloud are set by the cloud provider after provisioning
+
+// AWS S3 Bucket schema with cloud-provided properties
+schema S3Bucket {
+    string bucketName           // Required - user must provide
+    string region = "us-east-1" // Optional - has default
+    @cloud string arn           // Cloud-provided - AWS sets this
+    @cloud string domainName    // Cloud-provided - AWS sets this
+    @cloud string regionalDomainName  // Cloud-provided - AWS sets this
+}
+
+// AWS Lambda Function schema
+schema LambdaFunction {
+    string functionName         // Required
+    string runtime = "nodejs18.x"  // Optional - has default
+    number memorySize = 128     // Optional - has default
+    @cloud string arn           // Cloud-provided
+    @cloud string invokeArn     // Cloud-provided
+    @cloud string version       // Cloud-provided
+}
+
+// Resource instance - only need to provide required properties
+resource S3Bucket myBucket {
+    bucketName = "my-app-bucket"
+    // region not needed (has default)
+    // arn, domainName, regionalDomainName not needed (cloud-provided)
+}
+
+// Access cloud-provided properties after provisioning
+var bucketArn = myBucket.arn
+var bucketDomain = myBucket.domainName
+
+// Lambda resource
+resource LambdaFunction myFunction {
+    functionName = "my-handler"
+    memorySize = 256
+    // runtime uses default
+    // arn, invokeArn, version are cloud-provided
+}
+
+var functionArn = myFunction.arn

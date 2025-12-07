@@ -790,18 +790,20 @@ component Server {
 
 Reports error when resource instances are missing required schema properties.
 
-**Required property** = property declared without a default value.
+**Required property** = property declared without a default value AND not marked with `@cloud`.
 
 ```kite
 schema ServerConfig {
-    string host             // Required (no default)
+    string host             // Required (no default, not @cloud)
     number port = 8080      // Optional (has default)
+    @cloud string arn       // Optional (cloud-provided)
 }
 
 resource ServerConfig web { }     // Error: Missing required property 'host'
 
 resource ServerConfig db {
     host = "localhost"      // OK - required property provided
+    // port and arn not needed
 }
 ```
 

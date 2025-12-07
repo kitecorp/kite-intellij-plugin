@@ -20,17 +20,19 @@
 
 ## Missing Required Properties
 
-Schema properties without a default value are **required**. Resource instances must provide all required properties.
+A schema property is **required** if it has no default value AND is not marked with `@cloud`. Resource instances must provide all required properties.
 
 ```kite
 schema DatabaseConfig {
     string host           // Required - no default value
     number port = 5432    // Optional - has default value
+    @cloud string arn     // Optional - set by cloud provider
 }
 
 resource DatabaseConfig myDb {
     host = "localhost"    // OK - required property provided
     // port not needed (has default)
+    // arn not needed (cloud-provided)
 }
 ```
 
@@ -42,6 +44,7 @@ resource DatabaseConfig myDb {
 
 **Optional Properties:**
 - Properties with default values (`= value`)
+- Properties with `@cloud` decorator (set by cloud provider)
 
 ## Quick Fixes
 

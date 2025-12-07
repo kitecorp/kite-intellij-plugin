@@ -40,9 +40,9 @@ type Region = "us-east-1" | "us-west-2"
 
 // Schema definition
 schema DatabaseConfig {
-    string host
-    number port = 5432
-    boolean ssl = true
+    string host              // User provides (required)
+    number port = 5432       // Has default (optional)
+    @cloud string endpoint   // Cloud provider sets this
 }
 
 // Resource using schema
