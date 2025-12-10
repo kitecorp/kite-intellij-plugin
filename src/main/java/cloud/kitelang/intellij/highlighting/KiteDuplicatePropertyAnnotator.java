@@ -78,12 +78,13 @@ public class KiteDuplicatePropertyAnnotator implements Annotator {
 
     /**
      * Check schema for duplicate property definitions.
-     * Pattern: type propertyName (e.g., "string host")
+     * Pattern: [@cloud] type propertyName (e.g., "string host" or "@cloud string arn")
      */
     private void checkSchemaProperties(PsiElement schemaDecl, AnnotationHolder holder) {
         Map<String, List<PsiElement>> properties = new LinkedHashMap<>();
         boolean insideBody = false;
         String currentType = null;
+        boolean skipNextIdentifier = false; // For skipping decorator names
 
         for (PsiElement child = schemaDecl.getFirstChild(); child != null; child = child.getNextSibling()) {
             if (child.getNode() == null) continue;
@@ -101,8 +102,19 @@ public class KiteDuplicatePropertyAnnotator implements Annotator {
 
             if (KitePsiUtil.isWhitespace(type)) continue;
 
+            // Handle decorator: @decoratorName - skip the @ and the following identifier
+            if (type == KiteTokenTypes.AT) {
+                skipNextIdentifier = true;
+                continue;
+            }
+
             // Track type identifier
             if (type == KiteTokenTypes.IDENTIFIER || type == KiteTokenTypes.ANY) {
+                if (skipNextIdentifier) {
+                    // This is a decorator name, skip it
+                    skipNextIdentifier = false;
+                    continue;
+                }
                 if (currentType == null) {
                     // This is the type
                     currentType = child.getText();
@@ -123,6 +135,7 @@ public class KiteDuplicatePropertyAnnotator implements Annotator {
             // Newlines reset the state
             if (type == KiteTokenTypes.NL || type == KiteTokenTypes.NEWLINE) {
                 currentType = null;
+                skipNextIdentifier = false;
             }
         }
 

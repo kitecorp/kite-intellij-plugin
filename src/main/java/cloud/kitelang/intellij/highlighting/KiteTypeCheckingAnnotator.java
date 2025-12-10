@@ -6,6 +6,7 @@ import cloud.kitelang.intellij.psi.KiteTokenTypes;
 import cloud.kitelang.intellij.quickfix.AddImportQuickFix;
 import cloud.kitelang.intellij.reference.KiteImportHelper;
 import cloud.kitelang.intellij.util.KiteDeclarationHelper;
+import cloud.kitelang.intellij.util.KiteIndexedResourceHelper;
 import cloud.kitelang.intellij.util.KitePsiUtil;
 import cloud.kitelang.intellij.util.KiteSchemaHelper;
 import com.intellij.codeInspection.ProblemHighlightType;
@@ -106,6 +107,9 @@ public class KiteTypeCheckingAnnotator implements Annotator {
 
         // Check import ordering - imports must appear at the beginning of the file
         checkImportOrdering(file, holder);
+
+        // Check indexed access patterns (server[0], data["key"])
+        checkIndexedAccessErrors(file, holder);
     }
 
     /**
@@ -683,5 +687,135 @@ public class KiteTypeCheckingAnnotator implements Annotator {
         }
     }
 
+    // ========== Indexed Access Validation ==========
 
+    /**
+     * Check indexed access expressions for errors.
+     * Validates: base is indexed resource, index type matches, index in range.
+     */
+    private void checkIndexedAccessErrors(PsiFile file, AnnotationHolder holder) {
+        checkIndexedAccessRecursive(file, file, holder);
+    }
+
+    private void checkIndexedAccessRecursive(PsiElement element, PsiFile file, AnnotationHolder holder) {
+        if (element.getNode() == null) return;
+
+        var type = element.getNode().getElementType();
+
+        // Look for LBRACK tokens that represent indexed access
+        if (type == KiteTokenTypes.LBRACK) {
+            var accessInfo = KiteIndexedResourceHelper.parseIndexedAccess(element);
+            if (accessInfo != null) {
+                validateAndAnnotateIndexedAccess(accessInfo, file, holder);
+            }
+        }
+
+        // Recurse into children
+        for (var child = element.getFirstChild(); child != null; child = child.getNextSibling()) {
+            checkIndexedAccessRecursive(child, file, holder);
+        }
+    }
+
+    private void validateAndAnnotateIndexedAccess(
+            KiteIndexedResourceHelper.IndexedAccessInfo accessInfo,
+            PsiFile file,
+            AnnotationHolder holder) {
+
+        var baseName = accessInfo.baseName();
+
+        // Find declaration for base name
+        var declaration = findDeclarationByName(file, baseName);
+        if (declaration == null) {
+            return; // Unknown symbol error handled elsewhere
+        }
+
+        // Only validate indexed access on resource and component declarations
+        // Arrays and other variables can use [] for normal array access
+        if (declaration.getNode() == null) {
+            return;
+        }
+        var declType = declaration.getNode().getElementType();
+        if (declType != KiteElementTypes.RESOURCE_DECLARATION &&
+                declType != KiteElementTypes.COMPONENT_DECLARATION) {
+            return; // Not a resource/component - allow normal array access
+        }
+
+        // Get indexed resource info
+        var indexInfo = KiteIndexedResourceHelper.getIndexedInfo(declaration);
+        if (indexInfo == null) {
+            // Error: not an indexed resource
+            holder.newAnnotation(HighlightSeverity.ERROR,
+                            "'" + baseName + "' is not an indexed resource. Remove the index accessor.")
+                    .range(accessInfo.baseElement())
+                    .create();
+            return;
+        }
+
+        // Skip validation for variable indices
+        if (accessInfo.isVariableIndex()) {
+            return;
+        }
+
+        // Validate based on index type
+        if (accessInfo.numericValue() != null) {
+            var result = indexInfo.validateNumericIndex(accessInfo.numericValue());
+            if (!result.isValid()) {
+                holder.newAnnotation(HighlightSeverity.ERROR, result.errorMessage())
+                        .range(accessInfo.indexExpression())
+                        .create();
+            }
+        } else if (accessInfo.stringValue() != null) {
+            var result = indexInfo.validateStringKey(accessInfo.stringValue());
+            if (!result.isValid()) {
+                holder.newAnnotation(HighlightSeverity.ERROR, result.errorMessage())
+                        .range(accessInfo.indexExpression())
+                        .create();
+            }
+        }
+    }
+
+    /**
+     * Find a declaration by name in the file and imported files.
+     */
+    @Nullable
+    private PsiElement findDeclarationByName(PsiFile file, String name) {
+        // Search in current file
+        var result = findDeclarationRecursive(file, name);
+        if (result != null) {
+            return result;
+        }
+
+        // Search in imported files
+        var imported = new PsiElement[1];
+        KiteImportHelper.forEachImport(file, importedFile -> {
+            if (imported[0] == null) {
+                imported[0] = findDeclarationRecursive(importedFile, name);
+            }
+        });
+
+        return imported[0];
+    }
+
+    @Nullable
+    private PsiElement findDeclarationRecursive(PsiElement element, String name) {
+        if (element.getNode() == null) return null;
+
+        var type = element.getNode().getElementType();
+
+        if (KiteDeclarationHelper.isDeclarationType(type)) {
+            var declName = KitePsiUtil.findDeclarationName(element, type);
+            if (name.equals(declName)) {
+                return element;
+            }
+        }
+
+        for (var child = element.getFirstChild(); child != null; child = child.getNextSibling()) {
+            var result = findDeclarationRecursive(child, name);
+            if (result != null) {
+                return result;
+            }
+        }
+
+        return null;
+    }
 }

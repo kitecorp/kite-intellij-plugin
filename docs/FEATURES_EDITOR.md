@@ -60,6 +60,25 @@ component WebServer server {
 - Shows variables, inputs, outputs, resources, components, functions
 - **Auto-import**: Suggests symbols from unimported files with automatic import insertion
 
+**Indexed resource completion (`server[`):**
+
+For indexed resources created via `@count` or for-loops, typing `[` shows valid indices:
+
+```kite
+@count(3)
+resource vm server { }
+var x = server[<caret>]  // Shows: 0, 1, 2
+
+for env in ["dev", "staging", "prod"] {
+    resource vm db { }
+}
+var y = db[<caret>]  // Shows: "dev", "staging", "prod"
+```
+
+**Implementation:**
+- `completion/KiteIndexCompletionProvider.java`
+- Test: `completion/KiteIndexCompletionProviderTest.java`
+
 ### Auto-Import Completion
 
 When typing a symbol name, completions include symbols from files not yet imported. Selecting such a completion automatically adds the import statement:
@@ -117,15 +136,38 @@ Press **Ctrl+Q** (Windows/Linux) or **F1** (Mac) to show documentation popup.
 
 - Variables (type, default value)
 - Inputs/Outputs (type, default value, parent component)
-- Resources (type, properties)
-- Components (inputs, outputs)
+- Resources (type, properties, indexed resource info)
+- Components (inputs, outputs, indexed resource info)
 - Schemas (properties)
 - Functions (parameters, return type)
+
+### Indexed Resource Documentation
+
+For indexed resources, the documentation popup shows:
+
+```
+resource `server`
+Resource Type: vm
+
+Indexed Resource via @count(3)
+Instances: 3 (indices 0-2)
+```
+
+Or for string-keyed resources:
+
+```
+resource `db`
+Resource Type: Database
+
+Indexed Resource via for-loop (string keys)
+Keys: "dev", "staging", "prod"
+```
 
 ### Features
 
 - Shows preceding comments as documentation
 - Displays decorators
+- Shows indexed resource info (count, keys)
 - Works in string interpolation
 - Color-coded: types (blue), strings (green), numbers (blue)
 
@@ -213,8 +255,10 @@ When pressing Enter inside `/* */` comments:
 | Feature             | File                                          |
 |---------------------|-----------------------------------------------|
 | Code Completion     | `completion/KiteCompletionContributor.java`   |
+| Index Completion    | `completion/KiteIndexCompletionProvider.java` |
 | Inlay Hints         | `hints/KiteInlayHintsProvider.java`           |
 | Quick Documentation | `documentation/KiteDocumentationProvider.java`|
+| Indexed Resource    | `util/KiteIndexedResourceHelper.java`         |
 | Formatter           | `formatter/KiteBlock.java`                    |
 | Code Folding        | `KiteFoldingBuilder.java`                     |
 | Smart Enter         | `editor/KiteEnterHandlerDelegate.java`        |
@@ -226,5 +270,6 @@ When pressing Enter inside `/* */` comments:
 | General Completion         | `KiteGeneralCompletionProviderTest.java`        |
 | Resource Completion        | `KiteResourceCompletionProviderTest.java`       |
 | Component Instance Compl.  | `KiteComponentInstanceCompletionProviderTest.java`|
+| Index Completion           | `KiteIndexCompletionProviderTest.java`          |
 | Code Folding               | `KiteFoldingBuilderTest.java`                   |
 | Smart Enter                | `KiteEnterHandlerDelegateTest.java`             |

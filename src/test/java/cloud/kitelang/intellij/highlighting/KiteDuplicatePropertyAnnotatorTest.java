@@ -120,6 +120,50 @@ public class KiteDuplicatePropertyAnnotatorTest extends KiteTestBase {
         assertTrue("Component instance with unique inputs should have no errors", highlights.isEmpty());
     }
 
+    // ========== Decorator Tests ==========
+
+    public void testCloudDecoratorDoesNotCauseFalseDuplicate() {
+        configureByText("""
+                schema AWSResource {
+                    string name
+                    @cloud string arn
+                    @cloud string id
+                }
+                """);
+
+        var highlights = getDuplicatePropertyErrors();
+        assertTrue("@cloud decorator should not cause false 'Duplicate property' errors", highlights.isEmpty());
+    }
+
+    public void testMultipleCloudPropertiesNoDuplicate() {
+        configureByText("""
+                schema Database {
+                    string host
+                    number port = 5432
+                    @cloud string endpoint
+                    @cloud string connectionString
+                    string username
+                }
+                """);
+
+        var highlights = getDuplicatePropertyErrors();
+        assertTrue("Mixed @cloud and regular properties should not report duplicates", highlights.isEmpty());
+    }
+
+    public void testActualDuplicateWithCloudDecorator() {
+        configureByText("""
+                schema Config {
+                    @cloud string arn
+                    string arn
+                }
+                """);
+
+        var highlights = getDuplicatePropertyErrors();
+        assertFalse("Should detect actual duplicate even with @cloud decorator", highlights.isEmpty());
+        assertTrue("Error should mention 'arn'",
+                highlights.stream().anyMatch(h -> h.getDescription().contains("'arn'")));
+    }
+
     // ========== Edge Cases ==========
 
     public void testSamePropertyInDifferentSchemas() {

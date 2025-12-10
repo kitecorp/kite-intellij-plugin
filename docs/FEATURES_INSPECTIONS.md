@@ -18,6 +18,54 @@
 - Built-in type names
 - Property access chains
 
+## Indexed Access Validation
+
+Resources and components can be indexed via `@count` decorator or for-loops. The plugin validates indexed access patterns.
+
+### Indexed Resource Creation
+
+| Source | Index Type | Example |
+|--------|-----------|---------|
+| `@count(n)` decorator | Numeric 0 to n-1 | `@count(3) resource vm server {}` → `server[0..2]` |
+| Range loop `for i in 0..n` | Numeric start to end-1 | `for i in 0..5 { resource vm server {} }` → `server[0..4]` |
+| Array loop `for x in [...]` | String keys | `for env in ["dev","prod"] { resource vm db {} }` → `db["dev"], db["prod"]` |
+
+### Validation Errors
+
+```kite
+// Error: 'server' is not an indexed resource
+resource vm server { }
+var x = server[0]  // Error
+
+// Error: Index out of bounds
+@count(3)
+resource vm server { }
+var x = server[5]  // Error: Index 5 is out of bounds (valid: 0-2)
+
+// Error: Wrong index type
+for env in ["dev", "prod"] {
+    resource vm server { }
+}
+var x = server[0]  // Error: uses string keys, not numeric indices
+
+// Error: Invalid key
+for env in ["dev", "prod"] {
+    resource vm server { }
+}
+var x = server["staging"]  // Error: "staging" is not valid
+```
+
+**Skip Validation:**
+- Variable indices like `server[i]` are skipped (only literal values are validated)
+- Expression indices like `server[count-1]` are skipped
+
+**Implementation:**
+- File: `highlighting/KiteTypeCheckingAnnotator.java`
+- Helper: `util/KiteIndexedResourceHelper.java`
+- Test: `highlighting/KiteTypeCheckingAnnotatorTest.java`
+
+---
+
 ## Missing Required Properties
 
 A schema property is **required** if it has no default value AND is not marked with `@cloud`. Resource instances must provide all required properties.

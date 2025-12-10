@@ -1,0 +1,39 @@
+// Test file for indexed resource completions
+schema vm {
+    string name
+    number port
+    string region
+}
+
+// Test 1: @count indexed resource
+@count(4)
+resource vm server {
+    name = "srv"
+    port = 8080
+}
+
+// Test completions:
+// - server[  should show 0, 1, 2
+// - server[0]. should show name, port, region
+
+var test1 = server[3].
+
+// Test 2: for-loop with string keys
+for env in ["dev", "staging", "prod"] {
+    resource vm db {
+        name = "db-${env}"
+    }
+}
+
+// Test completions:
+// - db[ should show "dev", "staging", "prod"
+// - db["dev"]. should show name, port, region
+
+var test2 = db["dev"].
+
+
+fun functionName(string asd) void {
+
+}
+
+

@@ -284,4 +284,49 @@ public class KiteGotoDeclarationHandlerTest extends KiteTestBase {
         // This tests that it doesn't crash
         // Declaration names typically don't navigate to themselves
     }
+
+    // ========== Indexed Access Navigation Tests ==========
+
+    public void testNavigateFromIndexedAccessBaseIdentifier() {
+        configureByText("""
+                schema vm { string name }
+                @count(3)
+                resource vm server { name = "srv" }
+                var x = server[0]
+                """);
+
+        // Find the reference to server in server[0]
+        int offset = myFixture.getFile().getText().lastIndexOf("server");
+        PsiElement elementAtCaret = myFixture.getFile().findElementAt(offset);
+        assertNotNull("Should find element at server reference", elementAtCaret);
+
+        Editor editor = myFixture.getEditor();
+        PsiElement[] targets = handler.getGotoDeclarationTargets(elementAtCaret, offset, editor);
+
+        assertNotNull("Should have navigation targets", targets);
+        assertTrue("Should have at least one target", targets.length > 0);
+        assertEquals("server", targets[0].getText());
+    }
+
+    public void testNavigateFromForLoopIndexedResource() {
+        configureByText("""
+                schema vm { string name }
+                for i in 0..5 {
+                    resource vm server { name = "srv-${i}" }
+                }
+                var x = server[0]
+                """);
+
+        // Find the reference to server in server[0]
+        int offset = myFixture.getFile().getText().lastIndexOf("server");
+        PsiElement elementAtCaret = myFixture.getFile().findElementAt(offset);
+        assertNotNull("Should find element at server reference", elementAtCaret);
+
+        Editor editor = myFixture.getEditor();
+        PsiElement[] targets = handler.getGotoDeclarationTargets(elementAtCaret, offset, editor);
+
+        assertNotNull("Should have navigation targets", targets);
+        assertTrue("Should have at least one target", targets.length > 0);
+        assertEquals("server", targets[0].getText());
+    }
 }

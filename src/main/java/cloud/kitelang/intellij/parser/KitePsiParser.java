@@ -76,10 +76,12 @@ public class KitePsiParser implements PsiParser {
     private void parseDeclaration(PsiBuilder builder, IElementType elementType) {
         PsiBuilder.Marker marker = builder.mark();
 
-        // Check if this declaration can have nested content (component, schema, resource)
+        // Check if this declaration can have nested content (component, schema, resource, for-loop)
         boolean canHaveNestedDeclarations = elementType == KiteElementTypes.COMPONENT_DECLARATION ||
                                             elementType == KiteElementTypes.SCHEMA_DECLARATION ||
-                                            elementType == KiteElementTypes.RESOURCE_DECLARATION;
+                                            elementType == KiteElementTypes.RESOURCE_DECLARATION ||
+                                            elementType == KiteElementTypes.FOR_STATEMENT ||
+                                            elementType == KiteElementTypes.WHILE_STATEMENT;
 
         // INPUT and OUTPUT are always single-line declarations
         boolean isSingleLineDeclaration = elementType == KiteElementTypes.INPUT_DECLARATION ||

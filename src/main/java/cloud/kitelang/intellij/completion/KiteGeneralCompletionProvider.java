@@ -115,20 +115,33 @@ public class KiteGeneralCompletionProvider extends CompletionProvider<Completion
     }
 
     /**
-     * Check if cursor is after a dot (property access context)
+     * Check if cursor is after a dot (property access context).
+     * Walks up the tree to find the DOT token in various positions,
+     * handling different PSI structures (variable assignment, function arguments, etc.).
      */
     private boolean isPropertyAccessContext(PsiElement position) {
+        // First, check direct previous sibling
         PsiElement prev = skipWhitespaceBackward(position.getPrevSibling());
-        if (prev == null) {
-            PsiElement parent = position.getParent();
-            if (parent != null) {
-                prev = skipWhitespaceBackward(parent.getPrevSibling());
-            }
+        if (prev != null && prev.getNode() != null &&
+            prev.getNode().getElementType() == KiteTokenTypes.DOT) {
+            return true;
         }
 
-        if (prev != null && prev.getNode() != null) {
-            return prev.getNode().getElementType() == KiteTokenTypes.DOT;
+        // Walk up the tree and check each parent's previous sibling
+        PsiElement current = position;
+        for (int i = 0; i < 5; i++) {  // Limit depth to avoid infinite loops
+            PsiElement parent = current.getParent();
+            if (parent == null) break;
+
+            prev = skipWhitespaceBackward(parent.getPrevSibling());
+            if (prev != null && prev.getNode() != null &&
+                prev.getNode().getElementType() == KiteTokenTypes.DOT) {
+                return true;
+            }
+
+            current = parent;
         }
+
         return false;
     }
 
@@ -507,7 +520,8 @@ public class KiteGeneralCompletionProvider extends CompletionProvider<Completion
     }
 
     /**
-     * Build a chain of property names from the cursor position backwards
+     * Build a chain of property names from the cursor position backwards.
+     * Handles both simple property access (obj.property) and indexed access (obj[0].property).
      */
     private List<String> buildPropertyChain(PsiElement position) {
         List<String> chain = new ArrayList<>();
@@ -517,12 +531,35 @@ public class KiteGeneralCompletionProvider extends CompletionProvider<Completion
             PsiElement dot = findPreviousDot(current);
             if (dot == null) break;
 
-            PsiElement identifier = skipWhitespaceBackward(dot.getPrevSibling());
-            if (identifier == null || identifier.getNode() == null) break;
+            PsiElement beforeDot = skipWhitespaceBackward(dot.getPrevSibling());
+            if (beforeDot == null || beforeDot.getNode() == null) break;
 
-            if (identifier.getNode().getElementType() == KiteTokenTypes.IDENTIFIER) {
-                chain.add(0, identifier.getText());
-                current = identifier;
+            IElementType beforeDotType = beforeDot.getNode().getElementType();
+
+            if (beforeDotType == KiteTokenTypes.IDENTIFIER) {
+                // Simple property access: obj.property
+                chain.add(0, beforeDot.getText());
+                current = beforeDot;
+            } else if (beforeDotType == KiteTokenTypes.RBRACK) {
+                // Indexed access: obj[index].property - find the base identifier before [
+                PsiElement identifier = findIdentifierBeforeBracket(beforeDot);
+                if (identifier != null) {
+                    chain.add(0, identifier.getText());
+                    current = identifier;
+                } else {
+                    break;
+                }
+            } else if (beforeDotType == KiteElementTypes.ARRAY_LITERAL) {
+                // Indexed access when parsed as ARRAY_LITERAL (malformed tree): obj[index].property
+                // Find the identifier before the ARRAY_LITERAL
+                PsiElement identifier = skipWhitespaceBackward(beforeDot.getPrevSibling());
+                if (identifier != null && identifier.getNode() != null &&
+                    identifier.getNode().getElementType() == KiteTokenTypes.IDENTIFIER) {
+                    chain.add(0, identifier.getText());
+                    current = identifier;
+                } else {
+                    break;
+                }
             } else {
                 break;
             }
@@ -531,18 +568,69 @@ public class KiteGeneralCompletionProvider extends CompletionProvider<Completion
     }
 
     /**
-     * Find the previous dot token
+     * Find the identifier before an indexed access pattern (identifier[...]).
+     * Given the RBRACK token, walks backwards to find the opening LBRACK and then the identifier.
+     */
+    @Nullable
+    private PsiElement findIdentifierBeforeBracket(PsiElement rbrack) {
+        // Walk backwards to find the matching LBRACK
+        PsiElement current = rbrack.getPrevSibling();
+        int bracketDepth = 1;
+
+        while (current != null && bracketDepth > 0) {
+            if (current.getNode() != null) {
+                IElementType type = current.getNode().getElementType();
+                if (type == KiteTokenTypes.RBRACK) {
+                    bracketDepth++;
+                } else if (type == KiteTokenTypes.LBRACK) {
+                    bracketDepth--;
+                }
+            }
+            if (bracketDepth > 0) {
+                current = current.getPrevSibling();
+            }
+        }
+
+        if (current == null) return null;
+
+        // current is now at LBRACK, find the identifier before it
+        PsiElement identifier = skipWhitespaceBackward(current.getPrevSibling());
+        if (identifier != null && identifier.getNode() != null &&
+            identifier.getNode().getElementType() == KiteTokenTypes.IDENTIFIER) {
+            return identifier;
+        }
+        return null;
+    }
+
+    /**
+     * Find the previous dot token.
+     * Walks up the tree to find the DOT in various positions,
+     * handling different PSI structures (variable assignment, function arguments, etc.).
      */
     @Nullable
     private PsiElement findPreviousDot(PsiElement element) {
+        // First, check direct previous sibling
         PsiElement prev = skipWhitespaceBackward(element.getPrevSibling());
-        if (prev == null) {
-            PsiElement parent = element.getParent();
-            if (parent != null) prev = skipWhitespaceBackward(parent.getPrevSibling());
-        }
-        if (prev != null && prev.getNode() != null && prev.getNode().getElementType() == KiteTokenTypes.DOT) {
+        if (prev != null && prev.getNode() != null &&
+            prev.getNode().getElementType() == KiteTokenTypes.DOT) {
             return prev;
         }
+
+        // Walk up the tree and check each parent's previous sibling
+        PsiElement current = element;
+        for (int i = 0; i < 5; i++) {  // Limit depth to avoid infinite loops
+            PsiElement parent = current.getParent();
+            if (parent == null) break;
+
+            prev = skipWhitespaceBackward(parent.getPrevSibling());
+            if (prev != null && prev.getNode() != null &&
+                prev.getNode().getElementType() == KiteTokenTypes.DOT) {
+                return prev;
+            }
+
+            current = parent;
+        }
+
         return null;
     }
 

@@ -3,6 +3,8 @@ package cloud.kitelang.intellij.documentation;
 import cloud.kitelang.intellij.KiteLanguage;
 import cloud.kitelang.intellij.psi.KiteElementTypes;
 import cloud.kitelang.intellij.psi.KiteTokenTypes;
+import cloud.kitelang.intellij.util.KiteIndexedResourceHelper;
+import cloud.kitelang.intellij.util.KiteIndexedResourceHelper.IndexedResourceInfo;
 import com.intellij.lang.documentation.AbstractDocumentationProvider;
 import com.intellij.openapi.editor.Editor;
 import com.intellij.psi.PsiElement;
@@ -17,6 +19,8 @@ import java.util.List;
 import static cloud.kitelang.intellij.documentation.KiteDecoratorDocumentation.*;
 import static cloud.kitelang.intellij.documentation.KiteDocumentationExtractor.*;
 import static cloud.kitelang.intellij.documentation.KiteDocumentationHtmlHelper.*;
+import static cloud.kitelang.intellij.documentation.KiteDocumentationHtmlHelper.COLOR_STRING;
+import static cloud.kitelang.intellij.documentation.KiteDocumentationHtmlHelper.COLOR_TYPE;
 
 /**
  * Documentation provider for Kite language.
@@ -226,6 +230,11 @@ public class KiteDocumentationProvider extends AbstractDocumentationProvider {
                 sb.append("<code>").append(escapeHtml(resourceType)).append("</code>");
                 sb.append("</div>");
             }
+            // Add indexed resource info
+            String indexedInfo = formatIndexedResourceInfo(declaration);
+            if (indexedInfo != null) {
+                sb.append(indexedInfo);
+            }
         } else if (type == KiteElementTypes.COMPONENT_DECLARATION) {
             String componentType = extractComponentType(declaration);
             if (componentType != null) {
@@ -233,6 +242,11 @@ public class KiteDocumentationProvider extends AbstractDocumentationProvider {
                 sb.append("<span>Component Type:</span> ");
                 sb.append("<code>").append(escapeHtml(componentType)).append("</code>");
                 sb.append("</div>");
+            }
+            // Add indexed resource info for component instances
+            String indexedInfo = formatIndexedResourceInfo(declaration);
+            if (indexedInfo != null) {
+                sb.append(indexedInfo);
             }
 
             // Extract inputs
@@ -285,5 +299,60 @@ public class KiteDocumentationProvider extends AbstractDocumentationProvider {
         }
 
         return !sb.isEmpty() ? sb.toString() : null;
+    }
+
+    /**
+     * Format indexed resource information for display.
+     */
+    @Nullable
+    private String formatIndexedResourceInfo(PsiElement declaration) {
+        IndexedResourceInfo info = KiteIndexedResourceHelper.getIndexedInfo(declaration);
+        if (info == null) {
+            return null;
+        }
+
+        StringBuilder sb = new StringBuilder();
+        sb.append("<div style=\"margin-bottom: 8px; background-color: ").append(getSectionBackgroundColor()).append("; padding: 8px; border-radius: 4px;\">");
+
+        if (info.indexType() == KiteIndexedResourceHelper.IndexType.NUMERIC) {
+            // Numeric indexing
+            String source;
+            int start, end;
+            if (info.countValue() != null) {
+                source = "@count(" + info.countValue() + ")";
+                start = 0;
+                end = info.countValue() - 1;
+            } else {
+                start = info.rangeStart() != null ? info.rangeStart() : 0;
+                end = info.rangeEnd() != null ? info.rangeEnd() - 1 : start;
+                source = "for-loop (" + start + ".." + (end + 1) + ")";
+            }
+
+            sb.append("<span style=\"font-weight: bold;\">Indexed Resource</span> ");
+            sb.append("<span style=\"color: gray;\">via ").append(source).append("</span>");
+            sb.append("<div style=\"margin-top: 4px;\">");
+            sb.append("<span>Instances:</span> ").append(end - start + 1);
+            sb.append(" <span style=\"color: gray;\">(indices ").append(start).append("-").append(end).append(")</span>");
+            sb.append("</div>");
+        } else {
+            // String indexing
+            sb.append("<span style=\"font-weight: bold;\">Indexed Resource</span> ");
+            sb.append("<span style=\"color: gray;\">via for-loop (string keys)</span>");
+            sb.append("<div style=\"margin-top: 4px;\">");
+            sb.append("<span>Keys:</span> ");
+            var keys = info.stringKeys();
+            if (keys != null && !keys.isEmpty()) {
+                for (int i = 0; i < keys.size(); i++) {
+                    if (i > 0) {
+                        sb.append(", ");
+                    }
+                    sb.append("<code style=\"color: ").append(COLOR_STRING).append(";\">\"").append(escapeHtml(keys.get(i))).append("\"</code>");
+                }
+            }
+            sb.append("</div>");
+        }
+
+        sb.append("</div>");
+        return sb.toString();
     }
 }

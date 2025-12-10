@@ -366,6 +366,112 @@ public class KiteTypeCheckingAnnotatorTest extends KiteTestBase {
         assertTrue(errors.get(0).getDescription().contains("Import statements must appear at the beginning"));
     }
 
+    // ========== Indexed Access Validation Tests ==========
+
+    public void testIndexedAccessOnNonIndexedResourceShowsError() {
+        configureByText("""
+                schema vm { string name }
+                resource vm server { name = "srv" }
+                var x = server[0]
+                """);
+
+        var errors = getIndexedAccessErrors();
+        assertEquals(1, errors.size());
+        assertTrue(errors.get(0).getDescription().contains("not an indexed resource"));
+    }
+
+    public void testValidCountIndexedAccessNoError() {
+        configureByText("""
+                schema vm { string name }
+                @count(5)
+                resource vm server { name = "srv" }
+                var x = server[0]
+                """);
+
+        var errors = getIndexedAccessErrors();
+        assertEquals(0, errors.size());
+    }
+
+    public void testValidForLoopIndexedAccessNoError() {
+        configureByText("""
+                schema vm { string name }
+                for i in 0..5 {
+                    resource vm server { name = "srv" }
+                }
+                var x = server[0]
+                """);
+
+        var errors = getIndexedAccessErrors();
+        assertEquals(0, errors.size());
+    }
+
+    public void testOutOfBoundsNumericIndexShowsError() {
+        configureByText("""
+                schema vm { string name }
+                @count(3)
+                resource vm server { name = "srv" }
+                var x = server[5]
+                """);
+
+        var errors = getIndexedAccessErrors();
+        assertEquals(1, errors.size());
+        assertTrue(errors.get(0).getDescription().contains("out of bounds"));
+    }
+
+    public void testWrongIndexTypeNumericOnStringShowsError() {
+        configureByText("""
+                schema vm { string name }
+                for env in ["dev", "prod"] {
+                    resource vm server { name = "srv" }
+                }
+                var x = server[0]
+                """);
+
+        var errors = getIndexedAccessErrors();
+        assertEquals(1, errors.size());
+        assertTrue(errors.get(0).getDescription().contains("string keys"));
+    }
+
+    public void testWrongIndexTypeStringOnNumericShowsError() {
+        configureByText("""
+                schema vm { string name }
+                @count(3)
+                resource vm server { name = "srv" }
+                var x = server["test"]
+                """);
+
+        var errors = getIndexedAccessErrors();
+        assertEquals(1, errors.size());
+        assertTrue(errors.get(0).getDescription().contains("numeric indices"));
+    }
+
+    public void testInvalidStringKeyShowsError() {
+        configureByText("""
+                schema vm { string name }
+                for env in ["dev", "prod"] {
+                    resource vm server { name = "srv" }
+                }
+                var x = server["staging"]
+                """);
+
+        var errors = getIndexedAccessErrors();
+        assertEquals(1, errors.size());
+        assertTrue(errors.get(0).getDescription().contains("staging"));
+    }
+
+    public void testVariableIndexSkipsValidation() {
+        configureByText("""
+                schema vm { string name }
+                @count(3)
+                resource vm server { name = "srv" }
+                var i = 1
+                var x = server[i]
+                """);
+
+        var errors = getIndexedAccessErrors();
+        assertEquals(0, errors.size());
+    }
+
     // ========== Schema Property Type Checking Tests ==========
 
     public void testResourcePropertyCorrectTypeNoError() {
@@ -415,6 +521,18 @@ public class KiteTypeCheckingAnnotatorTest extends KiteTestBase {
                 .filter(h -> h.getSeverity() == HighlightSeverity.ERROR)
                 .filter(h -> h.getDescription() != null &&
                              h.getDescription().contains("Import statements must appear"))
+                .collect(Collectors.toList());
+    }
+
+    private List<HighlightInfo> getIndexedAccessErrors() {
+        return myFixture.doHighlighting().stream()
+                .filter(h -> h.getSeverity() == HighlightSeverity.ERROR)
+                .filter(h -> h.getDescription() != null &&
+                             (h.getDescription().contains("not an indexed resource") ||
+                              h.getDescription().contains("out of bounds") ||
+                              h.getDescription().contains("string keys") ||
+                              h.getDescription().contains("numeric indices") ||
+                              h.getDescription().contains("is not valid")))
                 .collect(Collectors.toList());
     }
 }
