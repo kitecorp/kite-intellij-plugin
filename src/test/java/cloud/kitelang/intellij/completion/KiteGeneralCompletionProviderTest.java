@@ -267,4 +267,54 @@ public class KiteGeneralCompletionProviderTest extends KiteTestBase {
                     lookupStrings.contains("alpha") || lookupStrings.contains("alphaTwo"));
         }
     }
+
+    // ========== Function Parameter Type Completion Tests ==========
+
+    public void testFunctionParameterTypeSuggestsPrimitives() {
+        configureByText("""
+                fun process(<caret>)
+                """);
+
+        myFixture.completeBasic();
+        List<String> lookupStrings = myFixture.getLookupElementStrings();
+
+        assertNotNull("Should have completions for function parameter type", lookupStrings);
+        // Primitive types should be suggested
+        assertTrue("Should suggest 'string'", lookupStrings.contains("string"));
+        assertTrue("Should suggest 'number'", lookupStrings.contains("number"));
+        assertTrue("Should suggest 'boolean'", lookupStrings.contains("boolean"));
+        assertTrue("Should suggest 'any'", lookupStrings.contains("any"));
+        // Primitive array types should be suggested
+        assertTrue("Should suggest 'string[]'", lookupStrings.contains("string[]"));
+        assertTrue("Should suggest 'number[]'", lookupStrings.contains("number[]"));
+    }
+
+    public void testFunctionSecondParameterTypeSuggestsPrimitives() {
+        configureByText("""
+                fun process(string name, <caret>)
+                """);
+
+        myFixture.completeBasic();
+        List<String> lookupStrings = myFixture.getLookupElementStrings();
+
+        assertNotNull("Should have completions for second parameter type", lookupStrings);
+        assertTrue("Should suggest 'string'", lookupStrings.contains("string"));
+        assertTrue("Should suggest 'number'", lookupStrings.contains("number"));
+        assertTrue("Should suggest 'boolean'", lookupStrings.contains("boolean"));
+    }
+
+    public void testFunctionReturnTypeSuggestsPrimitives() {
+        configureByText("""
+                fun process(string name) <caret> {
+                }
+                """);
+
+        myFixture.completeBasic();
+        List<String> lookupStrings = myFixture.getLookupElementStrings();
+
+        assertNotNull("Should have completions for return type", lookupStrings);
+        assertTrue("Should suggest 'string'", lookupStrings.contains("string"));
+        assertTrue("Should suggest 'number'", lookupStrings.contains("number"));
+        assertTrue("Should suggest 'void'", lookupStrings.contains("void"));
+    }
 }

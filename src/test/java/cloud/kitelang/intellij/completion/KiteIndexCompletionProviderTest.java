@@ -250,4 +250,48 @@ public class KiteIndexCompletionProviderTest extends KiteTestBase {
         assertTrue("Should suggest 'name' property, got: " + lookupStrings, lookupStrings.contains("name"));
         assertTrue("Should suggest 'port' property", lookupStrings.contains("port"));
     }
+
+    // ========== Index Completion with Trailing Property Access ==========
+
+    public void testIndexCompletionWithTrailingPropertyAccess() {
+        // Index completion should work even with .property after the brackets
+        configureByText("""
+                schema vm {
+                    string name
+                    number port
+                }
+                for env in ["dev", "staging", "prod"] {
+                    resource vm db { name = env }
+                }
+                var x = db[<caret>].port
+                """);
+
+        myFixture.completeBasic();
+        List<String> lookupStrings = myFixture.getLookupElementStrings();
+
+        assertNotNull("Should have completions for index with trailing property", lookupStrings);
+        assertTrue("Should suggest \"dev\"", lookupStrings.contains("\"dev\""));
+        assertTrue("Should suggest \"staging\"", lookupStrings.contains("\"staging\""));
+        assertTrue("Should suggest \"prod\"", lookupStrings.contains("\"prod\""));
+    }
+
+    public void testNumericIndexCompletionWithTrailingPropertyAccess() {
+        configureByText("""
+                schema vm {
+                    string name
+                    number port
+                }
+                @count(3)
+                resource vm server { name = "srv" }
+                var x = server[<caret>].name
+                """);
+
+        myFixture.completeBasic();
+        List<String> lookupStrings = myFixture.getLookupElementStrings();
+
+        assertNotNull("Should have completions for numeric index with trailing property", lookupStrings);
+        assertTrue("Should suggest index 0", lookupStrings.contains("0"));
+        assertTrue("Should suggest index 1", lookupStrings.contains("1"));
+        assertTrue("Should suggest index 2", lookupStrings.contains("2"));
+    }
 }

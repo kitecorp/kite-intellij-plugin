@@ -50,7 +50,7 @@ public class KiteGeneralCompletionProvider extends CompletionProvider<Completion
 
     // Built-in types
     private static final String[] BUILTIN_TYPES = {
-            "string", "number", "boolean", "object", "any"
+            "string", "number", "boolean", "object", "any", "void"
     };
 
     // Built-in array types
@@ -159,11 +159,111 @@ public class KiteGeneralCompletionProvider extends CompletionProvider<Completion
 
         if (prev != null && prev.getNode() != null) {
             IElementType prevType = prev.getNode().getElementType();
-            return prevType == KiteTokenTypes.VAR ||
-                   prevType == KiteTokenTypes.INPUT ||
-                   prevType == KiteTokenTypes.OUTPUT ||
-                   prevType == KiteTokenTypes.RESOURCE ||
-                   prevType == KiteTokenTypes.COLON;  // For function return types
+
+            // Standard type contexts
+            if (prevType == KiteTokenTypes.VAR ||
+                prevType == KiteTokenTypes.INPUT ||
+                prevType == KiteTokenTypes.OUTPUT ||
+                prevType == KiteTokenTypes.RESOURCE ||
+                prevType == KiteTokenTypes.COLON) {
+                return true;
+            }
+
+            // Function parameter type context: after ( or , inside function declaration
+            if (prevType == KiteTokenTypes.LPAREN || prevType == KiteTokenTypes.COMMA) {
+                return isInsideFunctionParameterList(prev);
+            }
+
+            // Return type context: after ) in function declaration
+            if (prevType == KiteTokenTypes.RPAREN) {
+                return isAfterFunctionParameterList(prev);
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Check if the given element is inside a function parameter list.
+     * Looks for: fun identifier (
+     */
+    private boolean isInsideFunctionParameterList(PsiElement element) {
+        // Walk backwards to find if there's a FUN keyword before the opening paren
+        PsiElement current = element;
+
+        // If we're at COMMA, walk back to find LPAREN
+        if (current.getNode() != null && current.getNode().getElementType() == KiteTokenTypes.COMMA) {
+            int parenDepth = 0;
+            current = skipWhitespaceBackward(current.getPrevSibling());
+            while (current != null) {
+                if (current.getNode() != null) {
+                    IElementType type = current.getNode().getElementType();
+                    if (type == KiteTokenTypes.RPAREN) {
+                        parenDepth++;
+                    } else if (type == KiteTokenTypes.LPAREN) {
+                        if (parenDepth == 0) {
+                            break; // Found our opening paren
+                        }
+                        parenDepth--;
+                    }
+                }
+                current = skipWhitespaceBackward(current.getPrevSibling());
+            }
+        }
+
+        if (current == null || current.getNode() == null ||
+            current.getNode().getElementType() != KiteTokenTypes.LPAREN) {
+            return false;
+        }
+
+        // Now check if the identifier before LPAREN is preceded by FUN
+        PsiElement beforeParen = skipWhitespaceBackward(current.getPrevSibling());
+        if (beforeParen != null && beforeParen.getNode() != null &&
+            beforeParen.getNode().getElementType() == KiteTokenTypes.IDENTIFIER) {
+            PsiElement beforeName = skipWhitespaceBackward(beforeParen.getPrevSibling());
+            if (beforeName != null && beforeName.getNode() != null &&
+                beforeName.getNode().getElementType() == KiteTokenTypes.FUN) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Check if position is after ) in a function declaration (for return type).
+     */
+    private boolean isAfterFunctionParameterList(PsiElement rparen) {
+        // Walk backwards through the paren to find LPAREN, then check for FUN
+        int parenDepth = 1;
+        PsiElement current = skipWhitespaceBackward(rparen.getPrevSibling());
+
+        while (current != null && parenDepth > 0) {
+            if (current.getNode() != null) {
+                IElementType type = current.getNode().getElementType();
+                if (type == KiteTokenTypes.RPAREN) {
+                    parenDepth++;
+                } else if (type == KiteTokenTypes.LPAREN) {
+                    parenDepth--;
+                }
+            }
+            if (parenDepth > 0) {
+                current = skipWhitespaceBackward(current.getPrevSibling());
+            }
+        }
+
+        if (current == null || current.getNode() == null ||
+            current.getNode().getElementType() != KiteTokenTypes.LPAREN) {
+            return false;
+        }
+
+        // Check if before LPAREN is: identifier FUN
+        PsiElement beforeParen = skipWhitespaceBackward(current.getPrevSibling());
+        if (beforeParen != null && beforeParen.getNode() != null &&
+            beforeParen.getNode().getElementType() == KiteTokenTypes.IDENTIFIER) {
+            PsiElement beforeName = skipWhitespaceBackward(beforeParen.getPrevSibling());
+            if (beforeName != null && beforeName.getNode() != null &&
+                beforeName.getNode().getElementType() == KiteTokenTypes.FUN) {
+                return true;
+            }
         }
         return false;
     }
