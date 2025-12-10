@@ -249,6 +249,91 @@ public class KiteInstanceNameCompletionProviderTest extends KiteTestBase {
         assertTrue("Should suggest 'loadBalancer'", lookupStrings.contains("loadBalancer"));
     }
 
+    // ========== Exclusion Tests ==========
+
+    public void testNoVariablesSuggestedInInstanceNameContext() {
+        configureByText("""
+                var myVariable = "hello"
+                var anotherVar = 123
+                schema DatabaseConfig {
+                    string host
+                }
+                resource DatabaseConfig <caret>
+                """);
+
+        myFixture.completeBasic();
+        List<String> lookupStrings = myFixture.getLookupElementStrings();
+
+        assertNotNull("Should have completions", lookupStrings);
+        assertFalse("Should NOT suggest variable 'myVariable'", lookupStrings.contains("myVariable"));
+        assertFalse("Should NOT suggest variable 'anotherVar'", lookupStrings.contains("anotherVar"));
+        assertTrue("Should suggest instance name 'databaseConfig'", lookupStrings.contains("databaseConfig"));
+    }
+
+    public void testNoSchemasSuggestedInInstanceNameContext() {
+        configureByText("""
+                schema DatabaseConfig {
+                    string host
+                }
+                schema AnotherSchema {
+                    number port
+                }
+                resource DatabaseConfig <caret>
+                """);
+
+        myFixture.completeBasic();
+        List<String> lookupStrings = myFixture.getLookupElementStrings();
+
+        assertNotNull("Should have completions", lookupStrings);
+        assertFalse("Should NOT suggest schema 'AnotherSchema'", lookupStrings.contains("AnotherSchema"));
+        assertFalse("Should NOT suggest schema 'DatabaseConfig' as-is", lookupStrings.contains("DatabaseConfig"));
+        assertTrue("Should suggest instance name 'databaseConfig'", lookupStrings.contains("databaseConfig"));
+    }
+
+    public void testNoImportedSymbolsSuggestedInInstanceNameContext() {
+        addFile("common.kite", """
+                var sharedVar = "shared"
+                schema SharedSchema {
+                    string name
+                }
+                """);
+
+        configureByText("""
+                import * from "common.kite"
+                schema ServerConfig {
+                    string host
+                }
+                resource ServerConfig <caret>
+                """);
+
+        myFixture.completeBasic();
+        List<String> lookupStrings = myFixture.getLookupElementStrings();
+
+        assertNotNull("Should have completions", lookupStrings);
+        assertFalse("Should NOT suggest imported 'sharedVar'", lookupStrings.contains("sharedVar"));
+        assertFalse("Should NOT suggest imported 'SharedSchema'", lookupStrings.contains("SharedSchema"));
+        assertTrue("Should suggest instance name 'serverConfig'", lookupStrings.contains("serverConfig"));
+    }
+
+    public void testNoKeywordsSuggestedInInstanceNameContext() {
+        configureByText("""
+                schema Config {
+                    string host
+                }
+                resource Config <caret>
+                """);
+
+        myFixture.completeBasic();
+        List<String> lookupStrings = myFixture.getLookupElementStrings();
+
+        assertNotNull("Should have completions", lookupStrings);
+        assertFalse("Should NOT suggest keyword 'var'", lookupStrings.contains("var"));
+        assertFalse("Should NOT suggest keyword 'resource'", lookupStrings.contains("resource"));
+        assertFalse("Should NOT suggest keyword 'schema'", lookupStrings.contains("schema"));
+        assertFalse("Should NOT suggest keyword 'if'", lookupStrings.contains("if"));
+        assertTrue("Should suggest instance name 'config'", lookupStrings.contains("config"));
+    }
+
     // ========== Abbreviated Name Tests ==========
 
     public void testDatabaseSuggestsDbAbbreviation() {

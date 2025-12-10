@@ -94,6 +94,11 @@ public class KiteGeneralCompletionProvider extends CompletionProvider<Completion
             return;
         }
 
+        // Skip general completions in instance name contexts - handled by KiteInstanceNameCompletionProvider
+        if (KiteInstanceNameCompletionProvider.isInInstanceNameContext(position)) {
+            return;
+        }
+
         // Check if we're after a dot (property access)
         if (isPropertyAccessContext(position)) {
             addPropertyCompletions(parameters, result);

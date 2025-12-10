@@ -25,6 +25,14 @@ import static cloud.kitelang.intellij.util.KitePsiUtil.skipWhitespaceBackward;
 public class KiteInstanceNameCompletionProvider extends CompletionProvider<CompletionParameters> {
 
     /**
+     * Check if position is in an instance name context.
+     * Public static method for other providers to check and skip.
+     */
+    public static boolean isInInstanceNameContext(@NotNull PsiElement position) {
+        return getInstanceNameContextStatic(position) != null;
+    }
+
+    /**
      * Common abbreviations for type name parts.
      */
     private static final Map<String, String> ABBREVIATIONS = Map.of(
@@ -49,10 +57,13 @@ public class KiteInstanceNameCompletionProvider extends CompletionProvider<Compl
         PsiElement position = parameters.getPosition();
 
         // Check if we're in an instance name position
-        InstanceNameContext nameContext = getInstanceNameContext(position);
+        InstanceNameContext nameContext = getInstanceNameContextStatic(position);
         if (nameContext == null) {
             return;
         }
+
+        // Stop other providers from adding their completions (variables, schemas, etc.)
+        result.stopHere();
 
         // Generate and add name suggestions
         addInstanceNameSuggestions(result, nameContext.typeName, nameContext.isComponent);
@@ -63,7 +74,7 @@ public class KiteInstanceNameCompletionProvider extends CompletionProvider<Compl
      * Returns the type name if in valid position, null otherwise.
      */
     @Nullable
-    private InstanceNameContext getInstanceNameContext(PsiElement position) {
+    private static InstanceNameContext getInstanceNameContextStatic(PsiElement position) {
         // Walk backwards to find the pattern: (resource|component) TypeName <cursor>
         PsiElement current = skipWhitespaceBackward(position.getPrevSibling());
 
@@ -111,7 +122,7 @@ public class KiteInstanceNameCompletionProvider extends CompletionProvider<Compl
     /**
      * Check if position is inside or after an opening brace.
      */
-    private boolean isInsideOrAfterBrace(PsiElement position) {
+    private static boolean isInsideOrAfterBrace(PsiElement position) {
         // Walk through siblings to see if there's a { before us
         PsiElement current = position.getPrevSibling();
         while (current != null) {
