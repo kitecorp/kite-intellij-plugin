@@ -290,22 +290,23 @@ pkill -f "idea"  # Kill sandbox IDE
 
 ## File Structure
 
-| Feature             | Main File                                      |
-|---------------------|------------------------------------------------|
-| Syntax Highlighting | `highlighting/KiteSyntaxHighlighter.java`      |
-| Formatter           | `formatter/KiteBlock.java`                     |
-| Go to Declaration   | `navigation/KiteGotoDeclarationHandler.java`   |
-| Find Usages         | `navigation/KiteNavigatablePsiElement.java`    |
-| Code Completion     | `completion/KiteCompletionContributor.java`    |
-| Breadcrumbs         | `KiteBreadcrumbsProvider.java`                 |
-| Quick Documentation | `documentation/KiteDocumentationProvider.java` |
-| Parameter Info      | `parameterinfo/KiteParameterInfoHandler.java`  |
-| Inlay Hints         | `hints/KiteInlayHintsProvider.java`            |
-| Type Checking       | `highlighting/KiteTypeCheckingAnnotator.java`  |
-| Import Resolution   | `reference/KiteImportHelper.java`              |
-| Structure View      | `structure/KiteStructureViewElement.java`      |
-| Structure Icons     | `structure/KiteStructureViewIcons.java`        |
-| References          | `reference/KiteReferenceContributor.java`      |
+| Feature              | Main File                                            |
+|----------------------|------------------------------------------------------|
+| Syntax Highlighting  | `highlighting/KiteSyntaxHighlighter.java`            |
+| Formatter            | `formatter/KiteBlock.java`                           |
+| Go to Declaration    | `navigation/KiteGotoDeclarationHandler.java`         |
+| Find Usages          | `navigation/KiteNavigatablePsiElement.java`          |
+| Code Completion      | `completion/KiteCompletionContributor.java`          |
+| Instance Name Compl. | `completion/KiteInstanceNameCompletionProvider.java` |
+| Breadcrumbs          | `KiteBreadcrumbsProvider.java`                       |
+| Quick Documentation  | `documentation/KiteDocumentationProvider.java`       |
+| Parameter Info       | `parameterinfo/KiteParameterInfoHandler.java`        |
+| Inlay Hints          | `hints/KiteInlayHintsProvider.java`                  |
+| Type Checking        | `highlighting/KiteTypeCheckingAnnotator.java`        |
+| Import Resolution    | `reference/KiteImportHelper.java`                    |
+| Structure View       | `structure/KiteStructureViewElement.java`            |
+| Structure Icons      | `structure/KiteStructureViewIcons.java`              |
+| References           | `reference/KiteReferenceContributor.java`            |
 
 ## Kite Language Syntax
 

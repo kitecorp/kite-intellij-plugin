@@ -15,6 +15,7 @@ import com.intellij.patterns.PlatformPatterns;
  * - KiteComponentDefinitionCompletionProvider: input/output in component definitions
  * - KiteComponentInstanceCompletionProvider: input properties in component instances
  * - KiteIndexCompletionProvider: Index completions inside brackets for indexed resources
+ * - KiteInstanceNameCompletionProvider: Smart instance names for resource/component declarations
  * - KiteGeneralCompletionProvider: Keywords, identifiers, property access, types
  * <p>
  * Each provider handles its own context detection and filtering.
@@ -51,6 +52,11 @@ public class KiteCompletionContributor extends CompletionContributor {
         extend(CompletionType.BASIC,
                 PlatformPatterns.psiElement().withLanguage(KiteLanguage.INSTANCE),
                 new KiteIndexCompletionProvider());
+
+        // Instance name completion provider - suggests names for resource/component instances
+        extend(CompletionType.BASIC,
+                PlatformPatterns.psiElement().withLanguage(KiteLanguage.INSTANCE),
+                new KiteInstanceNameCompletionProvider());
 
         // General completion provider - keywords, identifiers, property access, types
         extend(CompletionType.BASIC,

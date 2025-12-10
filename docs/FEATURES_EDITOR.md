@@ -60,6 +60,29 @@ component WebServer server {
 - Shows variables, inputs, outputs, resources, components, functions
 - **Auto-import**: Suggests symbols from unimported files with automatic import insertion
 
+**Instance name suggestions (`resource TypeName ` or `component TypeName `):**
+
+When declaring a resource or component instance, typing after the type name shows smart instance name suggestions:
+
+```kite
+schema DatabaseConfig {
+    string host
+}
+resource DatabaseConfig <caret>  // Shows: databaseConfig, db, myDatabase, primaryDatabase
+```
+
+Suggestions include:
+- **camelCase of type**: `DatabaseConfig` → `databaseConfig`
+- **Last word**: `DatabaseConfig` → `config`
+- **Abbreviations**: `Database` → `db`, `Configuration` → `config`
+- **Prefixed versions**: `myDatabase`, `primaryDatabase`, `mainDatabase`
+
+Selecting a suggestion automatically adds ` {` after the name.
+
+**Implementation:**
+- `completion/KiteInstanceNameCompletionProvider.java`
+- Test: `completion/KiteInstanceNameCompletionProviderTest.java`
+
 **Indexed resource completion (`server[`):**
 
 For indexed resources created via `@count` or for-loops, typing `[` shows valid indices:
@@ -252,24 +275,26 @@ When pressing Enter inside `/* */` comments:
 
 ## Implementation Files
 
-| Feature             | File                                          |
-|---------------------|-----------------------------------------------|
-| Code Completion     | `completion/KiteCompletionContributor.java`   |
-| Index Completion    | `completion/KiteIndexCompletionProvider.java` |
-| Inlay Hints         | `hints/KiteInlayHintsProvider.java`           |
-| Quick Documentation | `documentation/KiteDocumentationProvider.java`|
-| Indexed Resource    | `util/KiteIndexedResourceHelper.java`         |
-| Formatter           | `formatter/KiteBlock.java`                    |
-| Code Folding        | `KiteFoldingBuilder.java`                     |
-| Smart Enter         | `editor/KiteEnterHandlerDelegate.java`        |
+| Feature             | File                                              |
+|---------------------|---------------------------------------------------|
+| Code Completion     | `completion/KiteCompletionContributor.java`       |
+| Index Completion    | `completion/KiteIndexCompletionProvider.java`     |
+| Instance Name Compl.| `completion/KiteInstanceNameCompletionProvider.java` |
+| Inlay Hints         | `hints/KiteInlayHintsProvider.java`               |
+| Quick Documentation | `documentation/KiteDocumentationProvider.java`    |
+| Indexed Resource    | `util/KiteIndexedResourceHelper.java`             |
+| Formatter           | `formatter/KiteBlock.java`                        |
+| Code Folding        | `KiteFoldingBuilder.java`                         |
+| Smart Enter         | `editor/KiteEnterHandlerDelegate.java`            |
 
 ## Test Files
 
-| Feature                    | Test File                                       |
-|----------------------------|-------------------------------------------------|
-| General Completion         | `KiteGeneralCompletionProviderTest.java`        |
-| Resource Completion        | `KiteResourceCompletionProviderTest.java`       |
-| Component Instance Compl.  | `KiteComponentInstanceCompletionProviderTest.java`|
-| Index Completion           | `KiteIndexCompletionProviderTest.java`          |
-| Code Folding               | `KiteFoldingBuilderTest.java`                   |
-| Smart Enter                | `KiteEnterHandlerDelegateTest.java`             |
+| Feature                    | Test File                                          |
+|----------------------------|--------------------------------------------------  |
+| General Completion         | `KiteGeneralCompletionProviderTest.java`           |
+| Resource Completion        | `KiteResourceCompletionProviderTest.java`          |
+| Component Instance Compl.  | `KiteComponentInstanceCompletionProviderTest.java` |
+| Index Completion           | `KiteIndexCompletionProviderTest.java`             |
+| Instance Name Completion   | `KiteInstanceNameCompletionProviderTest.java`      |
+| Code Folding               | `KiteFoldingBuilderTest.java`                      |
+| Smart Enter                | `KiteEnterHandlerDelegateTest.java`                |
