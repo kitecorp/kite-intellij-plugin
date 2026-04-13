@@ -86,3 +86,30 @@ component WebServer {
 | Refactoring | `KiteIntroduceVariableHandler`, `KiteRefactoringSupportProvider` |
 
 See individual feature files for complete implementation and test file listings.
+
+---
+
+## Build & Deployment
+
+### CI/CD Publishing
+
+Automated plugin publishing to JetBrains Marketplace via GitHub Actions.
+
+- **Trigger**: GitHub Release creation or manual dispatch from Actions tab
+- **Pipeline**: Tests -> Build -> Sign -> Publish
+- **File**: `.github/workflows/publish.yml`
+
+#### Required GitHub Secrets
+
+| Secret | Description |
+|--------|-------------|
+| `CERTIFICATE_CHAIN` | Self-signed certificate (`openssl req -new -x509 -key private.pem -out chain.crt -days 3650 -subj "/CN=Your Name"`) |
+| `PRIVATE_KEY` | RSA 4096-bit key (`openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:4096 -out private.pem`) |
+| `PUBLISH_TOKEN` | JetBrains Marketplace token (profile -> Marketplace Tokens) |
+
+### IDE Compatibility
+
+- `sinceBuild = '231'` (IntelliJ 2023.1+)
+- `untilBuild = '261.*'` (up to IntelliJ 261.x)
+- Bytecode target: Java 17 (`options.release = 17`)
+- Compile toolchain: JDK 25
