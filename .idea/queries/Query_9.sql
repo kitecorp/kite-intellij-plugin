@@ -1,0 +1,6 @@
+CREATE TABLE waitlist
+(
+    id         INT AUTO_INCREMENT PRIMARY KEY,
+    email      VARCHAR(100) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);

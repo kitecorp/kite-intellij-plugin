@@ -1,0 +1,1 @@
+SELECT COUNT(id), YEAR(createdOn) FROM Mimedia.Account GROUP BY YEAR(createdOn)
